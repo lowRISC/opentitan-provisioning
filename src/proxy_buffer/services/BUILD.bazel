@@ -8,11 +8,11 @@ package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "proxybuffer",
-    importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/services/proxybuffer",
     srcs = ["proxybuffer.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/services/proxybuffer",
     deps = [
-        "//src/proxy_buffer/proto:validators",
         "//src/proxy_buffer/proto:proxy_buffer_go_pb",
+        "//src/proxy_buffer/proto:validators",
         "//src/proxy_buffer/store:db",
         "@io_etcd_go_etcd_client_v3//:go_default_library",
         "@org_golang_google_grpc//codes",
@@ -25,11 +25,11 @@ go_test(
     srcs = ["proxybuffer_test.go"],
     deps = [
         ":proxybuffer",
+        "//src/proto:device_id_go_pb",
+        "//src/proto:device_testdata",
         "//src/proxy_buffer/proto:proxy_buffer_go_pb",
         "//src/proxy_buffer/store:db",
         "//src/proxy_buffer/store:db_fake",
-        "//src/proto:device_id_go_pb",
-        "//src/proto:device_testdata",
         "@com_github_google_go_cmp//cmp",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//codes",

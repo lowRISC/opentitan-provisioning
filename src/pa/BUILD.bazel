@@ -29,7 +29,7 @@ PA_SERVER_DEPS = [
     "//src/registry_buffer/proto:registry_buffer_go_pb",
     "//src/pa/services:pa",
     "//src/transport:grpconn",
-    "//src/transport/auth_service", 
+    "//src/transport/auth_service",
     "//src/utils",
     "@org_golang_google_grpc//:go_default_library",
 ]
@@ -39,9 +39,9 @@ go_binary(
     srcs = ["loadtest.go"],
     deps = [
         "//src/pa/proto:pa_go_pb",
-        "//src/spm/proto:spm_go_pb",
-        "//src/registry_buffer/proto:registry_buffer_go_pb",
         "//src/pa/services:pa",
+        "//src/registry_buffer/proto:registry_buffer_go_pb",
+        "//src/spm/proto:spm_go_pb",
         "//src/transport:grpconn",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_x_sync//errgroup:go_default_library",

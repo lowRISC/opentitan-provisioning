@@ -13,8 +13,8 @@ proto_library(
     name = "pa_proto",
     srcs = ["pa.proto"],
     deps = [
-        "//src/proto/crypto:wrap_proto",
         "//src/proto:device_id_proto",
+        "//src/proto/crypto:wrap_proto",
     ],
 )
 
@@ -24,8 +24,8 @@ go_proto_library(
     importpath = "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb",
     proto = ":pa_proto",
     deps = [
-        "//src/proto/crypto:wrap_go_pb",
         "//src/proto:device_id_go_pb",
+        "//src/proto/crypto:wrap_go_pb",
     ],
 )
 
@@ -37,7 +37,7 @@ cc_proto_library(
 cc_grpc_library(
     name = "pa_cc_grpc",
     srcs = [":pa_proto"],
-    grpc_only = True,
     generate_mocks = True,
+    grpc_only = True,
     deps = [":pa_cc_proto"],
 )

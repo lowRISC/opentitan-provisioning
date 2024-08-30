@@ -9,19 +9,19 @@ package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "grpconn",
-    importpath = "github.com/lowRISC/opentitan-provisioning/src/transport/grpconn",
     srcs = ["grpconn.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/transport/grpconn",
     deps = [
         "//src/utils",
         "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_grpc//peer",
         "@org_golang_google_grpc//credentials",
+        "@org_golang_google_grpc//peer",
     ],
 )
 
 WINDOWS_LIBS = [
     "-lbcrypt",  # aka: bcrypt.lib
-    "-ldbghelp", # aka: dbghelp.lib
+    "-ldbghelp",  # aka: dbghelp.lib
     "-lws2_32",  # aka: ws2_32.lib
     "-lstdc++",  # Standard C++ library
 ]

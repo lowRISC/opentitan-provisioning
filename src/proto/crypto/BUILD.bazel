@@ -44,7 +44,7 @@ go_proto_library(
     importpath = "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/ecdsa_go_pb",
     proto = ":ecdsa_proto",
     deps = [
-        ":common_go_pb"
+        ":common_go_pb",
     ],
 )
 
@@ -61,7 +61,7 @@ go_proto_library(
     importpath = "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/rsa_ssa_pcks1_go_pb",
     proto = ":rsa_ssa_pcks1_proto",
     deps = [
-        ":common_go_pb"
+        ":common_go_pb",
     ],
 )
 

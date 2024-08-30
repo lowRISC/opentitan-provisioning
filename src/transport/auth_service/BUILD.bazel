@@ -8,31 +8,32 @@ load("@crt//rules:pkg_win.bzl", "pkg_win")
 package(default_visibility = ["//visibility:public"])
 
 AUTH_SERVICE_TEST_DEPS = [
-        "@org_golang_google_grpc//codes",
-        "@org_golang_google_grpc//status",
+    "@org_golang_google_grpc//codes",
+    "@org_golang_google_grpc//status",
 ]
 
 go_library(
     name = "auth_service",
-    importpath = "github.com/lowRISC/opentitan-provisioning/src/transport/auth_service",
     srcs = [
-        "auth_service.go",
         "auth_interceptor.go",
-        "user_store.go",
+        "auth_service.go",
         "user.go",
-        ],
+        "user_store.go",
+    ],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/transport/auth_service",
     deps = [
-         "//src/transport:grpconn",
-         "@org_golang_google_grpc//:go_default_library",
-         "@org_golang_google_grpc//codes",
-         "@org_golang_google_grpc//status",
-         "@org_golang_google_grpc//metadata",             
+        "//src/transport:grpconn",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//metadata",
+        "@org_golang_google_grpc//status",
     ],
 )
+
 go_library(
     name = "session_token",
-    importpath = "github.com/lowRISC/opentitan-provisioning/src/transport/auth_service/session_token",
     srcs = ["session_token.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/transport/auth_service/session_token",
     deps = [
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
@@ -42,29 +43,29 @@ go_library(
 go_test(
     name = "user_test",
     srcs = [
-        "user_test.go",
         "user.go",
-        ],
+        "user_test.go",
+    ],
     deps = AUTH_SERVICE_TEST_DEPS,
 )
 
 go_test(
     name = "user_store_test",
     srcs = [
-        "user_store_test.go",
-        "user_store.go",        
         "user.go",
-        ],
+        "user_store.go",
+        "user_store_test.go",
+    ],
     deps = AUTH_SERVICE_TEST_DEPS,
 )
 
 go_test(
     name = "auth_service_test",
     srcs = [
-        "auth_service_test.go",
         "auth_service.go",
-        "user_store.go",         
+        "auth_service_test.go",
         "user.go",
-        ],
+        "user_store.go",
+    ],
     deps = AUTH_SERVICE_TEST_DEPS,
 )

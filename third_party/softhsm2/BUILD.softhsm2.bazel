@@ -13,12 +13,6 @@ filegroup(
 
 cmake(
     name = "softhsm2",
-    lib_source = ":all_srcs",
-    # `install` is not smart enough to figure out that it needs to build
-    # everything, so we specify "" here explicitly.
-    targets = ["", "libsofthsm2.so"],
-
-    generate_args = ["-GNinja"],
     cache_entries = {
         "ENABLE_GOST": "OFF",
         "ENABLE_P11_KIT": "OFF",
@@ -43,7 +37,14 @@ cmake(
         # "-DDEBUG_LOG_STDERR",
         # "-DSOFTHSM_LOG_FUNCTION_NAME",
     ],
-
+    generate_args = ["-GNinja"],
+    lib_source = ":all_srcs",
     out_binaries = ["softhsm2-util"],
     out_shared_libs = ["softhsm/libsofthsm2.so"],
+    # `install` is not smart enough to figure out that it needs to build
+    # everything, so we specify "" here explicitly.
+    targets = [
+        "",
+        "libsofthsm2.so",
+    ],
 )

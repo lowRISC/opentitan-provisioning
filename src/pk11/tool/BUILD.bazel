@@ -8,22 +8,22 @@ package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "lex",
-    importpath = "github.com/lowRISC/opentitan-provisioning/src/pk11/tool/lex",
     srcs = ["lex.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/pk11/tool/lex",
 )
 
 go_library(
     name = "commands",
-    importpath = "github.com/lowRISC/opentitan-provisioning/src/pk11/tool/commands",
     srcs = [
         "commands.go",
-        "commands_basic.go",
-        "commands_pk11.go",
-        "commands_crypto.go",
         "commands_aes.go",
+        "commands_basic.go",
+        "commands_crypto.go",
         "commands_ecdsa.go",
+        "commands_pk11.go",
         "commands_rsa.go",
     ],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/pk11/tool/commands",
     deps = [
         ":lex",
         "//src/pk11",
@@ -55,7 +55,7 @@ go_test(
 go_binary(
     name = "tool",
     srcs = ["tool.go"],
-    data = ["@softhsm2//:softhsm2"],
+    data = ["@softhsm2"],
     deps = [
         ":commands",
         ":lex",

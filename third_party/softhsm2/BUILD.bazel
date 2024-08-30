@@ -2,20 +2,20 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_binary")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "test_config",
-    importpath = "github.com/lowRISC/opentitan-provisioning/third_party/softhsm2/test_config",
     srcs = ["test_config.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/third_party/softhsm2/test_config",
 )
 
 go_binary(
     name = "softhsm2",
     srcs = ["softhsm2.go"],
-    data = ["@softhsm2//:softhsm2"],
+    data = ["@softhsm2"],
     deps = [
         ":test_config",
         "@io_bazel_rules_go//go/tools/bazel",

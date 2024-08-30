@@ -8,6 +8,6 @@ package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "signer",
-    importpath = "github.com/lowRISC/opentitan-provisioning/src/cert/signer",
     srcs = ["signer.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/cert/signer",
 )

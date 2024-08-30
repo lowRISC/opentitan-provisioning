@@ -26,7 +26,7 @@ cc_library(
         "//src/pa/proto:pa_cc_grpc",
         "//src/transport:service_credentials",
         "@com_github_grpc_grpc//:grpc++",
-        "@com_google_absl//absl/log:log",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/memory",
     ],
 )
@@ -58,8 +58,8 @@ cc_binary(
     deps = [
         ":ate_client",
         "//src/pa/proto:pa_cc_grpc",
-        "@com_google_absl//absl/log:log",
-        "@com_google_absl//absl/status:status",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
     ],
 )
@@ -70,12 +70,12 @@ cc_binary(
     defines = ["BAZEL_BUILD"],
     deps = [
         ":ate_client",
-        "//src/version:version",
-        "@com_google_absl//absl/log:log",
-        "@com_google_absl//absl/status:status",
-        "@com_google_absl//absl/status:statusor",
+        "//src/version",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/flags:parse",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
     ],
 )
 

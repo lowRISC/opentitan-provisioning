@@ -27,7 +27,7 @@ container_bundle(
         "pb_server:latest": "//src/proxy_buffer:pb_server_image",
         "pb_nginx:latest": "@container_nginx//image",
         "pb_etcd:latest": "@container_etcd//image",
-    }
+    },
 )
 
 pkg_tar(
@@ -47,14 +47,14 @@ pkg_tar(
     srcs = [
         "//config/dev:deploy_config",
     ],
-    strip_prefix = "/config/dev",
     extension = "tar.xz",
+    strip_prefix = "/config/dev",
 )
 
 pkg_tar(
     name = "softhsm_dev",
     srcs = [
-        "@softhsm2//:softhsm2"
+        "@softhsm2",
     ],
     extension = "tar.xz",
 )

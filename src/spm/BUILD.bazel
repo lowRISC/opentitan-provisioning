@@ -8,7 +8,6 @@ load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 
 package(default_visibility = ["//visibility:public"])
 
-
 # Note: running this target: bazel run //src/spm:spm_server_push
 # pushes the `spm_server_image` to the Google Container Registry.
 # If you get an error related to the containerregistry API not being

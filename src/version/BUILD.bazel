@@ -7,23 +7,23 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-  name = "version",
-  hdrs = ["version.h"],
-  srcs = ["version.cc"],
-  linkstamp = "version_linkstamp.cc",
-  deps = [
-    "@com_google_absl//absl/strings",
-  ],
+    name = "version",
+    srcs = ["version.cc"],
+    hdrs = ["version.h"],
+    linkstamp = "version_linkstamp.cc",
+    deps = [
+        "@com_google_absl//absl/strings",
+    ],
 )
 
 cc_test(
     name = "version_test",
     srcs = ["version_test.cc"],
+    stamp = -1,
     deps = [
         ":version",
         "@com_google_googletest//:gtest_main",
     ],
-    stamp =  -1,
 )
 
 go_library(

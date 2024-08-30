@@ -8,14 +8,17 @@ filegroup(
     name = "deploy_config",
     srcs = [
         ":deploy.sh",
-    ] + glob([
-        "env/**",
-        "certs/**",
-        "containers/**",
-        "softhsm/**",
-        "spm/**",
-    ], [
-        "certs/out/**",
-        "certs/.gitignore",
-    ]),
+    ] + glob(
+        [
+            "env/**",
+            "certs/**",
+            "containers/**",
+            "softhsm/**",
+            "spm/**",
+        ],
+        [
+            "certs/out/**",
+            "certs/.gitignore",
+        ],
+    ),
 )

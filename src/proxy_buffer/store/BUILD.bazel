@@ -8,16 +8,16 @@ package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "connector",
-    importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/connector",
     srcs = ["connector.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/connector",
     deps = [
     ],
 )
 
 go_library(
     name = "db",
-    importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/db",
     srcs = ["db.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/db",
     deps = [
         ":connector",
         "//src/proto:device_id_go_pb",
@@ -27,8 +27,8 @@ go_library(
 
 go_library(
     name = "db_fake",
-    importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/db_fake",
     srcs = ["db_fake.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/db_fake",
     deps = [
         ":connector",
     ],
@@ -48,8 +48,8 @@ go_test(
 
 go_library(
     name = "etcd",
-    importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/etcd",
     srcs = ["etcd.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/etcd",
     deps = [
         ":connector",
         "@io_etcd_go_etcd_client_v3//:go_default_library",
@@ -62,9 +62,9 @@ go_test(
     deps = [
         ":etcd",
         "//src/proto:device_id_go_pb",
+        "@com_github_google_go_cmp//cmp",
         "@io_etcd_go_etcd_api_v3//mvccpb:go_default_library",
         "@io_etcd_go_etcd_client_v3//:go_default_library",
-        "@com_github_google_go_cmp//cmp",
         "@org_golang_google_protobuf//testing/protocmp",
     ],
 )

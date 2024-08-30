@@ -42,7 +42,7 @@ go_test(
     srcs = ["validators_test.go"],
     embed = [":validators"],
     deps = [
-        "//src/proto:validators",
         "//src/proto:device_id_go_pb",
+        "//src/proto:validators",
     ],
 )
