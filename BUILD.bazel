@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@bazelbuild_buildtools//buildifier:def.bzl", "buildifier", "buildifier_test")
 load("@bazel_gazelle//:def.bzl", "gazelle")
 load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 load("@io_bazel_rules_go//go:def.bzl", "nogo")
@@ -83,6 +84,25 @@ clang_format_check(
         "./**/third_party/**",
     ],
     mode = "fix",
+)
+
+buildifier_exclude = [
+    "./WORKSPACE",  # Prevent Buildifier from inserting unnecessary newlines.
+]
+
+buildifier(
+    name = "buildifier_fix",
+    exclude_patterns = buildifier_exclude,
+)
+
+buildifier_test(
+    name = "buildifier_check",
+    diff_command = "diff -u",
+    exclude_patterns = buildifier_exclude,
+    mode = "diff",
+    no_sandbox = True,
+    verbose = True,
+    workspace = "//:WORKSPACE",
 )
 
 # Use this rule to update Go dependencies.

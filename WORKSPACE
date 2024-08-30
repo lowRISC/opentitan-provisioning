@@ -2,8 +2,6 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-
-
 # lowRISC Linters and release process
 load("//third_party/lowrisc:repos.bzl", "lowrisc_repos")
 lowrisc_repos()
@@ -38,6 +36,10 @@ load("//third_party/go:repos.bzl", "go_repos")
 go_repos()
 load("//third_party/go:deps.bzl", "go_deps")
 go_deps()
+
+# Various linters.
+load("//third_party/lint:repos.bzl", "lint_repos")
+lint_repos()
 
 # All of the Google repositories we need:
 # BoringSSL, RE2, GoogleTest, Protobuf Matchers, ABSL, Protobuf, GRPC.
