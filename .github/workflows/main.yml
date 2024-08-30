@@ -15,13 +15,13 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Run license-checker
-        run: bazel run //:licence-check
+        run: bazel run //quality:licence-check
       - name: Run gofmt
-        run: bazel run //:check_gofmt
+        run: bazel run //quality:check_gofmt
       - name: Run clang-format
-        run: bazel run //:check_clang_format
+        run: bazel run //quality:check_clang_format
       - name: Run buildifier
-        run: bazel run //:buildifier_check
+        run: bazel run //quality:buildifier_check
 
   test:
     runs-on: ubuntu-22.04
