@@ -43,6 +43,7 @@ $ ./run_integration_tests.sh
 To format the code before submitting changes:
 
 ```console
+$ bazelisk run //:buildifier_fix
 $ bazelisk run //:gofmt
 $ bazelisk run //:clang_format
 ```

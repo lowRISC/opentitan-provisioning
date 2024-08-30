@@ -20,6 +20,8 @@ jobs:
         run: bazel run //:check_gofmt
       - name: Run clang-format
         run: bazel run //:check_clang_format
+      - name: Run buildifier
+        run: bazel run //:buildifier_check
 
   test:
     runs-on: ubuntu-22.04
