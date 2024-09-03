@@ -14,14 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Run license-checker
-        run: bazel run //quality:licence-check
-      - name: Run gofmt
-        run: bazel run //quality:check_gofmt
-      - name: Run clang-format
-        run: bazel run //quality:check_clang_format
-      - name: Run buildifier
-        run: bazel run //quality:buildifier_check
+      - name: Run linter checks
+        run: bazel test //quality/...
 
   test:
     runs-on: ubuntu-22.04

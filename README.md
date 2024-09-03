@@ -44,8 +44,14 @@ To format the code before submitting changes:
 
 ```console
 $ bazelisk run //quality:buildifier_fix
-$ bazelisk run //quality:gofmt
-$ bazelisk run //quality:clang_format
+$ bazelisk run //quality:clang_format_fix
+$ bazelisk run //quality:gofmt_fix
+```
+
+To run all lint checks locally that are also run in CI:
+
+```console
+$ bazelisk test //quality/...
 ```
 
 ## GitHub Releases

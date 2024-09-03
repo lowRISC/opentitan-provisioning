@@ -2,9 +2,9 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@lowrisc_misc_linters//rules:rules.bzl", "licence_test")
 load("@bazelbuild_buildtools//buildifier:def.bzl", "buildifier", "buildifier_test")
-load("@lowrisc_misc_linters//rules:rules.bzl", "licence_check")
-load("//rules:quality.bzl", "clang_format_check", "gofmt")
+load("//rules:quality.bzl", "clang_format_check", "clang_format_fix", "gofmt_check", "gofmt_fix")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -14,11 +14,6 @@ package(default_visibility = ["//visibility:public"])
 buildifier_exclude = [
     "./WORKSPACE",  # Prevent Buildifier from inserting unnecessary newlines.
 ]
-
-buildifier(
-    name = "buildifier_fix",
-    exclude_patterns = buildifier_exclude,
-)
 
 buildifier_test(
     name = "buildifier_check",
@@ -30,66 +25,56 @@ buildifier_test(
     workspace = "//:WORKSPACE",
 )
 
+buildifier(
+    name = "buildifier_fix",
+    exclude_patterns = buildifier_exclude,
+)
+
 ################################################################################
 # C/C++ lint/formatting.
 ################################################################################
-clang_format_check(
-    name = "check_clang_format",
-    exclude_patterns = [
-        # Vendored source code dirs
-        "./**/third_party/**",
-    ],
-    mode = "diff",
-)
+clang_format_exclude = [
+    # Vendored source code dirs
+    "./**/vendor/**",
+]
 
 clang_format_check(
-    name = "clang_format",
-    exclude_patterns = [
-        # Vendored source code dirs
-        "./**/third_party/**",
-    ],
+    name = "clang_format_check",
+    exclude_patterns = clang_format_exclude,
+    mode = "diff",
+    workspace = "//:WORKSPACE",
+)
+
+clang_format_fix(
+    name = "clang_format_fix",
+    exclude_patterns = clang_format_exclude,
     mode = "fix",
 )
 
 ################################################################################
 # Go lint/format.
 ################################################################################
-gofmt(
-    name = "check_gofmt",
+gofmt_check(
+    name = "gofmt_check",
     mode = "diff",
 )
 
-gofmt(
-    name = "gofmt",
+gofmt_fix(
+    name = "gofmt_fix",
     mode = "fix",
 )
 
 ################################################################################
 # License header check.
 ################################################################################
-licence_check(
-    name = "licence-check",
+licence_test(
+    name = "license_check",
     exclude_patterns = [
         # Uncommented formats.
         "*.md",
         "*.json",
         ".gitignore",
         "**/.gitignore",
-        "src/registry_service/*.go",
-        "src/registry_upload/*.go",
-        "src/registry_buffer/*.go",
-        "src/manifest_reporting/*.go",
-        "src/registry_service/*.proto",
-        "src/registry_buffer/*.proto",
-        "src/manifest_reporting/*.proto",
-        "src/manifest_reporting/*.bazel",
-        "src/test_service/store/mysql.go",
-        "src/test_service/store/connector.go",
-        "src/test_service/ts_client.go",
-        "src/test_service/store/db.go",
-        "src/test_service/services/testservice.go",
-        "src/message_service/*.*",
-        "src/message_client/*.*",
         ".github/CODEOWNERS",
 
         # Copyright-related files that don"t need a header.
@@ -101,4 +86,5 @@ licence_check(
     Licensed under the Apache License, Version 2.0, see LICENSE for details.
     SPDX-License-Identifier: Apache-2.0
     """,
+    workspace = "//:WORKSPACE",
 )
