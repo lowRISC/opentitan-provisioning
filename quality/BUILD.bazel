@@ -4,7 +4,7 @@
 
 load("@lowrisc_misc_linters//rules:rules.bzl", "licence_test")
 load("@bazelbuild_buildtools//buildifier:def.bzl", "buildifier", "buildifier_test")
-load("//rules:quality.bzl", "clang_format_check", "clang_format_fix", "gofmt_check", "gofmt_fix")
+load("//rules:quality.bzl", "clang_format_check", "clang_format_fix", "gofmt_check", "gofmt_fix", "protolint_check", "protolint_fix")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -87,4 +87,18 @@ licence_test(
     SPDX-License-Identifier: Apache-2.0
     """,
     workspace = "//:WORKSPACE",
+)
+
+################################################################################
+# Proto lint/format.
+################################################################################
+protolint_check(
+    name = "protolint_check",
+    mode = "diff",
+    workspace = "//:WORKSPACE",
+)
+
+protolint_fix(
+    name = "protolint_fix",
+    mode = "fix",
 )

@@ -11,3 +11,9 @@ def lint_repos(lowrisc_lint = None):
         strip_prefix = "buildtools-6.4.0",
         url = "https://github.com/bazelbuild/buildtools/archive/refs/tags/v6.4.0.tar.gz",
     )
+    http_archive(
+        name = "protolint",
+        sha256 = "f6073ee43c8f87d4a9a8479f5f806f3d3d06741534ae0facbe135a632c4e5988",
+        build_file = Label("//third_party/lint:BUILD.protolint.bazel"),
+        url = "https://github.com/yoheimuta/protolint/releases/download/v0.50.5/protolint_0.50.5_linux_amd64.tar.gz",
+    )
