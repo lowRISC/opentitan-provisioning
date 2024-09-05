@@ -5,10 +5,11 @@
 // Secure Provisioning Module service definitions.
 syntax = "proto3";
 
-option go_package = "spm_go_bp";
 package spm;
 
 import "src/pa/proto/pa.proto";
+
+option go_package = "spm_go_bp";
 
 // The SpmService provides various cryptographic services to
 // generate, harvest, and/or certify Device Under Test secrets.

@@ -8,21 +8,24 @@
 // See "Device ID Provisioning >> Device Registration"[1] which points
 // at "Identities and Root Keys >> Device Identifier"[2].
 //
+// protolint:disable:next MAX_LINE_LENGTH
 // [1] https://docs.google.com/document/d/1dE7vR791Atp7Wu7Ss90K1MvdyoroouSHPdq_RXQ2R8I#bookmark=id.n9feo7yvyhle
 //     FIXME: Replace above with a pointer to markdown TBD.
+// protolint:disable:next MAX_LINE_LENGTH
 // [2] https://docs.opentitan.org/doc/security/specs/identities_and_root_keys#device-identifier
 
 syntax = "proto3";
 
-option go_package = "device_id_go_pb";
 package device_id;
+
+option go_package = "device_id_go_pb";
 
 // DeviceLifeCycle allow to manage the state of the device as it is being
 // manufactured and provisioned for shipment and also are used to encode the
 // device ownership state
 enum DeviceLifeCycle {
-  // UNKNOWN (zero-value) is the default -- not valid in messages.
-  DEVICE_LIFE_CYCLE_UNKNOWN = 0;
+  // UNSPECIFIED (zero-value) is the default -- not valid in messages.
+  DEVICE_LIFE_CYCLE_UNSPECIFIED = 0;
   // RAW
   DEVICE_LIFE_CYCLE_RAW = 1;
   // TEST_LOCKED
@@ -71,7 +74,7 @@ enum SiliconCreator {
 // specify the type of the public device id format.
 enum DeviceIdPubFormat {
   // default -- not valid in messages
-  DEVICE_ID_PUB_FORMAT_UNKNOWN = 0;
+  DEVICE_ID_PUB_FORMAT_UNSPECIFIED = 0;
 
   DEVICE_ID_PUB_FORMAT_DER = 1;
 
@@ -88,6 +91,7 @@ message DeviceType {
   // >> Device Identifier"[1]).  (Size is enforced at a higher level,
   // not by protobuf.)
   //
+  // protolint:disable:next MAX_LINE_LENGTH
   // [1] https://docs.opentitan.org/doc/security/specs/identities_and_root_keys#device-identifier
   SiliconCreator silicon_creator = 1;
 
@@ -102,6 +106,7 @@ message DeviceType {
   // Device Identifier"[1]).  (Size is enforced at a higher level, not
   // by protobuf.)
   //
+  // protolint:disable:next MAX_LINE_LENGTH
   // [1] https://docs.opentitan.org/doc/security/specs/identities_and_root_keys#device-identifier
   uint32 product_identifier = 2;
 }
@@ -131,6 +136,7 @@ message DeviceId {
   // This CRC covers the entire (deserialized) DeviceId object (see
   // "Device ID Provisioning >> Device Registration"[1]).
   //
+  // protolint:disable:next MAX_LINE_LENGTH
   // [1] https://docs.google.com/document/d/1dE7vR791Atp7Wu7Ss90K1MvdyoroouSHPdq_RXQ2R8I#bookmark=id.n9feo7yvyhle
   //     FIXME: Replace above with a pointer to markdown TBD.
   //
@@ -163,8 +169,8 @@ message DeviceIdPub {
 
 // The state of the device.
 enum DeviceState {
-  // UNKNOWN (zero-value) is the default -- not valid in messages.
-  DEVICE_STATE_UNKNOWN = 0;
+  // UNSPECIFIED (zero-value) is the default -- not valid in messages.
+  DEVICE_STATE_UNSPECIFIED = 0;
   // The device has been provisioned and the
   // registration data is valid.
   DEVICE_STATE_PROVISIONED = 1;
@@ -212,10 +218,11 @@ message Metadata {
 // The value for which DeviceId is the key.
 message DeviceData {
   // Device ID pub that associated with this device.
-  repeated DeviceIdPub device_id_pub = 1;
+  repeated DeviceIdPub device_id_pubs = 1;
   // 256-2048 bytes (SKU-specific -- see "Device ID Provisioning >>
   // Device Registration"[1]).
   //
+  // protolint:disable:next MAX_LINE_LENGTH
   // [1] https://docs.google.com/document/d/1dE7vR791Atp7Wu7Ss90K1MvdyoroouSHPdq_RXQ2R8I#bookmark=id.n9feo7yvyhle
   //     FIXME: Replace above with a pointer to markdown TBD.
   bytes payload = 2;

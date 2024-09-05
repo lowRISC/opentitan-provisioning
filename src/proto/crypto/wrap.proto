@@ -5,15 +5,16 @@
 // Proxy/buffer service definition.
 syntax = "proto3";
 
-option go_package = "wrap_go_bp";
 package crypto.wrap;
 
-import "src/proto/crypto/rsa_ssa_pcks1.proto";
 import "src/proto/crypto/ecdsa.proto";
+import "src/proto/crypto/rsa_ssa_pcks1.proto";
+
+option go_package = "wrap_go_bp";
 
 // Secret wrapping modes.
 enum WrappingMode {
-  UNKNOWN = 0;
+  WRAPPING_MODE_UNSPECIFIED = 0;
 
   // AES-GCM. IV and Tag size are not configurable.
   WRAPPING_MODE_AES_GCM = 1;

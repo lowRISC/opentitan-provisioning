@@ -34,12 +34,12 @@ var (
 	}
 
 	deviceDataOk = dpb.DeviceData{
-		DeviceIdPub:     nil,
+		DeviceIdPubs:    nil,
 		Payload:         make([]byte, common_validators.MinDeviceDataPayloadLen),
 		DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
 	}
 	deviceDataBadPayload = dpb.DeviceData{
-		DeviceIdPub:     nil,
+		DeviceIdPubs:    nil,
 		Payload:         make([]byte, common_validators.MinDeviceDataPayloadLen-1),
 		DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
 	}
@@ -99,7 +99,7 @@ func TestValidateDeviceRegistrationResponse(t *testing.T) {
 		{
 			name: "ok",
 			drr: &pb.DeviceRegistrationResponse{
-				Status:   pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_SUCCESS,
+				Status:   pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_SUCCESS,
 				DeviceId: &deviceIdOk,
 			},
 			ok: true,
@@ -107,7 +107,7 @@ func TestValidateDeviceRegistrationResponse(t *testing.T) {
 		{
 			name: "bad request",
 			drr: &pb.DeviceRegistrationResponse{
-				Status:   pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_BAD_REQUEST,
+				Status:   pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_BAD_REQUEST,
 				DeviceId: &deviceIdOk,
 			},
 			ok: true,
@@ -115,7 +115,7 @@ func TestValidateDeviceRegistrationResponse(t *testing.T) {
 		{
 			name: "buffer full",
 			drr: &pb.DeviceRegistrationResponse{
-				Status:   pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_BUFFER_FULL,
+				Status:   pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_BUFFER_FULL,
 				DeviceId: &deviceIdOk,
 			},
 			ok: true,
@@ -130,7 +130,7 @@ func TestValidateDeviceRegistrationResponse(t *testing.T) {
 		{
 			name: "bad device id",
 			drr: &pb.DeviceRegistrationResponse{
-				Status:   pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_SUCCESS,
+				Status:   pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_SUCCESS,
 				DeviceId: &deviceIdBadCreator,
 			},
 		},

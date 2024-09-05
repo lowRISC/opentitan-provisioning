@@ -6,23 +6,26 @@
 
 syntax = "proto3";
 
-option go_package = "proxy_buffer_go_bp";
 package proxy_buffer;
 
 import "src/proto/device_id.proto";
 
+option go_package = "proxy_buffer_go_bp";
 
 service ProxyBufferService {
   // Registers a device.
-  rpc RegisterDevice(DeviceRegistrationRequest) returns (DeviceRegistrationResponse) {}
+  rpc RegisterDevice(DeviceRegistrationRequest)
+    returns (DeviceRegistrationResponse) {}
 }
 
 enum DeviceRegistrationStatus {
-  DEVICE_REGISTRATION_SUCCESS = 0;
+  // Unspecified.
+  DEVICE_REGISTRATION_STATUS_UNSPECIFIED = 0;
+  // Success.
+  DEVICE_REGISTRATION_STATUS_SUCCESS = 1;
   // Failures.
-  DEVICE_REGISTRATION_BAD_REQUEST = 1;
-  DEVICE_REGISTRATION_BUFFER_FULL = 2;
-  // TODO: Other error cases?
+  DEVICE_REGISTRATION_STATUS_BAD_REQUEST = 2;
+  DEVICE_REGISTRATION_STATUS_BUFFER_FULL = 3;
 }
 message DeviceRegistrationRequest {
   device_id.DeviceRecord device_record = 1;

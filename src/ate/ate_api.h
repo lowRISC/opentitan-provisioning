@@ -45,7 +45,7 @@ enum BlobType : uint32_t {
  * used to encode the device ownership state
  */
 enum DeviceLifeCycle : uint32_t {
-  DEVICE_LIFE_CYCLE_UNKNOWN = 0,  // default -- invalid in messages
+  DEVICE_LIFE_CYCLE_UNSPECIFIED = 0,  // default -- invalid in messages
   DEVICE_LIFE_CYCLE_RAW = 1,
   DEVICE_LIFE_CYCLE_TEST_LOCKED = 2,
   DEVICE_LIFE_CYCLE_TEST_UNLOCKED = 3,
@@ -93,7 +93,7 @@ typedef struct Blob {
  * ate_client_ptr is an opaque pointer to an AteClient instance.
  */
 typedef struct {
-} * ate_client_ptr;
+}* ate_client_ptr;
 
 typedef struct {
   // Endpoint address in IP or DNS format including port number. For example:

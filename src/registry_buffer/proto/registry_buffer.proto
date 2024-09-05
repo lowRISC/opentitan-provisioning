@@ -6,13 +6,15 @@
 
 syntax = "proto3";
 
-option go_package = "registry_buffer_go_bp";
 package registry_buffer;
 
 import "src/pa/proto/pa.proto";
 
+option go_package = "registry_buffer_go_bp";
+
 // RegisterDevice registers a new device record.
 service RegistryBufferService {
   // Registers a device.
-  rpc RegisterDevice(pa.RegistrationRequest) returns (pa.RegistrationResponse) {}
+  rpc RegisterDevice(pa.RegistrationRequest)
+    returns (pa.RegistrationResponse) {}
 }

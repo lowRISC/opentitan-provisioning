@@ -5,11 +5,12 @@
 // Provisioning Appliance service definition.
 syntax = "proto3";
 
-option go_package = "pa_go_pb";
 package pa;
 
 import "src/proto/crypto/wrap.proto";
 import "src/proto/device_id.proto";
+
+option go_package = "pa_go_pb";
 
 // The ProvisioningApplianceService is a bridge service to a trusted SPM server.
 service ProvisioningApplianceService {
@@ -74,9 +75,13 @@ message InitSessionResponse {
 }
 
 // Close SKU session request.
-message CloseSessionRequest {}
+message CloseSessionRequest {
+  // Empty.
+}
 // Close SKU session response.
-message CloseSessionResponse {}
+message CloseSessionResponse {
+  // Empty.
+}
 
 // Device Registration request.
 message RegistrationRequest {
@@ -85,4 +90,6 @@ message RegistrationRequest {
 }
 
 // Device Registration reponse.
-message RegistrationResponse {}
+message RegistrationResponse {
+  // Empty.
+}

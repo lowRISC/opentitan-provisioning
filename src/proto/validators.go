@@ -141,7 +141,7 @@ func ValidateDeviceLifeCycle(lc dpb.DeviceLifeCycle) error {
 // ValidateDeviceData performs invariant checks for a DeviceData that
 // protobuf syntax cannot capture.
 func ValidateDeviceData(dd *dpb.DeviceData) error {
-	if err := validateDeviceIdPubs(dd.DeviceIdPub); err != nil {
+	if err := validateDeviceIdPubs(dd.DeviceIdPubs); err != nil {
 		return err
 	}
 

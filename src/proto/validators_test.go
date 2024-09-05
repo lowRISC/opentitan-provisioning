@@ -255,7 +255,7 @@ func TestValidateLifeCycle(t *testing.T) {
 		},
 		{
 			name: "unspecified",
-			lc:   dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_UNKNOWN,
+			lc:   dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_UNSPECIFIED,
 		},
 		{
 			name: "out of bounds: -1",
@@ -285,7 +285,7 @@ func TestValidateDeviceData(t *testing.T) {
 		{
 			name: "zero certs",
 			dd: &dpb.DeviceData{
-				DeviceIdPub:     nil,
+				DeviceIdPubs:    nil,
 				Payload:         make([]byte, MinDeviceDataPayloadLen),
 				DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_DEV,
 			},
@@ -294,7 +294,7 @@ func TestValidateDeviceData(t *testing.T) {
 		{
 			name: "one cert",
 			dd: &dpb.DeviceData{
-				DeviceIdPub:     []*dpb.DeviceIdPub{&certOk},
+				DeviceIdPubs:    []*dpb.DeviceIdPub{&certOk},
 				Payload:         make([]byte, MinDeviceDataPayloadLen),
 				DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
 			},
@@ -303,7 +303,7 @@ func TestValidateDeviceData(t *testing.T) {
 		{
 			name: "two certs",
 			dd: &dpb.DeviceData{
-				DeviceIdPub:     []*dpb.DeviceIdPub{&certOk, &certOk},
+				DeviceIdPubs:    []*dpb.DeviceIdPub{&certOk, &certOk},
 				Payload:         make([]byte, MinDeviceDataPayloadLen),
 				DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
 			},
@@ -312,7 +312,7 @@ func TestValidateDeviceData(t *testing.T) {
 		{
 			name: "payload too small",
 			dd: &dpb.DeviceData{
-				DeviceIdPub:     nil,
+				DeviceIdPubs:    nil,
 				Payload:         make([]byte, MinDeviceDataPayloadLen-1),
 				DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
 			},
@@ -320,9 +320,9 @@ func TestValidateDeviceData(t *testing.T) {
 		{
 			name: "bad device life cycle",
 			dd: &dpb.DeviceData{
-				DeviceIdPub:     nil,
+				DeviceIdPubs:    nil,
 				Payload:         make([]byte, MinDeviceDataPayloadLen),
-				DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_UNKNOWN,
+				DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_UNSPECIFIED,
 			},
 		},
 	}

@@ -5,8 +5,9 @@
 // Proxy/buffer service definition.
 syntax = "proto3";
 
-option go_package = "cert_go_bp";
 package crypto.cert;
+
+option go_package = "cert_go_bp";
 
 // Certificate configuration parameters.
 message CertParams {

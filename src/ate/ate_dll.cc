@@ -109,10 +109,10 @@ int ConvertResponse(
         break;
       case crypto::wrap::WrappedKey::kEcdsa:
         switch (key.wrapped_key().ecdsa().params().curve()) {
-          case crypto::common::EllipticCurveType::NIST_P384:
+          case crypto::common::EllipticCurveType::ELLIPTIC_CURVE_TYPE_NIST_P384:
             keyBlobType = ECC_384_KEY_PAYLOAD;
             break;
-          case crypto::common::EllipticCurveType::NIST_P256:
+          case crypto::common::EllipticCurveType::ELLIPTIC_CURVE_TYPE_NIST_P256:
             keyBlobType = ECC_256_KEY_PAYLOAD;
             break;
           default:
@@ -432,7 +432,7 @@ DLLEXPORT int RegisterDeviceBMC(
       (device_id::DeviceLifeCycle)life_cycle);
 
   device_id::DeviceIdPub *device_id_pub =
-      device_record->mutable_data()->add_device_id_pub();
+      device_record->mutable_data()->add_device_id_pubs();
   device_id_pub->set_format(
       device_id::DeviceIdPubFormat::DEVICE_ID_PUB_FORMAT_RAW_ECDSA);
   device_id_pub->set_blob(std::string(
@@ -550,7 +550,7 @@ DLLEXPORT int RegisterDeviceTPM(
       LOG(ERROR) << "RegisterDeviceTPM failed with wrong/unsupported blob type";
       return static_cast<int>(absl::StatusCode::kInvalidArgument);
     }
-    device_id_pub = device_record->mutable_data()->add_device_id_pub();
+    device_id_pub = device_record->mutable_data()->add_device_id_pubs();
     device_id_pub->set_format(
         device_id::DeviceIdPubFormat::DEVICE_ID_PUB_FORMAT_DER);
     device_id_pub->set_blob(std::string((uint8_t *)pBlob->value,

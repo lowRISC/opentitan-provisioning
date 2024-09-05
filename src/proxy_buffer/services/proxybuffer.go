@@ -40,17 +40,17 @@ func (s *server) RegisterDevice(ctx context.Context, request *pbp.DeviceRegistra
 	}
 
 	if err := validators.ValidateDeviceRegistrationRequest(request); err != nil {
-		response.Status = pbp.DeviceRegistrationStatus_DEVICE_REGISTRATION_BAD_REQUEST
+		response.Status = pbp.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_BAD_REQUEST
 		return response, status.Errorf(codes.InvalidArgument, "failed request validation: %v", err)
 	}
 
 	if err := s.d.InsertDevice(ctx, request.DeviceRecord); err != nil {
 		// E.g. The given device is still in the buffer but
 		// its DeviceData has changed.
-		response.Status = pbp.DeviceRegistrationStatus_DEVICE_REGISTRATION_BAD_REQUEST
+		response.Status = pbp.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_BAD_REQUEST
 		return response, status.Errorf(codes.Internal, "failed to insert record: %v", err)
 	}
 
-	response.Status = pbp.DeviceRegistrationStatus_DEVICE_REGISTRATION_SUCCESS
+	response.Status = pbp.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_SUCCESS
 	return response, nil
 }

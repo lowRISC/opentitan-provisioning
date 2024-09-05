@@ -440,11 +440,11 @@ func (s *server) getSigningParams(sku *skuState, subjectSerialNumber string) ([]
 func ecKeyNameFromInt(index certloader.KeyName) pbcommon.EllipticCurveType {
 	switch index {
 	case certloader.Secp256r1:
-		return pbcommon.EllipticCurveType_NIST_P256
+		return pbcommon.EllipticCurveType_ELLIPTIC_CURVE_TYPE_NIST_P256
 	case certloader.Secp384r1:
-		return pbcommon.EllipticCurveType_NIST_P384
+		return pbcommon.EllipticCurveType_ELLIPTIC_CURVE_TYPE_NIST_P384
 	default:
-		return pbcommon.EllipticCurveType_UNKNOWN_CURVE
+		return pbcommon.EllipticCurveType_ELLIPTIC_CURVE_TYPE_UNSPECIFIED
 	}
 }
 
@@ -495,7 +495,7 @@ func (s *server) makeEndorsedKeys(sku *skuState, certs []se.CertInfo) ([]*pbp.En
 							Params: &pbe.EcdsaParams{
 								HashType: key.Hash,
 								Curve:    ecKeyNameFromInt(key.Name),
-								Encoding: pbe.EcdsaSignatureEncoding_IEEE_P1363,
+								Encoding: pbe.EcdsaSignatureEncoding_ECDSA_SIGNATURE_ENCODING_IEEE_P1363,
 							},
 						},
 					},

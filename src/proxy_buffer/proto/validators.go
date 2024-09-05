@@ -26,9 +26,9 @@ func ValidateDeviceRegistrationRequest(request *pb.DeviceRegistrationRequest) er
 func validateDeviceRegistrationStatus(status pb.DeviceRegistrationStatus) error {
 	switch status {
 	case
-		pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_SUCCESS,
-		pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_BAD_REQUEST,
-		pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_BUFFER_FULL:
+		pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_SUCCESS,
+		pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_BAD_REQUEST,
+		pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_BUFFER_FULL:
 		return nil
 	default:
 		return fmt.Errorf("Invalid DeviceRegistrationStatus: %v", status)

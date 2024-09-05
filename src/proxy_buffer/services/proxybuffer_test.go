@@ -73,7 +73,9 @@ func TestRegisterDevice(t *testing.T) {
 				},
 			},
 			expCode: codes.OK,
-			expDR:   &pbp.DeviceRegistrationResponse{DeviceId: dtd.NewDeviceID()},
+			expDR: &pbp.DeviceRegistrationResponse{
+				Status:   pbp.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_SUCCESS,
+				DeviceId: dtd.NewDeviceID()},
 		},
 		{
 			name: "invalid arg",
