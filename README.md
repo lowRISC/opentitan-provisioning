@@ -28,7 +28,7 @@ $ export PATH="$PATH:$(go env GOPATH)/bin"
 
 ### Runing Build Commands
 
-To build and run unit tests:
+To build and run all tests:
 
 ```console
 $ bazelisk test //...
@@ -46,13 +46,16 @@ To format the code before submitting changes:
 $ bazelisk run //quality:buildifier_fix
 $ bazelisk run //quality:clang_format_fix
 $ bazelisk run //quality:gofmt_fix
+$ bazelisk run //quality:protolint_fix
 ```
 
-To run all lint checks locally that are also run in CI:
+To run only the lint checks locally that are also run in CI:
 
 ```console
 $ bazelisk test //quality/...
 ```
+
+Note: these are also run automatically when running all tests above.
 
 ## GitHub Releases
 

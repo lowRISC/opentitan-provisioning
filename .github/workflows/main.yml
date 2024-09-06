@@ -6,24 +6,22 @@ name: CI
 on: [push, pull_request]
 
 jobs:
+  # Run lint checks on codebase.
   lint:
     # https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2204-Readme.md
     runs-on: ubuntu-22.04
     timeout-minutes: 30
-
     steps:
       - uses: actions/checkout@v2
-
       - name: Run linter checks
         run: bazel test //quality/...
 
+  # Build and test everything in codebase.
   test:
     runs-on: ubuntu-22.04
     timeout-minutes: 80
-
     steps:
       - uses: actions/checkout@v2
-
       - name: Build everything
         run: |
           bazel build //...
@@ -37,15 +35,15 @@ jobs:
           name: artifacts
           path: artifacts/*
       - name: Test everything
-        run: bazel test //...
+        # Skip running lint tests as those are run in a previous stage.
+        run: bazel test --test_tag_filters=-lint //...
 
+  # Test airgapped build.
   airgapped_build_test:
     runs-on: ubuntu-22.04
     timeout-minutes: 80
-
     steps:
       - uses: actions/checkout@v2
-
       - name: Build everything in an airgapped network namespace.
         run: |
           ./util/airgapped_builds/test-airgapped-build.sh

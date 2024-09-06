@@ -21,6 +21,7 @@ buildifier_test(
     exclude_patterns = buildifier_exclude,
     mode = "diff",
     no_sandbox = True,
+    tags = ["lint"],
     verbose = True,
     workspace = "//:WORKSPACE",
 )
@@ -42,6 +43,7 @@ clang_format_check(
     name = "clang_format_check",
     exclude_patterns = clang_format_exclude,
     mode = "diff",
+    tags = ["lint"],
     workspace = "//:WORKSPACE",
 )
 
@@ -57,6 +59,7 @@ clang_format_fix(
 gofmt_check(
     name = "gofmt_check",
     mode = "diff",
+    tags = ["lint"],
 )
 
 gofmt_fix(
@@ -86,6 +89,7 @@ licence_test(
     Licensed under the Apache License, Version 2.0, see LICENSE for details.
     SPDX-License-Identifier: Apache-2.0
     """,
+    tags = ["lint"],
     workspace = "//:WORKSPACE",
 )
 
@@ -95,6 +99,7 @@ licence_test(
 protolint_check(
     name = "protolint_check",
     mode = "diff",
+    tags = ["lint"],
     workspace = "//:WORKSPACE",
 )
 
