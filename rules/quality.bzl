@@ -12,33 +12,39 @@ def _ensure_tag(tags, *tag):
             tags.append(t)
     return tags
 
-################################################################################
-# gofmt
-################################################################################
-def _gofmt_impl(ctx):
+def _general_lint_impl(ctx):
     out_file = ctx.actions.declare_file(ctx.label.name + ".bash")
     exclude_patterns = ["\\! -path {}".format(shell.quote(p)) for p in ctx.attr.exclude_patterns]
     include_patterns = ["-name {}".format(shell.quote(p)) for p in ctx.attr.patterns]
+    workspace = ctx.file.workspace.path if ctx.file.workspace else ""
     substitutions = {
         "@@EXCLUDE_PATTERNS@@": " ".join(exclude_patterns),
         "@@INCLUDE_PATTERNS@@": " -o ".join(include_patterns),
-        "@@GOFMT@@": shell.quote(ctx.executable.gofmt.short_path),
-        "@@DIFF_COMMAND@@": shell.quote(ctx.attr.diff_command),
+        "@@LINT_TOOL@@": shell.quote(ctx.executable.lint_tool.short_path),
         "@@MODE@@": shell.quote(ctx.attr.mode),
+        "@@WORKSPACE@@": workspace,
+        "@@RUNNER_SH@@": ctx.file._runner.path,
     }
     ctx.actions.expand_template(
-        template = ctx.file._runner,
+        template = ctx.file._runner_general,
         output = out_file,
         substitutions = substitutions,
         is_executable = True,
     )
 
+    runfiles = [ctx.executable.lint_tool, ctx.file._runner]
+    if ctx.file.workspace:
+        runfiles.append(ctx.file.workspace)
+
     return DefaultInfo(
         files = depset([out_file]),
-        runfiles = ctx.runfiles(files = [ctx.executable.gofmt]),
+        runfiles = ctx.runfiles(files = runfiles),
         executable = out_file,
     )
 
+################################################################################
+# gofmt
+################################################################################
 gofmt_attrs = {
     "patterns": attr.string_list(
         default = ["*.go"],
@@ -52,31 +58,35 @@ gofmt_attrs = {
         values = ["diff", "fix"],
         doc = "Execution mode: display diffs or fix formatting",
     ),
-    "diff_command": attr.string(
-        default = "diff -u",
-        doc = "Command to execute to display diffs",
-    ),
-    "gofmt": attr.label(
+    "lint_tool": attr.label(
         default = "@go_sdk//:bin/gofmt",
         allow_single_file = True,
         cfg = "host",
         executable = True,
         doc = "The gofmt executable",
     ),
+    "workspace": attr.label(
+        allow_single_file = True,
+        doc = "Label of the WORKSPACE file",
+    ),
     "_runner": attr.label(
-        default = "//rules/scripts:gofmt.template.sh",
+        default = "//rules/scripts:gofmt.sh",
+        allow_single_file = True,
+    ),
+    "_runner_general": attr.label(
+        default = "//rules/scripts:general_lint.template.sh",
         allow_single_file = True,
     ),
 }
 
 gofmt_fix = rule(
-    implementation = _gofmt_impl,
+    implementation = _general_lint_impl,
     attrs = gofmt_attrs,
     executable = True,
 )
 
 _gofmt_test = rule(
-    implementation = _gofmt_impl,
+    implementation = _general_lint_impl,
     attrs = gofmt_attrs,
     test = True,
 )
@@ -91,31 +101,6 @@ def gofmt_check(**kwargs):
 ################################################################################
 # clang-format
 ################################################################################
-def _clang_format_impl(ctx):
-    out_file = ctx.actions.declare_file(ctx.label.name + ".bash")
-    exclude_patterns = ["\\! -path {}".format(shell.quote(p)) for p in ctx.attr.exclude_patterns]
-    include_patterns = ["-name {}".format(shell.quote(p)) for p in ctx.attr.patterns]
-    workspace = ctx.file.workspace.path if ctx.file.workspace else ""
-    substitutions = {
-        "@@EXCLUDE_PATTERNS@@": " ".join(exclude_patterns),
-        "@@INCLUDE_PATTERNS@@": " -o ".join(include_patterns),
-        "@@CLANG_FORMAT@@": shell.quote(ctx.attr.clang_format_command),
-        "@@DIFF_COMMAND@@": shell.quote(ctx.attr.diff_command),
-        "@@MODE@@": shell.quote(ctx.attr.mode),
-        "@@WORKSPACE@@": workspace,
-    }
-    ctx.actions.expand_template(
-        template = ctx.file._runner,
-        output = out_file,
-        substitutions = substitutions,
-        is_executable = True,
-    )
-
-    return DefaultInfo(
-        files = depset([out_file]),
-        executable = out_file,
-    )
-
 clang_format_attrs = {
     "patterns": attr.string_list(
         default = ["*.c", "*.h", "*.cc", "*.cpp"],
@@ -129,12 +114,11 @@ clang_format_attrs = {
         values = ["diff", "fix"],
         doc = "Execution mode: display diffs or fix formatting",
     ),
-    "diff_command": attr.string(
-        default = "diff -u",
-        doc = "Command to execute to display diffs",
-    ),
-    "clang_format_command": attr.string(
-        default = "clang-format",
+    "lint_tool": attr.label(
+        default = "@clang-format//:clang-format",
+        allow_single_file = True,
+        cfg = "host",
+        executable = True,
         doc = "The clang-format executable",
     ),
     "workspace": attr.label(
@@ -142,19 +126,23 @@ clang_format_attrs = {
         doc = "Label of the WORKSPACE file",
     ),
     "_runner": attr.label(
-        default = "//rules/scripts:clang_format.template.sh",
+        default = "//rules/scripts:clang_format.sh",
+        allow_single_file = True,
+    ),
+    "_runner_general": attr.label(
+        default = "//rules/scripts:general_lint.template.sh",
         allow_single_file = True,
     ),
 }
 
 clang_format_fix = rule(
-    implementation = _clang_format_impl,
+    implementation = _general_lint_impl,
     attrs = clang_format_attrs,
     executable = True,
 )
 
 _clang_format_test = rule(
-    implementation = _clang_format_impl,
+    implementation = _general_lint_impl,
     attrs = clang_format_attrs,
     test = True,
 )
@@ -169,36 +157,6 @@ def clang_format_check(**kwargs):
 ################################################################################
 # protolint
 ################################################################################
-def _protolint_impl(ctx):
-    out_file = ctx.actions.declare_file(ctx.label.name + ".bash")
-    exclude_patterns = ["\\! -path {}".format(shell.quote(p)) for p in ctx.attr.exclude_patterns]
-    include_patterns = ["-name {}".format(shell.quote(p)) for p in ctx.attr.patterns]
-    workspace = ctx.file.workspace.path if ctx.file.workspace else ""
-    substitutions = {
-        "@@EXCLUDE_PATTERNS@@": " ".join(exclude_patterns),
-        "@@INCLUDE_PATTERNS@@": " -o ".join(include_patterns),
-        "@@PROTOLINT@@": shell.quote(ctx.executable.protolint.short_path),
-        "@@MODE@@": shell.quote(ctx.attr.mode),
-        "@@WORKSPACE@@": workspace,
-    }
-    ctx.actions.expand_template(
-        template = ctx.file._runner,
-        output = out_file,
-        substitutions = substitutions,
-        is_executable = True,
-    )
-
-    runfiles = [ctx.executable.protolint]
-    if ctx.file.workspace:
-        runfiles.append(ctx.file.workspace)
-
-    return DefaultInfo(
-        files = depset([out_file]),
-        runfiles = ctx.runfiles(files = runfiles),
-        executable = out_file,
-    )
-    return
-
 protolint_attrs = {
     "patterns": attr.string_list(
         default = ["*.proto"],
@@ -212,7 +170,7 @@ protolint_attrs = {
         values = ["diff", "fix"],
         doc = "Execution mode: display diffs or fix formatting.",
     ),
-    "protolint": attr.label(
+    "lint_tool": attr.label(
         default = "@protolint//:protolint",
         allow_single_file = True,
         cfg = "host",
@@ -224,19 +182,23 @@ protolint_attrs = {
         doc = "Label of the WORKSPACE file",
     ),
     "_runner": attr.label(
-        default = "//rules/scripts:protolint.template.sh",
+        default = "//rules/scripts:protolint.sh",
+        allow_single_file = True,
+    ),
+    "_runner_general": attr.label(
+        default = "//rules/scripts:general_lint.template.sh",
         allow_single_file = True,
     ),
 }
 
 protolint_fix = rule(
-    implementation = _protolint_impl,
+    implementation = _general_lint_impl,
     attrs = protolint_attrs,
     executable = True,
 )
 
 _protolint_test = rule(
-    implementation = _protolint_impl,
+    implementation = _general_lint_impl,
     attrs = protolint_attrs,
     test = True,
 )

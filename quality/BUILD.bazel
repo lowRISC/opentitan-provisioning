@@ -60,6 +60,7 @@ gofmt_check(
     name = "gofmt_check",
     mode = "diff",
     tags = ["lint"],
+    workspace = "//:WORKSPACE",
 )
 
 gofmt_fix(

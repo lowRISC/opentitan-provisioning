@@ -93,7 +93,7 @@ typedef struct Blob {
  * ate_client_ptr is an opaque pointer to an AteClient instance.
  */
 typedef struct {
-}* ate_client_ptr;
+} * ate_client_ptr;
 
 typedef struct {
   // Endpoint address in IP or DNS format including port number. For example:

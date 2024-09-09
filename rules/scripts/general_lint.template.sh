@@ -3,11 +3,14 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-PROTOLINT=@@PROTOLINT@@
+# Set mode and lint tool.
+LINT_TOOL=@@LINT_TOOL@@
 MODE=@@MODE@@
 WORKSPACE="@@WORKSPACE@@"
+RUNNER_SH=@@RUNNER_SH@@
 
-protolint=$(readlink "$PROTOLINT")
+lint_tool=$(readlink "$LINT_TOOL")
+runner_sh=$(readlink "$RUNNER_SH")
 
 # Change directories based on whether the mode is to "fix" or to "diff".
 if [[ -n "${WORKSPACE}" ]]; then
@@ -32,16 +35,10 @@ else
         -print)
 fi
 
-# Perfom the "diff" or "fix" operation.
-case "$MODE" in
-    diff)
-        echo "$FILES" | xargs "${protolint}"
-        exit $?
-        ;;
-    fix)
-        echo "$FILES" | xargs "${protolint}" -fix
-        ;;
-    *)
-        echo "Unknown mode: $MODE"
-        exit 2
-esac
+if [[ -z "$FILES" ]]; then
+  echo "Error no files found to lint for pattern: \"$INCLUDE_PATTERNS\"."
+  exit 1
+fi
+
+# Execute the runner script.
+source "$runner_sh"
