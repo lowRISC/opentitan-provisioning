@@ -34,8 +34,8 @@ func New(c connector.Connector) *DB {
 
 // genKey generates a device key in string format from a `di` protobuf message.
 func genKey(di *dpb.DeviceId) string {
-	dt := uint32(dpb.SiliconCreator_value[di.HardwareOrigin.DeviceType.SiliconCreator.String()])
-	dt = dt<<16 | di.HardwareOrigin.DeviceType.ProductIdentifier
+	dt := uint32(dpb.SiliconCreatorId_value[di.HardwareOrigin.SiliconCreatorId.String()])
+	dt = dt<<16 | uint32(di.HardwareOrigin.ProductId)
 	return fmt.Sprintf(recordKey, dt, di.HardwareOrigin.DeviceIdentificationNumber)
 }
 

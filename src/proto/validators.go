@@ -7,7 +7,7 @@
 // See:
 //   - https://docs.google.com/document/d/1dE7vR791Atp7Wu7Ss90K1MvdyoroouSHPdq_RXQ2R8I#bookmark=id.n9feo7yvyhle
 //     FIXME: Replace above with a pointer to markdown TBD.
-//   -  https://docs.opentitan.org/doc/security/specs/identities_and_root_keys#device-identifier
+//   - https://docs.opentitan.org/doc/security/specs/identities_and_root_keys#device-identifier
 package validators
 
 import (
@@ -23,16 +23,7 @@ const (
 	MaxDeviceDataPayloadLen = 2048
 )
 
-// ValidateSiliconCreator checks a SiliconCreator value for validity.
-func ValidateSiliconCreator(sc dpb.SiliconCreator) error {
-	switch sc {
-	case dpb.SiliconCreator_SILICON_CREATOR_TEST:
-		return nil
-	}
-	return fmt.Errorf("Invalid SiliconCreator: %v", sc)
-}
-
-// validate16Bits checks that a uint32 would fit into 16 bits.
+// Checks that a uint32 fits into 16 bits.
 func validate16Bits(val uint32) error {
 	if val != uint32(uint16(val)) {
 		return fmt.Errorf("Value outside 16-bit range: %v", val)
@@ -40,27 +31,47 @@ func validate16Bits(val uint32) error {
 	return nil
 }
 
-// ValidateDeviceType performs invariant checks for a DeviceType that
-// protobuf syntax cannot capture.
-func ValidateDeviceType(dt *dpb.DeviceType) error {
-	if err := ValidateSiliconCreator(dt.SiliconCreator); err != nil {
+// Checks a SiliconCreatorId value for validity.
+func ValidateSiliconCreatorId(sc dpb.SiliconCreatorId) error {
+	if err := validate16Bits(uint32(sc)); err != nil {
 		return err
 	}
-	return validate16Bits(dt.ProductIdentifier)
+	switch sc {
+	case dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE:
+		fallthrough
+	case dpb.SiliconCreatorId_SILICON_CREATOR_ID_NUVOTON:
+		return nil
+	}
+	return fmt.Errorf("Invalid SiliconCreatorId: %v", sc)
 }
 
-// ValidateHardwareOrigin performs invariant checks for a
-// HardwareOrigin that protobuf syntax cannot capture.
-func ValidateHardwareOrigin(ho *dpb.HardwareOrigin) error {
-	if err := ValidateDeviceType(ho.DeviceType); err != nil {
+// Checks a ProductId value for validity.
+func ValidateProductId(pi dpb.ProductId) error {
+	if err := validate16Bits(uint32(pi)); err != nil {
 		return err
 	}
-	// FIXME: Validate ho.DeviceIdentificationNumber
+	switch pi {
+	case dpb.ProductId_PRODUCT_ID_EARLGREY_Z1:
+		fallthrough
+	case dpb.ProductId_PRODUCT_ID_EARLGREY_A1:
+		return nil
+	}
+	return fmt.Errorf("Invalid ProductId: %v", pi)
+}
+
+// Performs invariant checks for a HardwareOrigin that protobuf syntax cannot capture.
+func ValidateHardwareOrigin(ho *dpb.HardwareOrigin) error {
+	if err := ValidateSiliconCreatorId(ho.SiliconCreatorId); err != nil {
+		return err
+	}
+	if err := ValidateProductId(ho.ProductId); err != nil {
+		return err
+	}
+	// TODO: Validate ho.DeviceIdentificationNumber
 	return nil
 }
 
-// ValidateDeviceId performs invariant checks for a DeviceId that
-// protobuf syntax cannot capture.
+// Performs invariant checks for a DeviceId that protobuf syntax cannot capture.
 func ValidateDeviceId(di *dpb.DeviceId) error {
 	if err := ValidateHardwareOrigin(di.HardwareOrigin); err != nil {
 		return err
@@ -72,15 +83,15 @@ func ValidateDeviceId(di *dpb.DeviceId) error {
 		return fmt.Errorf("Invalid SkuSpecific string length: %v", len(di.SkuSpecific))
 	}
 
-	// FIXME: Validate di.crc32
+	// TODO: Validate di.crc32
 	return nil
 }
 
 // DeviceIdToString injectively converts a (valid!) DeviceId into a deterministic string.
 func DeviceIdToString(di *dpb.DeviceId) string {
-	return fmt.Sprintf("DeviceId:%d:%x:%x:%x",
-		di.HardwareOrigin.DeviceType.SiliconCreator,
-		di.HardwareOrigin.DeviceType.ProductIdentifier,
+	return fmt.Sprintf("DeviceId:%x:%x:%x:%x",
+		di.HardwareOrigin.SiliconCreatorId,
+		di.HardwareOrigin.ProductId,
 		di.HardwareOrigin.DeviceIdentificationNumber,
 		di.SkuSpecific)
 }

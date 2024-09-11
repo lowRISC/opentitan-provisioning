@@ -15,17 +15,18 @@ const (
 
 var (
 	hwOriginOk = dpb.HardwareOrigin{
-		DeviceType: &dpb.DeviceType{
-			SiliconCreator:    dpb.SiliconCreator_SILICON_CREATOR_TEST,
-			ProductIdentifier: 0,
-		},
+		SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
+		ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_Z1,
 		DeviceIdentificationNumber: 0,
 	}
-	hwOriginBadCreator = dpb.HardwareOrigin{
-		DeviceType: &dpb.DeviceType{
-			SiliconCreator:    dpb.SiliconCreator_SILICON_CREATOR_UNSPECIFIED,
-			ProductIdentifier: 0,
-		},
+	hwOriginBadSiliconCreatorId = dpb.HardwareOrigin{
+		SiliconCreatorId:           2,
+		ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_A1,
+		DeviceIdentificationNumber: 0,
+	}
+	hwOriginBadProductId = dpb.HardwareOrigin{
+		SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_NUVOTON,
+		ProductId:                  0x10000,
 		DeviceIdentificationNumber: 0,
 	}
 )
@@ -53,7 +54,7 @@ func NewDeviceIDMissingSku() *dpb.DeviceId {
 
 func NewDeviceIdBadOrigin() *dpb.DeviceId {
 	return &dpb.DeviceId{
-		HardwareOrigin: &hwOriginBadCreator,
+		HardwareOrigin: &hwOriginBadSiliconCreatorId,
 		SkuSpecific:    make([]byte, DeviceIdSkuSpecificLen),
 	}
 }

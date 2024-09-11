@@ -12,27 +12,33 @@ import (
 )
 
 var (
+	// DeviceId objects.
 	deviceIdOk = dpb.DeviceId{
 		HardwareOrigin: &dpb.HardwareOrigin{
-			DeviceType: &dpb.DeviceType{
-				SiliconCreator:    dpb.SiliconCreator_SILICON_CREATOR_TEST,
-				ProductIdentifier: 0,
-			},
+			SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
+			ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_Z1,
 			DeviceIdentificationNumber: 0,
 		},
 		SkuSpecific: make([]byte, common_validators.DeviceIdSkuSpecificLen),
 	}
-	deviceIdBadCreator = dpb.DeviceId{
+	deviceIdBadSiliconCreatorId = dpb.DeviceId{
 		HardwareOrigin: &dpb.HardwareOrigin{
-			DeviceType: &dpb.DeviceType{
-				SiliconCreator:    dpb.SiliconCreator_SILICON_CREATOR_UNSPECIFIED,
-				ProductIdentifier: 0,
-			},
+			SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_UNSPECIFIED,
+			ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_Z1,
+			DeviceIdentificationNumber: 0,
+		},
+		SkuSpecific: make([]byte, common_validators.DeviceIdSkuSpecificLen),
+	}
+	deviceIdBadProductId = dpb.DeviceId{
+		HardwareOrigin: &dpb.HardwareOrigin{
+			SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_NUVOTON,
+			ProductId:                  dpb.ProductId_PRODUCT_ID_UNSPECIFIED,
 			DeviceIdentificationNumber: 0,
 		},
 		SkuSpecific: make([]byte, common_validators.DeviceIdSkuSpecificLen),
 	}
 
+	// DeviceData objects.
 	deviceDataOk = dpb.DeviceData{
 		DeviceIdPubs:    nil,
 		Payload:         make([]byte, common_validators.MinDeviceDataPayloadLen),
@@ -62,10 +68,19 @@ func TestValidateDeviceRegistrationRequest(t *testing.T) {
 			ok: true,
 		},
 		{
-			name: "bad id",
+			name: "bad silicon creator id",
 			drr: &pb.DeviceRegistrationRequest{
 				DeviceRecord: &dpb.DeviceRecord{
-					Id:   &deviceIdBadCreator,
+					Id:   &deviceIdBadSiliconCreatorId,
+					Data: &deviceDataOk,
+				},
+			},
+		},
+		{
+			name: "bad product id",
+			drr: &pb.DeviceRegistrationRequest{
+				DeviceRecord: &dpb.DeviceRecord{
+					Id:   &deviceIdBadProductId,
 					Data: &deviceDataOk,
 				},
 			},
@@ -131,7 +146,7 @@ func TestValidateDeviceRegistrationResponse(t *testing.T) {
 			name: "bad device id",
 			drr: &pb.DeviceRegistrationResponse{
 				Status:   pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_SUCCESS,
-				DeviceId: &deviceIdBadCreator,
+				DeviceId: &deviceIdBadSiliconCreatorId,
 			},
 		},
 	}

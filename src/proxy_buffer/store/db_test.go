@@ -23,10 +23,8 @@ func TestInsert(t *testing.T) {
 	record := &dpb.DeviceRecord{
 		Id: &dpb.DeviceId{
 			HardwareOrigin: &dpb.HardwareOrigin{
-				DeviceType: &dpb.DeviceType{
-					SiliconCreator:    dpb.SiliconCreator_SILICON_CREATOR_TEST,
-					ProductIdentifier: 0x8008,
-				},
+				SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
+				ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_Z1,
 				DeviceIdentificationNumber: 0x0123456701234567,
 			},
 		},

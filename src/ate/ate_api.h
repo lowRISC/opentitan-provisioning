@@ -38,11 +38,8 @@ enum BlobType : uint32_t {
 };
 
 /**
- * DeviceLifeCycle allow to manage the state of the device as it is being
- * manufactured and provisioned for shipment and also are used to encode the
- * device ownership state DeviceLifeCycle allow to manage the state of the
- * device as it is being manufactured and provisioned for shipment and also are
- * used to encode the device ownership state
+ * DeviceLifeCycle encodes the state of the device as it is being manufactured
+ * and provisioned for shipment.
  */
 enum DeviceLifeCycle : uint32_t {
   DEVICE_LIFE_CYCLE_UNSPECIFIED = 0,  // default -- invalid in messages
@@ -51,13 +48,11 @@ enum DeviceLifeCycle : uint32_t {
   DEVICE_LIFE_CYCLE_TEST_UNLOCKED = 3,
   DEVICE_LIFE_CYCLE_DEV = 4,
   DEVICE_LIFE_CYCLE_PROD = 5,
-  DEVICE_LIFE_CYCLE_PROD_END = 6,  // the state TPM is delivered
+  DEVICE_LIFE_CYCLE_PROD_END = 6,
   DEVICE_LIFE_CYCLE_RMA = 7,
   DEVICE_LIFE_CYCLE_SCRAP = 8,
-  DEVICE_LIFE_CYCLE_OWNERSHIP_UNLOCED = 9,
-  DEVICE_LIFE_CYCLE_OWNERSHIP_LOCKED = 10,
-  DEVICE_LIFE_CYCLE_INVALID = 11,
-  DEVICE_LIFE_CYCLE_EOL = 12,
+  DEVICE_LIFE_CYCLE_INVALID = 9,
+  DEVICE_LIFE_CYCLE_EOL = 10,
 };
 
 enum ProvState : uint32_t {
@@ -126,13 +121,9 @@ typedef struct {
  * keep fields 4-bytes aligned.
  */
 #pragma pack(push, 1)
-typedef struct DeviceType {
-  uint16_t silicon_creator;
-  uint32_t product_identifier;
-} device_type_t;
-
 typedef struct HardwareOrigin {
-  device_type_t device_type;
+  uint16_t silicon_creator_id;
+  uint16_t product_id;
   uint64_t device_identification_number;
 } hardware_origin_t;
 

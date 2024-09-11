@@ -43,20 +43,23 @@ var okCertBytes = func() []byte {
 }()
 
 var (
+	// TODO: add varying device identification numbers to test cases
 	hwOriginOk = dpb.HardwareOrigin{
-		DeviceType: &dpb.DeviceType{
-			SiliconCreator:    dpb.SiliconCreator_SILICON_CREATOR_TEST,
-			ProductIdentifier: 0,
-		},
+		SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
+		ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_Z1,
 		DeviceIdentificationNumber: 0,
 	}
-	hwOriginBadCreator = dpb.HardwareOrigin{
-		DeviceType: &dpb.DeviceType{
-			SiliconCreator:    dpb.SiliconCreator_SILICON_CREATOR_UNSPECIFIED,
-			ProductIdentifier: 0,
-		},
+	hwOriginBadSiliconCreatorId = dpb.HardwareOrigin{
+		SiliconCreatorId:           2,
+		ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_A1,
 		DeviceIdentificationNumber: 0,
 	}
+	hwOriginBadProductId = dpb.HardwareOrigin{
+		SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_NUVOTON,
+		ProductId:                  0x10000,
+		DeviceIdentificationNumber: 0,
+	}
+
 	// TODO: hwOriginBadDeviceId, which would have an inok DeviceIdentificationNumber field.
 
 	deviceIdOk = dpb.DeviceId{
@@ -68,7 +71,7 @@ var (
 		SkuSpecific:    nil, // Empty SkuSpecific is OK.
 	}
 	deviceIdBadOrigin = dpb.DeviceId{
-		HardwareOrigin: &hwOriginBadCreator,
+		HardwareOrigin: &hwOriginBadSiliconCreatorId,
 		SkuSpecific:    make([]byte, DeviceIdSkuSpecificLen),
 	}
 	deviceIdSkuTooLong = dpb.DeviceId{
@@ -80,73 +83,74 @@ var (
 	certOk = dpb.DeviceIdPub{Blob: okCertBytes}
 )
 
-func TestValidateSiliconCreator(t *testing.T) {
+func TestValidateSiliconCreatorId(t *testing.T) {
 	tests := []struct {
 		name string
-		sc   dpb.SiliconCreator
+		sc   dpb.SiliconCreatorId
 		ok   bool
 	}{
 		{
-			name: "test",
-			sc:   dpb.SiliconCreator_SILICON_CREATOR_TEST,
+			name: "unspecified",
+			sc:   dpb.SiliconCreatorId_SILICON_CREATOR_ID_UNSPECIFIED,
+		},
+		{
+			name: "opensource",
+			sc:   dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
 			ok:   true,
 		},
 		{
-			name: "unspecified",
-			sc:   dpb.SiliconCreator_SILICON_CREATOR_UNSPECIFIED,
+			name: "nuvoton",
+			sc:   dpb.SiliconCreatorId_SILICON_CREATOR_ID_NUVOTON,
+			ok:   true,
 		},
 		{
-			name: "out of bounds: -1",
-			sc:   dpb.SiliconCreator(-1),
+			name: "invalid: -1",
+			sc:   dpb.SiliconCreatorId(-1),
 		},
 		{
-			name: "out of bounds: 2",
-			sc:   dpb.SiliconCreator(2),
+			name: "invalid: 2",
+			sc:   dpb.SiliconCreatorId(2),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := ValidateSiliconCreator(tt.sc); (err == nil) != tt.ok {
+			if err := ValidateSiliconCreatorId(tt.sc); (err == nil) != tt.ok {
 				t.Errorf("expected ok=%t; got err=%q", tt.ok, err)
 			}
 		})
 	}
 }
 
-func TestValidateDeviceType(t *testing.T) {
+func TestValidateProductId(t *testing.T) {
 	tests := []struct {
 		name string
-		dt   dpb.DeviceType
+		pi   dpb.ProductId
 		ok   bool
 	}{
 		{
-			name: "ok",
-			dt: dpb.DeviceType{
-				SiliconCreator:    dpb.SiliconCreator_SILICON_CREATOR_TEST,
-				ProductIdentifier: 0,
-			},
-			ok: true,
+			name: "unspecified",
+			pi:   dpb.ProductId_PRODUCT_ID_UNSPECIFIED,
 		},
 		{
-			name: "bad creator",
-			dt: dpb.DeviceType{
-				SiliconCreator:    dpb.SiliconCreator_SILICON_CREATOR_UNSPECIFIED,
-				ProductIdentifier: 0,
-			},
+			name: "earlgrey-z1",
+			pi:   dpb.ProductId_PRODUCT_ID_EARLGREY_Z1,
+			ok:   true,
 		},
 		{
-			name: "bad product id",
-			dt: dpb.DeviceType{
-				SiliconCreator:    dpb.SiliconCreator_SILICON_CREATOR_TEST,
-				ProductIdentifier: 0x10000,
-			},
+			name: "earlgrey-a1",
+			pi:   dpb.ProductId_PRODUCT_ID_EARLGREY_A1,
+			ok:   true,
+		},
+		{
+			name: "invalid: 0xffff",
+			pi:   dpb.ProductId(0xffff),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := ValidateDeviceType(&tt.dt); (err == nil) != tt.ok {
+			if err := ValidateProductId(tt.pi); (err == nil) != tt.ok {
 				t.Errorf("expected ok=%t; got err=%q", tt.ok, err)
 			}
 		})
@@ -165,8 +169,12 @@ func TestValidateHardwareOrigin(t *testing.T) {
 			ok:   true,
 		},
 		{
-			name: "bad creator",
-			ho:   &hwOriginBadCreator,
+			name: "bad silicon creator ID",
+			ho:   &hwOriginBadSiliconCreatorId,
+		},
+		{
+			name: "bad product ID",
+			ho:   &hwOriginBadProductId,
 		},
 	}
 

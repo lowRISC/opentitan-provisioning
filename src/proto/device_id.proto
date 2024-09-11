@@ -2,17 +2,8 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
-// Message/enum definitions for DeviceId, Certificate and DeviceData
-// messages.  These definitions are shared by all services.
-//
-// See "Device ID Provisioning >> Device Registration"[1] which points
-// at "Identities and Root Keys >> Device Identifier"[2].
-//
-// protolint:disable:next MAX_LINE_LENGTH
-// [1] https://docs.google.com/document/d/1dE7vR791Atp7Wu7Ss90K1MvdyoroouSHPdq_RXQ2R8I#bookmark=id.n9feo7yvyhle
-//     FIXME: Replace above with a pointer to markdown TBD.
-// protolint:disable:next MAX_LINE_LENGTH
-// [2] https://docs.opentitan.org/doc/security/specs/identities_and_root_keys#device-identifier
+// Message/enum definitions for DeviceId, Certificate, and DeviceData
+// messages. These definitions are shared by all services.
 
 syntax = "proto3";
 
@@ -20,130 +11,73 @@ package device_id;
 
 option go_package = "device_id_go_pb";
 
-// DeviceLifeCycle allow to manage the state of the device as it is being
-// manufactured and provisioned for shipment and also are used to encode the
-// device ownership state
-enum DeviceLifeCycle {
-  // UNSPECIFIED (zero-value) is the default -- not valid in messages.
-  DEVICE_LIFE_CYCLE_UNSPECIFIED = 0;
-  // RAW
-  DEVICE_LIFE_CYCLE_RAW = 1;
-  // TEST_LOCKED
-  DEVICE_LIFE_CYCLE_TEST_LOCKED = 2;
-  // TEST_UNLOCKED
-  DEVICE_LIFE_CYCLE_TEST_UNLOCKED = 3;
-  // DEV
-  // This device must not be used in a production environment.  In
-  // particular (possibly among other things), devices marked with
-  // `DEV` may make secrets available for development purposes that
-  // would be bad to make available in production.
-  DEVICE_LIFE_CYCLE_DEV = 4;
-  // PROD
-  // This device can be used in a production environment.
-  DEVICE_LIFE_CYCLE_PROD = 5;
-  // PROD_END
-  DEVICE_LIFE_CYCLE_PROD_END = 6;
-  // RMA
-  DEVICE_LIFE_CYCLE_RMA = 7;
-  // SCRAP state means that all functions and CPU execution are disabled.
-  DEVICE_LIFE_CYCLE_SCRAP = 8;
-  // OWNERSHIP_UNLOCED
-  DEVICE_LIFE_CYCLE_OWNERSHIP_UNLOCED = 9;
-  // OWNERSHIP_UNLOCED
-  DEVICE_LIFE_CYCLE_OWNERSHIP_LOCED = 10;
-  // INVALID
-  DEVICE_LIFE_CYCLE_INVALID = 11;
-  // EOL
-  DEVICE_LIFE_CYCLE_EOL = 12;
-}
-
-// Identifies a Root-of-Trust chip manufacturer.
+// OpenTitan Silicon Creator ID.
 //
-// TODO(lowRISC/ot-provisioning#14): Fill these in!
-enum SiliconCreator {
-  // UNSPECIFIED (zero-value) is the default -- not valid in messages.
-  SILICON_CREATOR_UNSPECIFIED = 0;
-
-  // For test.
-  SILICON_CREATOR_TEST = 1;
-
-  // BMC identifier
-  SILICON_CREATOR_NUVOTON = 0x1050;
+// Identifies an OpenTitan SiliconCreator (chip manufacturer).
+// protolint:disable:next MAX_LINE_LENGTH
+// See https://docs.google.com/document/d/1IuxBKj0jxMpnXUadO9lHBjj_HsdWnKlgnddyx_b7BEQ/edit#heading=h.a6x2uby224xc
+enum SiliconCreatorId {
+  // Unspecified
+  SILICON_CREATOR_ID_UNSPECIFIED = 0;
+  // Open Source (for testing).
+  SILICON_CREATOR_ID_OPENSOURCE = 0x0001;
+  // Nuvoton
+  SILICON_CREATOR_ID_NUVOTON = 0x4001;
 }
 
-// specify the type of the public device id format.
-enum DeviceIdPubFormat {
-  // default -- not valid in messages
-  DEVICE_ID_PUB_FORMAT_UNSPECIFIED = 0;
-
-  DEVICE_ID_PUB_FORMAT_DER = 1;
-
-  DEVICE_ID_PUB_FORMAT_PEM = 2;
-
-  DEVICE_ID_PUB_FORMAT_RAW_ECDSA = 3;  // X & Y
-}
-
-// Device Type. Encodes Manufacturer / Product Line.
-message DeviceType {
-  // Silicon Creator (Root-of-Trust chip manufacturer).
-  //
-  // Enum -- deserializes into 16 bits (see "Identities and Root Keys
-  // >> Device Identifier"[1]).  (Size is enforced at a higher level,
-  // not by protobuf.)
-  //
-  // protolint:disable:next MAX_LINE_LENGTH
-  // [1] https://docs.opentitan.org/doc/security/specs/identities_and_root_keys#device-identifier
-  SiliconCreator silicon_creator = 1;
-
-  // Per-SiliconCreator product-line identifier.
-  //
-  // TODO: Where are the values that this field can take defined?
-  //
-  // TODO: Do different hardware revisions get different
-  // product_identifiers?
-  //
-  // Deserializes into 16 bits (see "Identities and Root Keys >>
-  // Device Identifier"[1]).  (Size is enforced at a higher level, not
-  // by protobuf.)
-  //
-  // protolint:disable:next MAX_LINE_LENGTH
-  // [1] https://docs.opentitan.org/doc/security/specs/identities_and_root_keys#device-identifier
-  uint32 product_identifier = 2;
-}
-
-// Identifies the device (Root-of-Trust chip) itself.
+// OpenTitan Product ID.
 //
-// TODO: Better name?
+// Identifies an OpenTitan Product manufactured by various SiliconCreators.
+// protolint:disable:next MAX_LINE_LENGTH
+// See https://docs.google.com/document/d/1IuxBKj0jxMpnXUadO9lHBjj_HsdWnKlgnddyx_b7BEQ/edit#heading=h.a6x2uby224xc
+enum ProductId {
+  // Unspecified
+  PRODUCT_ID_UNSPECIFIED = 0;
+  // Earlgrey Engineering Sample (Z1).
+  PRODUCT_ID_EARLGREY_Z1 = 0x0001;
+  // Earlgrey Production v1.0.0 (A1).
+  PRODUCT_ID_EARLGREY_A1 = 0x0002;
+}
+
+// OpenTitan Hardware Origin.
+//
+// Encodes a combination of SiliconCreator (manufacturer) and Product IDs, along
+// with a device specific identifier.
 message HardwareOrigin {
-  DeviceType device_type = 1;
-
-  // A unique number for a given `SiliconCreator`/`ProductIdentifier`
-  // -- every device gets its own one of these.
-  fixed64 device_identification_number = 2;
+  // Silicon Creator ID.
+  //
+  // Enum that deserializes into 16 bits.
+  // Size is enforced at a higher level, not by protobuf.
+  SiliconCreatorId silicon_creator_id = 1;
+  // Product ID (per SiliconCreator).
+  //
+  // Enum that deserializes into 16 bits.
+  // Size is enforced at a higher level, not by protobuf.
+  ProductId product_id = 2;
+  // Device Identification Number.
+  //
+  // A unique number given to each device within a Hardware Origin domain.
+  fixed64 device_identification_number = 3;
 };
 
-// A Device Identifier.
+// OpenTitan Device ID.
 //
-// The contents of this message are intended to be used as a globally
-// unique identifier for a given Root-of-Trust chip.
+// The contents of this message are intended to be used as a globally unique
+// identifier for an OpenTitan chip.
 message DeviceId {
-  // Identifies the silicon.
+  // Hardware Origin.
+  //
+  // Identifies the Silicon Creator, their Product line, and a specific device.
   HardwareOrigin hardware_origin = 1;
-  // Silicon Creator can use this field for anything they want.
+  // Silicon Creator or SKU Owner can use this field as desired.
   //
   // 128 bits (size is enforced at a higher level, not by protobuf).
   bytes sku_specific = 2;
-  // This CRC covers the entire (deserialized) DeviceId object (see
-  // "Device ID Provisioning >> Device Registration"[1]).
+  // IEEE802.3 CRC32.
   //
-  // protolint:disable:next MAX_LINE_LENGTH
-  // [1] https://docs.google.com/document/d/1dE7vR791Atp7Wu7Ss90K1MvdyoroouSHPdq_RXQ2R8I#bookmark=id.n9feo7yvyhle
-  //     FIXME: Replace above with a pointer to markdown TBD.
-  //
-  // crc32 IEEE802.3
-  // CRC is calculated at a higher level, not
-  // by protobuf.
-  fixed32 crc32 = 3;  // -- see "Device ID Provisioning"
+  // This CRC covers the entire (deserialized) region above, and is calculated
+  // at a higher level, not by protobuf.
+  fixed32 crc32 = 3;
 }
 
 // A Certificate.
@@ -154,6 +88,19 @@ message Certificate {
   // that's handled at a higher level, not by protobuf.
   // See https://pkg.go.dev/crypto/x509#CreateCertificate for details.
   bytes blob = 1;
+}
+
+// TODO: delete this?
+// specify the type of the public device id format.
+enum DeviceIdPubFormat {
+  // default -- not valid in messages
+  DEVICE_ID_PUB_FORMAT_UNSPECIFIED = 0;
+
+  DEVICE_ID_PUB_FORMAT_DER = 1;
+
+  DEVICE_ID_PUB_FORMAT_PEM = 2;
+
+  DEVICE_ID_PUB_FORMAT_RAW_ECDSA = 3;  // X & Y
 }
 
 // A Device ID Public.
@@ -211,6 +158,35 @@ message Metadata {
   uint32 x = 10;
   // Y position.
   uint32 y = 11;
+}
+
+// OpenTitan Device Life Cycle.
+//
+// Encodes the state of the device as it is being manufactured and provisioned
+// for shipment.
+enum DeviceLifeCycle {
+  // UNSPECIFIED (zero-value) is the default -- not valid in messages.
+  DEVICE_LIFE_CYCLE_UNSPECIFIED = 0;
+  // RAW
+  DEVICE_LIFE_CYCLE_RAW = 1;
+  // TEST_LOCKED
+  DEVICE_LIFE_CYCLE_TEST_LOCKED = 2;
+  // TEST_UNLOCKED
+  DEVICE_LIFE_CYCLE_TEST_UNLOCKED = 3;
+  // DEV
+  DEVICE_LIFE_CYCLE_DEV = 4;
+  // PROD
+  DEVICE_LIFE_CYCLE_PROD = 5;
+  // PROD_END
+  DEVICE_LIFE_CYCLE_PROD_END = 6;
+  // RMA
+  DEVICE_LIFE_CYCLE_RMA = 7;
+  // SCRAP
+  DEVICE_LIFE_CYCLE_SCRAP = 8;
+  // INVALID
+  DEVICE_LIFE_CYCLE_INVALID = 9;
+  // EOL
+  DEVICE_LIFE_CYCLE_EOL = 10;
 }
 
 // Device Data for a given device.

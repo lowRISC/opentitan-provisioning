@@ -404,17 +404,14 @@ DLLEXPORT int RegisterDeviceBMC(
   device_record->set_sku(ate->Sku);
   //  Initialize the id message
   device_id::DeviceId *id = device_record->mutable_id();
-  id->mutable_hardware_origin()->mutable_device_type()->set_silicon_creator(
-      (device_id::SiliconCreator)
-          deviceID->hardware_origin.device_type.silicon_creator);
-  id->mutable_hardware_origin()->mutable_device_type()->set_product_identifier(
-      deviceID->hardware_origin.device_type.product_identifier);
+  id->mutable_hardware_origin()->set_silicon_creator_id(
+      (device_id::SiliconCreatorId)
+          deviceID->hardware_origin.silicon_creator_id);
+  id->mutable_hardware_origin()->set_product_id(
+      (device_id::ProductId)deviceID->hardware_origin.product_id);
 
-  LOG(INFO) << "id->mutable_hardware_origin()->mutable_device_type()->product_"
-               "identifier():"
-            << id->mutable_hardware_origin()
-                   ->mutable_device_type()
-                   ->product_identifier();
+  LOG(INFO) << "id->mutable_hardware_origin()->product_id():"
+            << id->mutable_hardware_origin()->product_id();
 
   id->mutable_hardware_origin()->set_device_identification_number(
       deviceID->hardware_origin.device_identification_number);
@@ -515,11 +512,11 @@ DLLEXPORT int RegisterDeviceTPM(
 
   //  Initialize the id message
   device_id::DeviceId *id = device_record->mutable_id();
-  id->mutable_hardware_origin()->mutable_device_type()->set_silicon_creator(
-      (device_id::SiliconCreator)
-          deviceID->hardware_origin.device_type.silicon_creator);
-  id->mutable_hardware_origin()->mutable_device_type()->set_product_identifier(
-      deviceID->hardware_origin.device_type.product_identifier);
+  id->mutable_hardware_origin()->set_silicon_creator_id(
+      (device_id::SiliconCreatorId)
+          deviceID->hardware_origin.silicon_creator_id);
+  id->mutable_hardware_origin()->set_product_id(
+      (device_id::ProductId)deviceID->hardware_origin.product_id);
 
   id->mutable_hardware_origin()->set_device_identification_number(
       deviceID->hardware_origin.device_identification_number);
@@ -530,9 +527,7 @@ DLLEXPORT int RegisterDeviceTPM(
 
   LOG(INFO) << "id->mutable_hardware_origin()->mutable_device_type()->product_"
                "identifier(): "
-            << id->mutable_hardware_origin()
-                   ->mutable_device_type()
-                   ->product_identifier();
+            << id->mutable_hardware_origin()->product_id();
   LOG(INFO) << "id->mutable_hardware_origin()->device_identification_number(): "
             << id->mutable_hardware_origin()->device_identification_number();
   LOG(INFO) << "id->crc32(): " << id->crc32();
