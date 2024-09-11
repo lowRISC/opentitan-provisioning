@@ -183,47 +183,14 @@ DLLEXPORT int CreateKeyAndCertificate(ate_client_ptr client, const char* sku,
                                       void* data, size_t* max_data_size,
                                       const void* serial_number,
                                       const size_t serial_number_size);
-/**
- * Registers a BMC's device record.
- *
- * @param client A client instance.
- * @param device_id_number Identifies the specific device.
- * @param dme_pub_key The DME key.
- * @param dme_pub_key_size The DME key size.
- * @param data The data blob.
- * @param data_size (input) The data size
- * @return The result of the operation.
- */
-DLLEXPORT int RegisterDeviceBMC(
-    ate_client_ptr client, const device_id_t* device_id,
-    const void* dme_pub_key, const size_t dme_pub_key_size,
-    const DeviceLifeCycle life_cycle, const uint8_t year, const uint8_t week,
-    const uint16_t lot_num, const uint8_t wafer_id, const uint8_t x,
-    const uint8_t y, const void* data, const size_t data_size);
 
 /**
- * Registers a TPM's device record.
+ * Registers an OpenTitan device record.
  *
- * @param client A client instance.
- * @param device_id_number Identifies the specific device.
- * @param certs The certificaes blob.
- * @param certsSize The certificaes blob size.
- * @param pSN The serial number.
- * @param snSize (input) The serial number size
- * @param year The manufacture year number
- * @param week The manufacture week number
- * @param lot_num The lot number
- * @param wafer_id The wafer ID number
- * @param y The y location
- * @param x The x location
- * @return The result of the operation.
+ * TODO(#16): implement device registration function.
  */
-DLLEXPORT int RegisterDeviceTPM(
-    ate_client_ptr client, const device_id_t* deviceID, const void* certs,
-    const size_t certsSize, const void* pSN, const size_t snSize,
-    const DeviceLifeCycle life_cycle, const uint8_t year, const uint8_t week,
-    const uint16_t lot_num, const uint8_t wafer_id, const uint8_t x,
-    const uint8_t y, const char* FT_lot);
+// DLLEXPORT int RegisterDevice(...);
+
 #ifdef __cplusplus
 }
 #endif
