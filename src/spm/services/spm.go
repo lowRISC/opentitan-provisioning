@@ -27,12 +27,12 @@ import (
 	"github.com/lowRISC/opentitan-provisioning/src/transport/auth_service/session_token"
 	"github.com/lowRISC/opentitan-provisioning/src/utils"
 
+	pbc "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/cert_go_pb"
 	pbcommon "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/common_go_pb"
 	pbe "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/ecdsa_go_pb"
 	pbr "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/rsa_ssa_pcks1_go_pb"
 
 	pbw "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/wrap_go_pb"
-	pbd "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_go_pb"
 
 	pbp "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
 	pbs "github.com/lowRISC/opentitan-provisioning/src/spm/proto/spm_go_pb"
@@ -468,7 +468,7 @@ func (s *server) makeEndorsedKeys(sku *skuState, certs []se.CertInfo) ([]*pbp.En
 		switch {
 		case key.Type == "RSA":
 			endorsedKey = &pbp.EndorsedKey{
-				Cert: &pbd.Certificate{Blob: cert.Cert},
+				Cert: &pbc.Certificate{Blob: cert.Cert},
 				WrappedKey: &pbw.WrappedKey{
 					Mode:    mode,
 					Payload: cert.WrappedKey,
@@ -486,7 +486,7 @@ func (s *server) makeEndorsedKeys(sku *skuState, certs []se.CertInfo) ([]*pbp.En
 			}
 		case key.Type == "ECC":
 			endorsedKey = &pbp.EndorsedKey{
-				Cert: &pbd.Certificate{Blob: cert.Cert},
+				Cert: &pbc.Certificate{Blob: cert.Cert},
 				WrappedKey: &pbw.WrappedKey{
 					Mode:    mode,
 					Payload: cert.WrappedKey,

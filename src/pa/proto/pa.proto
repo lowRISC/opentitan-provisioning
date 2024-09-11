@@ -7,6 +7,7 @@ syntax = "proto3";
 
 package pa;
 
+import "src/proto/crypto/cert.proto";
 import "src/proto/crypto/wrap.proto";
 import "src/proto/device_id.proto";
 
@@ -42,7 +43,7 @@ message EndorsedKey {
   // Certificate endorsing the public portion of the private key encapsulated
   // inside `wrapped_key`. This field is not set if `wrapped_key` encapsulates
   // a symmetric key.
-  device_id.Certificate cert = 1;
+  crypto.cert.Certificate cert = 1;
   // Wrapped key object.
   crypto.wrap.WrappedKey wrapped_key = 2;
 }

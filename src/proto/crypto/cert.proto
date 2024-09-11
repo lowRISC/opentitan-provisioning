@@ -24,3 +24,13 @@ message CertParams {
   // Certificate not after timestamp in UNIX epoch time format. Optional.
   int64 not_after_timestamp_usec = 4;
 }
+
+// A Certificate.
+message Certificate {
+  // Opaque bytes.
+  //
+  // Protobuf knows nothing about internal structure of this blob;
+  // that's handled at a higher level, not by protobuf.
+  // See https://pkg.go.dev/crypto/x509#CreateCertificate for details.
+  bytes blob = 1;
+}
