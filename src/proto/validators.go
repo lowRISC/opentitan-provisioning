@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	DeviceIdSkuSpecificLen  = 128
-	MaxDeviceDataPayloadLen = 8192
+	DeviceIdSkuSpecificLenInBytes  = 16
+	MaxDeviceDataPayloadLenInBytes = 8192
 )
 
 // Checks that a uint32 fits into 16 bits.
@@ -77,7 +77,7 @@ func ValidateDeviceId(di *dpb.DeviceId) error {
 
 	// len(di.SkuSpecific) == 0 ==> (optional) field not supplied,
 	// which is considered valid.
-	if len(di.SkuSpecific) != 0 && len(di.SkuSpecific) != DeviceIdSkuSpecificLen {
+	if len(di.SkuSpecific) != 0 && len(di.SkuSpecific) != DeviceIdSkuSpecificLenInBytes {
 		return fmt.Errorf("Invalid SkuSpecific string length: %v", len(di.SkuSpecific))
 	}
 
@@ -98,7 +98,7 @@ func DeviceIdToString(di *dpb.DeviceId) string {
 // 0-length is considered valid.
 func validatePayload(payload []byte) error {
 	l := len(payload)
-	if l > MaxDeviceDataPayloadLen {
+	if l > MaxDeviceDataPayloadLenInBytes {
 		return fmt.Errorf("Invalid Payload length: %v", l)
 	}
 

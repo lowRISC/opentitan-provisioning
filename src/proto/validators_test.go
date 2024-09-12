@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	dpb "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_go_pb"
+	dtd "github.com/lowRISC/opentitan-provisioning/src/proto/device_testdata"
 )
 
 const okCertPEM = `
@@ -41,50 +42,6 @@ var okCertBytes = func() []byte {
 	}
 	return block.Bytes
 }()
-
-var (
-	// TODO: add varying device identification numbers to test cases
-	hwOriginOk = dpb.HardwareOrigin{
-		SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
-		ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_Z1,
-		DeviceIdentificationNumber: 0,
-	}
-	hwOriginBadSiliconCreatorId = dpb.HardwareOrigin{
-		SiliconCreatorId:           2,
-		ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_A1,
-		DeviceIdentificationNumber: 0,
-	}
-	hwOriginBadProductId = dpb.HardwareOrigin{
-		SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_NUVOTON,
-		ProductId:                  0x10000,
-		DeviceIdentificationNumber: 0,
-	}
-
-	// TODO: hwOriginBadDeviceId, which would have an inok DeviceIdentificationNumber field.
-
-	deviceIdOk = dpb.DeviceId{
-		HardwareOrigin: &hwOriginOk,
-		SkuSpecific:    make([]byte, DeviceIdSkuSpecificLen),
-	}
-	deviceIdOkMissingSku = dpb.DeviceId{
-		HardwareOrigin: &hwOriginOk,
-		SkuSpecific:    nil, // Empty SkuSpecific is OK.
-	}
-	deviceIdBadOrigin = dpb.DeviceId{
-		HardwareOrigin: &hwOriginBadSiliconCreatorId,
-		SkuSpecific:    make([]byte, DeviceIdSkuSpecificLen),
-	}
-	deviceIdSkuTooLong = dpb.DeviceId{
-		HardwareOrigin: &hwOriginOk,
-		SkuSpecific:    make([]byte, DeviceIdSkuSpecificLen+1),
-	}
-	// TODO: deviceIdBadCrc, which would have an inok Crc32 field.
-
-	deviceDataOk = dpb.DeviceData{
-		DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
-		Payload:         okCertBytes,
-	}
-)
 
 func TestValidateSiliconCreatorId(t *testing.T) {
 	tests := []struct {
@@ -168,16 +125,16 @@ func TestValidateHardwareOrigin(t *testing.T) {
 	}{
 		{
 			name: "ok",
-			ho:   &hwOriginOk,
+			ho:   &dtd.HwOriginOk,
 			ok:   true,
 		},
 		{
 			name: "bad silicon creator ID",
-			ho:   &hwOriginBadSiliconCreatorId,
+			ho:   &dtd.HwOriginBadSiliconCreatorId,
 		},
 		{
 			name: "bad product ID",
-			ho:   &hwOriginBadProductId,
+			ho:   &dtd.HwOriginBadProductId,
 		},
 	}
 
@@ -198,22 +155,27 @@ func TestValidateDeviceId(t *testing.T) {
 	}{
 		{
 			name: "ok",
-			di:   &deviceIdOk,
+			di:   &dtd.DeviceIdOk,
 			ok:   true,
 		},
 		{
 			name: "missing sku",
-			di:   &deviceIdOkMissingSku,
+			di:   &dtd.DeviceIdOkMissingSkuSpecific,
 			ok:   true, // SKU is optional.
 		},
 		{
-			name: "bad origin",
-			di:   &deviceIdBadOrigin,
+			name: "bad hardware origin - bad silicon creator id",
+			di:   &dtd.DeviceIdBadSiliconCreatorId,
+		},
+		{
+			name: "bad hardware origin - bad product id",
+			di:   &dtd.DeviceIdBadProductId,
 		},
 		{
 			name: "sku too long",
-			di:   &deviceIdSkuTooLong,
+			di:   &dtd.DeviceIdSkuTooLong,
 		},
+		// TODO: test a device ID which has a bad DeviceIdentificationNumber field.
 	}
 
 	for _, tt := range tests {
@@ -280,22 +242,16 @@ func TestValidateDeviceData(t *testing.T) {
 		},
 		{
 			name: "valid payload with one cert",
-			dd:   &deviceDataOk,
+			dd:   &dtd.DeviceDataOk,
 			ok:   true,
 		},
 		{
 			name: "payload too large",
-			dd: &dpb.DeviceData{
-				Payload:         make([]byte, MaxDeviceDataPayloadLen+1),
-				DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
-			},
+			dd:   &dtd.DeviceDataBadPayloadTooLarge,
 		},
 		{
 			name: "bad device life cycle",
-			dd: &dpb.DeviceData{
-				Payload:         make([]byte, 0),
-				DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_UNSPECIFIED,
-			},
+			dd:   &dtd.DeviceDataBadLifeCycle,
 		},
 	}
 

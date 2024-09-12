@@ -7,46 +7,8 @@ import (
 	"testing"
 
 	dpb "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_go_pb"
-	common_validators "github.com/lowRISC/opentitan-provisioning/src/proto/validators"
+	dtd "github.com/lowRISC/opentitan-provisioning/src/proto/device_testdata"
 	pb "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/proto/proxy_buffer_go_pb"
-)
-
-var (
-	// DeviceId objects.
-	deviceIdOk = dpb.DeviceId{
-		HardwareOrigin: &dpb.HardwareOrigin{
-			SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
-			ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_Z1,
-			DeviceIdentificationNumber: 0,
-		},
-		SkuSpecific: make([]byte, common_validators.DeviceIdSkuSpecificLen),
-	}
-	deviceIdBadSiliconCreatorId = dpb.DeviceId{
-		HardwareOrigin: &dpb.HardwareOrigin{
-			SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_UNSPECIFIED,
-			ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_Z1,
-			DeviceIdentificationNumber: 0,
-		},
-		SkuSpecific: make([]byte, common_validators.DeviceIdSkuSpecificLen),
-	}
-	deviceIdBadProductId = dpb.DeviceId{
-		HardwareOrigin: &dpb.HardwareOrigin{
-			SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_NUVOTON,
-			ProductId:                  dpb.ProductId_PRODUCT_ID_UNSPECIFIED,
-			DeviceIdentificationNumber: 0,
-		},
-		SkuSpecific: make([]byte, common_validators.DeviceIdSkuSpecificLen),
-	}
-
-	// DeviceData objects.
-	deviceDataOk = dpb.DeviceData{
-		Payload:         make([]byte, common_validators.MaxDeviceDataPayloadLen),
-		DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
-	}
-	deviceDataBadPayload = dpb.DeviceData{
-		Payload:         make([]byte, common_validators.MaxDeviceDataPayloadLen+1),
-		DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
-	}
 )
 
 func TestValidateDeviceRegistrationRequest(t *testing.T) {
@@ -59,8 +21,8 @@ func TestValidateDeviceRegistrationRequest(t *testing.T) {
 			name: "ok",
 			drr: &pb.DeviceRegistrationRequest{
 				DeviceRecord: &dpb.DeviceRecord{
-					Id:   &deviceIdOk,
-					Data: &deviceDataOk,
+					Id:   &dtd.DeviceIdOk,
+					Data: &dtd.DeviceDataOk,
 				},
 			},
 			ok: true,
@@ -69,8 +31,8 @@ func TestValidateDeviceRegistrationRequest(t *testing.T) {
 			name: "bad silicon creator id",
 			drr: &pb.DeviceRegistrationRequest{
 				DeviceRecord: &dpb.DeviceRecord{
-					Id:   &deviceIdBadSiliconCreatorId,
-					Data: &deviceDataOk,
+					Id:   &dtd.DeviceIdBadSiliconCreatorId,
+					Data: &dtd.DeviceDataOk,
 				},
 			},
 		},
@@ -78,8 +40,8 @@ func TestValidateDeviceRegistrationRequest(t *testing.T) {
 			name: "bad product id",
 			drr: &pb.DeviceRegistrationRequest{
 				DeviceRecord: &dpb.DeviceRecord{
-					Id:   &deviceIdBadProductId,
-					Data: &deviceDataOk,
+					Id:   &dtd.DeviceIdBadProductId,
+					Data: &dtd.DeviceDataOk,
 				},
 			},
 		},
@@ -87,8 +49,8 @@ func TestValidateDeviceRegistrationRequest(t *testing.T) {
 			name: "bad device data",
 			drr: &pb.DeviceRegistrationRequest{
 				DeviceRecord: &dpb.DeviceRecord{
-					Id:   &deviceIdOk,
-					Data: &deviceDataBadPayload,
+					Id:   &dtd.DeviceIdOk,
+					Data: &dtd.DeviceDataBadPayloadTooLarge,
 				},
 			},
 		},
@@ -113,7 +75,7 @@ func TestValidateDeviceRegistrationResponse(t *testing.T) {
 			name: "ok",
 			drr: &pb.DeviceRegistrationResponse{
 				Status:   pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_SUCCESS,
-				DeviceId: &deviceIdOk,
+				DeviceId: &dtd.DeviceIdOk,
 			},
 			ok: true,
 		},
@@ -121,7 +83,7 @@ func TestValidateDeviceRegistrationResponse(t *testing.T) {
 			name: "bad request",
 			drr: &pb.DeviceRegistrationResponse{
 				Status:   pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_BAD_REQUEST,
-				DeviceId: &deviceIdOk,
+				DeviceId: &dtd.DeviceIdOk,
 			},
 			ok: true,
 		},
@@ -129,7 +91,7 @@ func TestValidateDeviceRegistrationResponse(t *testing.T) {
 			name: "buffer full",
 			drr: &pb.DeviceRegistrationResponse{
 				Status:   pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_BUFFER_FULL,
-				DeviceId: &deviceIdOk,
+				DeviceId: &dtd.DeviceIdOk,
 			},
 			ok: true,
 		},
@@ -137,14 +99,14 @@ func TestValidateDeviceRegistrationResponse(t *testing.T) {
 			name: "invalid status",
 			drr: &pb.DeviceRegistrationResponse{
 				Status:   pb.DeviceRegistrationStatus(-1),
-				DeviceId: &deviceIdOk,
+				DeviceId: &dtd.DeviceIdOk,
 			},
 		},
 		{
 			name: "bad device id",
 			drr: &pb.DeviceRegistrationResponse{
 				Status:   pb.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_SUCCESS,
-				DeviceId: &deviceIdBadSiliconCreatorId,
+				DeviceId: &dtd.DeviceIdBadSiliconCreatorId,
 			},
 		},
 	}

@@ -25,7 +25,9 @@ go_library(
     name = "validators",
     srcs = ["validators.go"],
     importpath = "github.com/lowRISC/opentitan-provisioning/src/proto/validators",
-    deps = [":device_id_go_pb"],
+    deps = [
+        ":device_id_go_pb",
+    ],
 )
 
 go_library(
@@ -33,11 +35,14 @@ go_library(
     testonly = True,
     srcs = ["device_testdata.go"],
     importpath = "github.com/lowRISC/opentitan-provisioning/src/proto/device_testdata",
-    deps = [":device_id_go_pb"],
+    deps = [
+        ":device_id_go_pb",
+    ],
 )
 
 go_test(
     name = "validators_test",
     srcs = ["validators_test.go"],
     embed = [":validators"],
+    deps = [":device_testdata"],
 )

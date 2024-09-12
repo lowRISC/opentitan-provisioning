@@ -43,6 +43,7 @@ go_test(
     embed = [":validators"],
     deps = [
         "//src/proto:device_id_go_pb",
+        "//src/proto:device_testdata",
         "//src/proto:validators",
     ],
 )
