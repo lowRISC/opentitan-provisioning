@@ -80,54 +80,31 @@ message DeviceId {
   fixed32 crc32 = 3;
 }
 
-// TODO: delete this?
-// specify the type of the public device id format.
-enum DeviceIdPubFormat {
-  // default -- not valid in messages
-  DEVICE_ID_PUB_FORMAT_UNSPECIFIED = 0;
-
-  DEVICE_ID_PUB_FORMAT_DER = 1;
-
-  DEVICE_ID_PUB_FORMAT_PEM = 2;
-
-  DEVICE_ID_PUB_FORMAT_RAW_ECDSA = 3;  // X & Y
-}
-
-// A Device ID Public.
-message DeviceIdPub {
-  // specify the type of the public device id format.
-  DeviceIdPubFormat format = 1;
-  // Opaque bytes.
-  //
-  // Protobuf knows nothing about internal structure of this blob;
-  // that's handled at a higher level, not by protobuf.
-  bytes blob = 2;
-}
-
-// The state of the device.
-enum DeviceState {
-  // UNSPECIFIED (zero-value) is the default -- not valid in messages.
-  DEVICE_STATE_UNSPECIFIED = 0;
+// OpenTitan Device Registration State.
+enum DeviceRegistrationState {
+  // UNSPECIFIED
+  DEVICE_REGISTRATION_STATE_UNSPECIFIED = 0;
   // The device has been provisioned and the
   // registration data is valid.
-  DEVICE_STATE_PROVISIONED = 1;
+  DEVICE_REGISTRATION_STATE_PROVISIONED = 1;
   // The device has been provisioned and provisioning data read
   // by the manifest reporting service
-  DEVICE_STATE_PROV_READ = 2;
+  DEVICE_REGISTRATION_STATE_PROV_READ = 2;
   // The device has been provisioned and provisioning data
   // reported successfully by the manifest reporting service
-  DEVICE_STATE_PROV_REPORT = 3;
+  DEVICE_REGISTRATION_STATE_PROV_REPORT = 3;
   // The device failed provisioning and the data is
   // invalid.
-  DEVICE_STATE_INVALID = 4;
+  DEVICE_REGISTRATION_STATE_INVALID = 4;
   // The manufacturer revoked the provisioning data
   // associated with this device.
-  DEVICE_STATE_REVOKED = 5;
+  DEVICE_REGISTRATION_STATE_REVOKED = 5;
 }
 
-// A metadata
+// OpenTitan Device Provisioning Metadata.
 message Metadata {
-  DeviceState state = 1;
+  // Registration state of the device (w.r.t. the registry service(s)).
+  DeviceRegistrationState registration_state = 1;
   // Time at which the device record was created.
   uint64 create_time_ms = 2;
   // Time at which the device was last updated.
@@ -136,26 +113,25 @@ message Metadata {
   string ate_id = 4;
   // ATE unstructured data associated with the device.
   string ate_raw = 5;
-  // Year
+  // Year the device was provisioned.
   uint32 year = 6;
-  // Week number.
+  // Week number the device was provisioned.
   uint32 week = 7;
-  // lot number.
+  // Lot number the device came from.
   uint32 lot_num = 8;
-  // Wafer ID.
+  // Wafer ID the device came from.
   uint32 wafer_id = 9;
-  // X position.
+  // X position on the wafer the device came from.
   uint32 x = 10;
-  // Y position.
+  // Y position on the wafer the device came from.
   uint32 y = 11;
 }
 
 // OpenTitan Device Life Cycle.
 //
-// Encodes the state of the device as it is being manufactured and provisioned
-// for shipment.
+// Encodes the state of the device as it is being manufactured and provisioned.
 enum DeviceLifeCycle {
-  // UNSPECIFIED (zero-value) is the default -- not valid in messages.
+  // UNSPECIFIED
   DEVICE_LIFE_CYCLE_UNSPECIFIED = 0;
   // RAW
   DEVICE_LIFE_CYCLE_RAW = 1;
@@ -179,34 +155,39 @@ enum DeviceLifeCycle {
   DEVICE_LIFE_CYCLE_EOL = 10;
 }
 
-// Device Data for a given device.
+// OpenTitan Device Provisioning Data.
 //
-// The value for which DeviceId is the key.
+// This contains information pertaining to the provisioning of a device,
+// including:
+// - device life cycle state,
+// - a generic blob of certificates or assets provisioned into the device,
+// - metadata with information on device creation time and registration state.
 message DeviceData {
-  // Device ID pub that associated with this device.
-  repeated DeviceIdPub device_id_pubs = 1;
-  // 256-2048 bytes (SKU-specific -- see "Device ID Provisioning >>
-  // Device Registration"[1]).
-  //
-  // protolint:disable:next MAX_LINE_LENGTH
-  // [1] https://docs.google.com/document/d/1dE7vR791Atp7Wu7Ss90K1MvdyoroouSHPdq_RXQ2R8I#bookmark=id.n9feo7yvyhle
-  //     FIXME: Replace above with a pointer to markdown TBD.
-  bytes payload = 2;
-
-  bytes next_owner_keys = 3;
-
   // Device life cycle of this device.
-  DeviceLifeCycle device_life_cycle = 4;
-
-  // see "Device ID Provisioning Device Registration"[1].
-  Metadata metadata = 5;
+  DeviceLifeCycle device_life_cycle = 1;
+  // Up to 8192 (8k) bytes of SKU specific device provisioning data.
+  //
+  // (Size is enforced at a higher level, not by protobuf).
+  //
+  // While the format of this is to be determined by SKU owners, this may
+  // contain a LTV data structure of DICE, TPM, and other certificates, as well
+  // as any additional metadata relevant for a SKU. For example, this may be
+  // structured in the same format as `perso_blob_t` LTV struct defined here:
+  // protolint:disable:next MAX_LINE_LENGTH
+  // https://github.com/lowRISC/opentitan/blob/25b1acbf687e5535e8742c2aacb5b224ee77c80d/sw/device/lib/testing/json/provisioning_data.h#L94
+  bytes payload = 2;
+  // Additional metadata contain device creation time and registration state.
+  Metadata metadata = 3;
 }
 
-// Combined device ID and data.
+
+// OpenTitan Device Record.
+//
+// This will get sent to one (or many) registry service(s).
 message DeviceRecord {
   // SKU name.
   string sku = 1;
-  // Device unique identifier.
+  // Device ID.
   DeviceId id = 2;
   // Device data.
   DeviceData data = 3;

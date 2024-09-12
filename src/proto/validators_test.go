@@ -80,7 +80,10 @@ var (
 	}
 	// TODO: deviceIdBadCrc, which would have an inok Crc32 field.
 
-	certOk = dpb.DeviceIdPub{Blob: okCertBytes}
+	deviceDataOk = dpb.DeviceData{
+		DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
+		Payload:         okCertBytes,
+	}
 )
 
 func TestValidateSiliconCreatorId(t *testing.T) {
@@ -222,29 +225,6 @@ func TestValidateDeviceId(t *testing.T) {
 	}
 }
 
-func TestValidateDeviceIdPub(t *testing.T) {
-	tests := []struct {
-		name string
-		cert *dpb.DeviceIdPub
-		ok   bool
-	}{
-		{
-			name: "ok",
-			cert: &certOk,
-			ok:   true,
-		},
-		// FIXME: Fill this in (need inok examples).
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := ValidateDeviceIdPub(tt.cert); (err == nil) != tt.ok {
-				t.Errorf("expected ok=%t; got err=%q", tt.ok, err)
-			}
-		})
-	}
-}
-
 func TestValidateLifeCycle(t *testing.T) {
 	tests := []struct {
 		name string
@@ -252,13 +232,13 @@ func TestValidateLifeCycle(t *testing.T) {
 		ok   bool
 	}{
 		{
-			name: "prod",
-			lc:   dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
+			name: "dev",
+			lc:   dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_DEV,
 			ok:   true,
 		},
 		{
-			name: "dev",
-			lc:   dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_DEV,
+			name: "prod",
+			lc:   dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
 			ok:   true,
 		},
 		{
@@ -291,45 +271,29 @@ func TestValidateDeviceData(t *testing.T) {
 		ok   bool
 	}{
 		{
-			name: "zero certs",
+			name: "empty payload",
 			dd: &dpb.DeviceData{
-				DeviceIdPubs:    nil,
-				Payload:         make([]byte, MinDeviceDataPayloadLen),
+				Payload:         make([]byte, 0),
 				DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_DEV,
 			},
 			ok: true,
 		},
 		{
-			name: "one cert",
-			dd: &dpb.DeviceData{
-				DeviceIdPubs:    []*dpb.DeviceIdPub{&certOk},
-				Payload:         make([]byte, MinDeviceDataPayloadLen),
-				DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
-			},
-			ok: true,
+			name: "valid payload with one cert",
+			dd:   &deviceDataOk,
+			ok:   true,
 		},
 		{
-			name: "two certs",
+			name: "payload too large",
 			dd: &dpb.DeviceData{
-				DeviceIdPubs:    []*dpb.DeviceIdPub{&certOk, &certOk},
-				Payload:         make([]byte, MinDeviceDataPayloadLen),
-				DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
-			},
-			ok: true,
-		},
-		{
-			name: "payload too small",
-			dd: &dpb.DeviceData{
-				DeviceIdPubs:    nil,
-				Payload:         make([]byte, MinDeviceDataPayloadLen-1),
+				Payload:         make([]byte, MaxDeviceDataPayloadLen+1),
 				DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
 			},
 		},
 		{
 			name: "bad device life cycle",
 			dd: &dpb.DeviceData{
-				DeviceIdPubs:    nil,
-				Payload:         make([]byte, MinDeviceDataPayloadLen),
+				Payload:         make([]byte, 0),
 				DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_UNSPECIFIED,
 			},
 		},

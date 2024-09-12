@@ -11,7 +11,6 @@
 package validators
 
 import (
-	"crypto/x509"
 	"fmt"
 
 	dpb "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_go_pb"
@@ -19,8 +18,7 @@ import (
 
 const (
 	DeviceIdSkuSpecificLen  = 128
-	MinDeviceDataPayloadLen = 256
-	MaxDeviceDataPayloadLen = 2048
+	MaxDeviceDataPayloadLen = 8192
 )
 
 // Checks that a uint32 fits into 16 bits.
@@ -96,41 +94,11 @@ func DeviceIdToString(di *dpb.DeviceId) string {
 		di.SkuSpecific)
 }
 
-// ValidateDeviceIdPub performs invariant checks for a DeviceIdPub
-// that protobuf syntax cannot capture.
-//
-// See https://pkg.go.dev/crypto/x509#CreateCertificate and
-// https://pkg.go.dev/crypto/x509#ParseCertificate for details.
-func ValidateDeviceIdPub(c *dpb.DeviceIdPub) error {
-	// As far as this code is concerned, it's valid if it parses
-	// without error.
-	//
-	// TODO: This should probably be validating against some
-	// limited set of profiles.  Need to determine which profiles,
-	// maybe changing the signature of this function accordingly.
-	_, err := x509.ParseCertificate(c.Blob)
-	return err
-}
-
-// validateDeviceIdPubs performs invariant checks that protobuf syntax
-// cannot capture on a list of Certificates.
-func validateDeviceIdPubs(certs []*dpb.DeviceIdPub) error {
-	for _, cert := range certs {
-		if err := ValidateDeviceIdPub(cert); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// validatePayload does a length check payload object ([]byte).  Since
-// a payload is optional, 0-length is considered valid.
+// Checks the length of the payload object ([]byte).  Since a payload is optional,
+// 0-length is considered valid.
 func validatePayload(payload []byte) error {
-	// len(payload) == 0 ==> (optional) field not supplied,
-	// which is considered valid.
 	l := len(payload)
-	if l != 0 && (l < MinDeviceDataPayloadLen || l > MaxDeviceDataPayloadLen) {
+	if l > MaxDeviceDataPayloadLen {
 		return fmt.Errorf("Invalid Payload length: %v", l)
 	}
 
@@ -141,8 +109,14 @@ func validatePayload(payload []byte) error {
 func ValidateDeviceLifeCycle(lc dpb.DeviceLifeCycle) error {
 	switch lc {
 	case
+		dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_RAW,
+		dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_TEST_LOCKED,
+		dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_TEST_UNLOCKED,
+		dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_DEV,
 		dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
-		dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_DEV:
+		dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD_END,
+		dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_RMA,
+		dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_SCRAP:
 		return nil
 	default:
 		return fmt.Errorf("Invalid DeviceLifeCycle: %v", lc)
@@ -152,13 +126,11 @@ func ValidateDeviceLifeCycle(lc dpb.DeviceLifeCycle) error {
 // ValidateDeviceData performs invariant checks for a DeviceData that
 // protobuf syntax cannot capture.
 func ValidateDeviceData(dd *dpb.DeviceData) error {
-	if err := validateDeviceIdPubs(dd.DeviceIdPubs); err != nil {
-		return err
-	}
-
 	if err := validatePayload(dd.Payload); err != nil {
 		return err
 	}
+
+	// TODO: Validate metadata.
 
 	return ValidateDeviceLifeCycle(dd.DeviceLifeCycle)
 }

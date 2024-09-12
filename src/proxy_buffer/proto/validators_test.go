@@ -40,13 +40,11 @@ var (
 
 	// DeviceData objects.
 	deviceDataOk = dpb.DeviceData{
-		DeviceIdPubs:    nil,
-		Payload:         make([]byte, common_validators.MinDeviceDataPayloadLen),
+		Payload:         make([]byte, common_validators.MaxDeviceDataPayloadLen),
 		DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
 	}
 	deviceDataBadPayload = dpb.DeviceData{
-		DeviceIdPubs:    nil,
-		Payload:         make([]byte, common_validators.MinDeviceDataPayloadLen-1),
+		Payload:         make([]byte, common_validators.MaxDeviceDataPayloadLen+1),
 		DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
 	}
 )
