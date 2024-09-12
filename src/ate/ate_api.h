@@ -51,8 +51,6 @@ enum DeviceLifeCycle : uint32_t {
   DEVICE_LIFE_CYCLE_PROD_END = 6,
   DEVICE_LIFE_CYCLE_RMA = 7,
   DEVICE_LIFE_CYCLE_SCRAP = 8,
-  DEVICE_LIFE_CYCLE_INVALID = 9,
-  DEVICE_LIFE_CYCLE_EOL = 10,
 };
 
 enum ProvState : uint32_t {

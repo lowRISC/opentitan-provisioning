@@ -149,10 +149,6 @@ enum DeviceLifeCycle {
   DEVICE_LIFE_CYCLE_RMA = 7;
   // SCRAP
   DEVICE_LIFE_CYCLE_SCRAP = 8;
-  // INVALID
-  DEVICE_LIFE_CYCLE_INVALID = 9;
-  // EOL
-  DEVICE_LIFE_CYCLE_EOL = 10;
 }
 
 // OpenTitan Device Provisioning Data.
