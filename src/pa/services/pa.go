@@ -100,6 +100,14 @@ func (s *server) CreateKeyAndCert(ctx context.Context, request *pbp.CreateKeyAnd
 	return r, nil
 }
 
+// EndorseCerts endorses a set of TBS certificates and returns them.
+func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequest) (*pbp.EndorseCertsResponse, error) {
+	log.Printf("In PA - Recieved EndorseCerts request with Sku=%s", request.Sku)
+
+	// TODO(#4) implement backend operations.
+	return nil, nil
+}
+
 // SendDeviceRegistrationPayload registers a new device record to the local MySql DB.
 func (s *server) SendDeviceRegistrationPayload(ctx context.Context, request *pbp.RegistrationRequest) (*pbp.RegistrationResponse, error) {
 	log.Printf("In PA - Received SendDeviceRegistrationPayload request with DeviceID: %v", request.DeviceRecord.Id)

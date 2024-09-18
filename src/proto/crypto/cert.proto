@@ -27,7 +27,8 @@ message CertParams {
 
 // A Certificate.
 message Certificate {
-  // Opaque bytes.
+  // Opaque bytes that may be used to represent a complete certificate, or only
+  // the TBS (To Be Signed) portion.
   //
   // Protobuf knows nothing about internal structure of this blob;
   // that's handled at a higher level, not by protobuf.

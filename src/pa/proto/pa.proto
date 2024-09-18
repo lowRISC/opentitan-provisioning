@@ -20,9 +20,28 @@ service ProvisioningApplianceService {
   rpc CloseSession(CloseSessionRequest)
     returns (CloseSessionResponse) {}
   rpc CreateKeyAndCert(CreateKeyAndCertRequest)
-      returns (CreateKeyAndCertResponse) {}
+    returns (CreateKeyAndCertResponse) {}
+  rpc EndorseCerts(EndorseCertsRequest)
+    returns (EndorseCertsResponse) {}
   rpc SendDeviceRegistrationPayload(RegistrationRequest)
-      returns (RegistrationResponse) {}
+    returns (RegistrationResponse) {}
+}
+
+// Endorse certs request.
+message EndorseCertsRequest {
+  // SKU identifier. Required.
+  string sku = 1;
+  // (Per SKU) Serial number of CA that should endorse these certificates.
+  // Required. Size enforced by SKU implementation.
+  bytes ca_serial_number = 2;
+  // Array of TBS certificates to be endorsed.
+  repeated crypto.cert.Certificate certs = 3;
+}
+
+// Endorse certs response.
+message EndorseCertsResponse {
+  // Array of complete (endorsed) certificates to be installed in a device.
+  repeated crypto.cert.Certificate certs = 1;
 }
 
 // Create key and endorsement certificates request.
