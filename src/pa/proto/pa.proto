@@ -23,6 +23,8 @@ service ProvisioningApplianceService {
     returns (CreateKeyAndCertResponse) {}
   rpc EndorseCerts(EndorseCertsRequest)
     returns (EndorseCertsResponse) {}
+  rpc DeriveSymmetricKey(DeriveSymmetricKeyRequest)
+    returns (DeriveSymmetricKeyResponse) {}
   rpc SendDeviceRegistrationPayload(RegistrationRequest)
     returns (RegistrationResponse) {}
 }
@@ -42,6 +44,65 @@ message EndorseCertsRequest {
 message EndorseCertsResponse {
   // Array of complete (endorsed) certificates to be installed in a device.
   repeated crypto.cert.Certificate certs = 1;
+}
+
+// Symmetric key seed type (seed is provisioned into HSM).
+enum SymmetricKeySeed {
+  // Unspecified.
+  SYMMETRIC_KEY_SEED_UNSPECIFIED = 0;
+  // Low Security: seed is rotated infrequently.
+  SYMMETRIC_KEY_SEED_LOW_SECURITY = 1;
+  // High Security: seed is rotated frequently.
+  SYMMETRIC_KEY_SEED_HIGH_SECURITY = 2;
+}
+
+// Symmetric key type.
+enum SymmetricKeyType {
+  // Unspecified.
+  SYMMETRIC_KEY_TYPE_UNSPECIFIED = 0;
+  // Raw.
+  //
+  // This format is used when the raw plaintext key must be generated.
+  SYMMETRIC_KEY_TYPE_RAW = 1;
+  // Hashed.
+  //
+  // This format is used when the cSHAKE128 hashed (with "LC_CTRL" customization
+  // string) form of the key needs to be generated. This type supports
+  // provisioning of OpenTitan lifecycle tokens, which are programmed into a
+  // device's OTP memory in this form.
+  //
+  // protolint:disable:next MAX_LINE_LENGTH
+  // See https://opentitan.org/book/hw/ip/lc_ctrl/doc/theory_of_operation.html#token-hashing-mechanism
+  // for more details.
+  SYMMETRIC_KEY_TYPE_HASHED_OT_LC_TOKEN = 2;
+}
+
+// Symmetric key size.
+enum SymmetricKeySize {
+  // Unspecified.
+  SYMMETRIC_KEY_SIZE_UNSPECIFIED = 0;
+  // 128 bits.
+  SYMMETRIC_KEY_SIZE_128_BITS = 1;
+  // 256 bits.
+  SYMMETRIC_KEY_SIZE_256_BITS = 2;
+}
+
+// Derive symmetric key request.
+message DeriveSymmetricKeyRequest{
+  // Symmetric key seed to use. Required.
+  SymmetricKeySeed seed = 1;
+  // Symmetric key type to generate. Required.
+  SymmetricKeyType type = 2;
+  // Symmetric key size. Required.
+  SymmetricKeySize size = 3;
+  // Diversifier string to use in KDF operation. Required.
+  string diversifier = 4;
+}
+
+// Derive symmetric key response.
+message DeriveSymmetricKeyResponse{
+  // Key bytes. Size is provided in the request.
+  bytes key = 1;
 }
 
 // Create key and endorsement certificates request.

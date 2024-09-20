@@ -108,6 +108,15 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 	return nil, nil
 }
 
+// DeriveSymmetricKey generates a symmetric key from a seed (pre-provisioned in
+// the SPM/HSM) and diversifier string.
+func (s *server) DeriveSymmetricKey(ctx context.Context, request *pbp.DeriveSymmetricKeyRequest) (*pbp.DeriveSymmetricKeyResponse, error) {
+	log.Printf("In PA - Recieved DeriveSymmetricKey request with diversifier string: %s", request.Diversifier)
+
+	// TODO(#4) implement backend operations.
+	return nil, nil
+}
+
 // SendDeviceRegistrationPayload registers a new device record to the local MySql DB.
 func (s *server) SendDeviceRegistrationPayload(ctx context.Context, request *pbp.RegistrationRequest) (*pbp.RegistrationResponse, error) {
 	log.Printf("In PA - Received SendDeviceRegistrationPayload request with DeviceID: %v", request.DeviceRecord.Id)
