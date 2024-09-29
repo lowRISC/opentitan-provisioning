@@ -10,6 +10,7 @@ import (
 	"crypto/elliptic"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
@@ -31,13 +32,19 @@ var (
 	hsmSlot          = flag.Int("hsm_slot", 0, "The HSM slot number; required")
 	genKG            = flag.Bool("gen_kg", false, "Generate KG; optional")
 	genKCA           = flag.Bool("gen_kca", false, "Generate KCA; optional")
-	forceKeygen      = flag.Bool("force_keygen", false, "Destroy existing keys before keygen; optional")
+	loadHighSecKS    = flag.Bool("load_high_sec_ks", false, "Load high security KDF seed; optional")
+	loadLowSecKS     = flag.Bool("load_low_sec_ks", false, "Load low security KDF seed; optional")
+	forceKeygen      = flag.Bool("force_keygen", false, "Destroy existing keys and seeds before keygen; optional")
 	caCertOutputPath = flag.String("ca_outfile", "", "CA output path; required when --gen_kca is set to true")
+	highSecKS        = flag.String("high_sec_ks", "", "High security key seed; required when --load_high_sec_ks is set to true")
+	lowSecKS         = flag.String("low_sec_ks", "", "Low security key seed; required when --load_low_sec_ks is set to true")
 	version          = flag.Bool("version", false, "Print version information and exit")
 )
 
 const (
 	kgName      = "KG"
+	hsksName    = "HighSecKdfSeed"
+	lsksName    = "LowSecKdfSeed"
 	kcaPrivName = "KCAPriv"
 	kcaPubName  = "KCAPub"
 )
@@ -60,6 +67,8 @@ func DestroyKeys(session *pk11.Session) error {
 		label string
 	}{
 		{pk11.ClassSecretKey, kgName},
+		{pk11.ClassSecretKey, hsksName},
+		{pk11.ClassSecretKey, lsksName},
 		{pk11.ClassPrivateKey, kcaPrivName},
 		{pk11.ClassPublicKey, kcaPubName},
 	}
@@ -98,6 +107,62 @@ func GenerateKG(session *pk11.Session) error {
 		return fmt.Errorf("failed to set key label %q, error: %v", kgName, err)
 	}
 
+	return nil
+}
+
+// loadKdfSeed loads a secret seed that may be used to derive symmetric keys
+// from during the provisioning flow.
+func loadKdfSeed(session *pk11.Session, seedName string, seed []byte) error {
+	// Skip seed load if there is a seed with the same name already available.
+	if _, err := session.FindKeyByLabel(pk11.ClassSecretKey, seedName); err == nil {
+		log.Printf("KDF seed with label %q already exists.", seedName)
+		return nil
+	}
+
+	// Load the seed into the HSM.
+	kdfSeed, err := session.ImportKeyMaterial(seed, &pk11.KeyOptions{
+		Extractable: false,
+		Token:       true,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to load KDF seed, error: %v", err)
+	}
+
+	// Set a label name on the seed.
+	if err := kdfSeed.SetLabel(seedName); err != nil {
+		return fmt.Errorf("failed to set KDF seed label %q, error: %v", seedName, err)
+	}
+
+	return nil
+}
+
+// LoadHighSecKdfSeed loads a high security secret seed that may be used to
+// derive symmetric keys from during the provisioning flow. This seed is
+// expected to be rotated frequently.
+func LoadHighSecKdfSeed(session *pk11.Session) error {
+	if *highSecKS == "" {
+		return errors.New("--high_sec_ks flag not set")
+	}
+	seed, _ := hex.DecodeString(*highSecKS)
+	err := loadKdfSeed(session, hsksName, seed)
+	if err != nil {
+		return fmt.Errorf("failed to load high security KDF seed: %q", seed)
+	}
+	return nil
+}
+
+// LoadLowSecKdfSeed loads a low security secret seed that may be used to derive
+// symmetric keys from during the provisioning flow. This seed is NOT expected
+// to be rotated frequently.
+func LoadLowSecKdfSeed(session *pk11.Session) error {
+	if *lowSecKS == "" {
+		return errors.New("--low_sec_ks flag not set")
+	}
+	seed, _ := hex.DecodeString(*lowSecKS)
+	err := loadKdfSeed(session, lsksName, seed)
+	if err != nil {
+		return fmt.Errorf("failed to load low security KDF seed: %q", seed)
+	}
 	return nil
 }
 
@@ -221,6 +286,8 @@ func main() {
 		{"Removing previous keys", *forceKeygen, DestroyKeys},
 		{"Generating KG", *genKG, GenerateKG},
 		{"Generating KCA", *genKCA, GenerateKCA},
+		{"Loading high security KDF seed", *loadHighSecKS, LoadHighSecKdfSeed},
+		{"Loading low security KDF seed", *loadLowSecKS, LoadLowSecKdfSeed},
 	} {
 		if !task.run {
 			continue

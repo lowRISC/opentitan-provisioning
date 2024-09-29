@@ -32,7 +32,13 @@ bazelisk run //src/spm:spmutil -- \
     --hsm_so=${OPENTITAN_VAR_DIR}/softhsm2/libsofthsm2.so \
     --hsm_type=0 \
     --hsm_slot=0 \
-    --force_keygen --gen_kg --gen_kca \
+    --force_keygen \
+    --gen_kg \
+    --gen_kca \
+    --load_low_sec_ks \
+    --low_sec_ks="0x23df79a8052010ef6e3d49255b606f871cff06170247c1145ebb71ad23834061" \
+    --load_high_sec_ks \
+    --high_sec_ks="0xaba9d5616e5a7c18b9a41d8a22f42d4dc3bafa9ca1fad01e404e708b1eab21fd" \
     --ca_outfile=${OPENTITAN_VAR_DIR}/spm/config/certs/NuvotonTPMRootCA0200.cer
 
 bazelisk run //src/pa:loadtest -- \

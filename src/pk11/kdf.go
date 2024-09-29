@@ -222,6 +222,7 @@ func (s *Session) ImportKeyMaterial(key []byte, opts *KeyOptions) (SecretKey, er
 		pkcs11.NewAttribute(pkcs11.CKA_DERIVE, true),
 		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, !opts.Extractable),
 		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, opts.Extractable),
+		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, opts.Token),
 	}
 	s.tok.m.appendAttrKeyID(&tpl)
 
