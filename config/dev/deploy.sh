@@ -4,6 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 set -e
 
+################################################################################
+# Check usage.
+################################################################################
 usage() {
     echo >&2 "ERROR: $1"
     echo >&2 ""
@@ -11,48 +14,70 @@ usage() {
     exit 1
 }
 
+################################################################################
+# Parse args.
+################################################################################
 if [ $# != 1 ]; then
     usage "Unexpected number of arguments"
 fi
-
 RELEASE_DIR=$1
 if [ ! -d "${RELEASE_DIR}" ]; then
     usage "RELEASE_DIR: ${RELEASE_DIR} does not exist"
 fi
-
 CONFIG_DIR="$(dirname "$0")"
 
+################################################################################
+# Source envars.
+################################################################################
 source "${CONFIG_DIR}/env/spm.env"
 
+################################################################################
+# Create deployment dir structure.
+################################################################################
+echo "Staging deployment directory structure ..."
 if [ ! -d "${OPENTITAN_VAR_DIR}" ]; then
     echo "Creating config directory: ${OPENTITAN_VAR_DIR}. This requires sudo."
     sudo mkdir -p "${OPENTITAN_VAR_DIR}"
     sudo chown "${USER}" "${OPENTITAN_VAR_DIR}"
 fi
-
-echo "Staging envars and configuration files"
 cp -r "${CONFIG_DIR}/env" "${OPENTITAN_VAR_DIR}"
-
 mkdir -p "${OPENTITAN_VAR_DIR}/spm/config"
 cp -Rf ${CONFIG_DIR}/spm/* "${OPENTITAN_VAR_DIR}/spm/config"
+echo "Done."
 
-echo "Installing and configuring SoftHSM"
-
+################################################################################
+# Install SoftHSM2 to deployment dir and initialize it.
+################################################################################
+echo "Installing and configuring SoftHSM2 ..."
 if [ ! -d "${OPENTITAN_VAR_DIR}/softhsm2" ]; then
     mkdir -p "${OPENTITAN_VAR_DIR}/softhsm2"
     tar -xvf "${RELEASE_DIR}/softhsm_dev.tar.xz" \
         --directory "${OPENTITAN_VAR_DIR}/softhsm2"
 fi
-
 ${CONFIG_DIR}/softhsm/init.sh "${CONFIG_DIR}" \
     "${OPENTITAN_VAR_DIR}/softhsm2/softhsm2" \
     "${OPENTITAN_VAR_DIR}"
+echo "Done."
 
-echo "Unpacking release binaries"
+################################################################################
+# Unpack the infrastructure release binaries (PA, SPM, etc.).
+################################################################################
+echo "Unpacking release binaries and container images ..."
 mkdir -p "${OPENTITAN_VAR_DIR}/release"
-tar -xvf "${RELEASE_DIR}/provisioning_appliance_binaries.tar.xz" \
-    --directory "${OPENTITAN_VAR_DIR}/release"
+if [ -z "${CONTAINERS_ONLY}" ]; then
+    tar -xvf "${RELEASE_DIR}/provisioning_appliance_binaries.tar.xz" \
+        --directory "${OPENTITAN_VAR_DIR}/release"
+else
+    sudo cp "${RELEASE_DIR}/provisioning_appliance_containers.tar" \
+        "${OPENTITAN_VAR_DIR}/release/"
+    echo "Skipping unpacking raw binaries; deploying containers only ..."
+fi
+echo "Done."
 
+################################################################################
+# Load and configure infrastructure containers.
+################################################################################
+echo "Loading containers to podman local registry ..."
 # Configure podman to use the local k8s pause container.
 mkdir -p ~/.config/containers
 cat << EOF > ~/.config/containers/containers.conf
@@ -62,11 +87,15 @@ cat << EOF > ~/.config/containers/containers.conf
 infra_image = "podman_pause:latest"
 
 EOF
-
-echo "Loading containers to podman local registry"
 podman load \
     -i "${OPENTITAN_VAR_DIR}/release/provisioning_appliance_containers.tar"
+echo "Done."
 
-echo "Launching containers"
+################################################################################
+# Launch containers with podman.
+################################################################################
+echo "Launching containers ..."
 podman play kube "${CONFIG_DIR}/containers/provapp.yml" \
     --configmap "${CONFIG_DIR}/env/spm.yml"
+echo "Done."
+
