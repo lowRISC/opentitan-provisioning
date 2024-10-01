@@ -25,7 +25,7 @@ import (
 var (
 	port          = flag.Int("port", 0, "the port to bind the server on; required")
 	spmAddress    = flag.String("spm_address", "", "the SPM server address to connect to; required")
-	enableRegBuff = flag.Bool("enable_rb", true, "Enable connectivity to the RegistryBuffer server; optional")
+	enableRegBuff = flag.Bool("enable_rb", false, "Enable connectivity to the RegistryBuffer server; optional")
 	rbAddress     = flag.String("rb_address", "", "the RegistryBuffer server address to connect to; required")
 	enableTLS     = flag.Bool("enable_tls", false, "Enable mTLS secure channel; optional")
 	serviceKey    = flag.String("service_key", "", "File path to the PEM encoding of the server's private key")
