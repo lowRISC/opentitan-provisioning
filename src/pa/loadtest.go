@@ -29,7 +29,7 @@ const (
 	testSKUName = "tpm_1"
 
 	// testSKUAuth contains the test SKU authentication string.
-	testSKUAuth = "TODO: SET_SKU_AUTH"
+	testSKUAuth = "test_password"
 )
 
 var (

@@ -145,6 +145,7 @@ func NewSpmServer(opts Options) (pbs.SpmServiceServer, error) {
 		return nil, fmt.Errorf("config directory does not exist: %q, error: %v", opts.SPMConfigDir, err)
 	}
 
+	// TODO: make this runtime configurable
 	filename := "sku_auth.yml"
 	var config AuthConfig
 	err := utils.LoadConfig(opts.SPMConfigDir, filename, &config)
@@ -171,7 +172,6 @@ func NewSpmServer(opts Options) (pbs.SpmServiceServer, error) {
 func (s *server) initSku(sku string) (string, error) {
 	token, err := generateSessionToken(TokenSize)
 	if err != nil {
-
 		log.Printf("failed to generate session token: %v", err)
 		return "", status.Errorf(codes.NotFound, "failed to generate session token: %v", err)
 	}
@@ -188,7 +188,7 @@ func (s *server) initSku(sku string) (string, error) {
 }
 
 // findSkuAuth returns an empty sku auth config, if nor sku or a family sku can be found
-// in the map config, otherwize the relavent sku auth config will be return.
+// in the map config, otherwise the relavent sku auth config will be return.
 func (s *server) findSkuAuth(sku string) (SkuAuthConfig, bool) {
 	skuAuthConfig := SkuAuthConfig{}
 	if skuAuthConfig, found := s.authCfg.SkuAuthCfgList[sku]; found {

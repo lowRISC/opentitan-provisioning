@@ -28,4 +28,3 @@ keyWrapConfig:
       name: 1
       hash: 2
 rootCAPath: certs/NuvotonTPMRootCA0200.cer
-

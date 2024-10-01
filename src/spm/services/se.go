@@ -38,6 +38,7 @@ type SE interface {
 	// Derives the transport secret for a device with the given ID, and wraps
 	// it with the device class's global secret.
 	DeriveAndWrapTransportSecret(deviceId []byte) ([]byte, error)
+
 	// Generates and signs certificates with the given parent corresponding to the
 	// arguments in certs.
 	//

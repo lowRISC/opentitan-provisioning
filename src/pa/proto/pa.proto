@@ -151,7 +151,7 @@ message InitSessionResponse {
   // PA endpoint. The client should select connections to this client to issue
   // any provisioning calls (e.g. CreateKeyAndCertRequest).
   string pa_endpoint = 2;
-  // list of authenticate methods
+  // List of authenticate methods. Required.
   repeated string auth_methods = 3;
 }
 
