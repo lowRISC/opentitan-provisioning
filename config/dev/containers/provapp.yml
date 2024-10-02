@@ -17,7 +17,7 @@ spec:
   - name: spmserver
     args:
     - --port=5000
-    - --hsm_so=/libsofthsm2.so
+    - --hsm_so=/usr/local/lib/softhsm/libsofthsm2.so
     - --spm_config_dir=/var/lib/opentitan/spm/config
     # TODO: Update label to point to specific release version.
     image: localhost/spm_server:latest

@@ -1,5 +1,8 @@
 # Build Docker Container
 
+This Docker container may be used to build and develop code in this repository
+if your development environment is not a Ubuntu22.04 environment.
+
 ## Local Build Instructions
 
 Skip this step if planning to use the pre-built container. To build in local

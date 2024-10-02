@@ -4,16 +4,18 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
+SOFTHSM2_COMMIT_HASH = "4975c0df4c7090e97a3860ae21079a9597cfedc6"
+
 def softhsm2_deps():
     http_archive(
         name = "softhsm2",
         build_file = Label("//third_party/softhsm2:BUILD.softhsm2.bazel"),
-        url = "https://github.com/opendnssec/SoftHSMv2/archive/4975c0df4c7090e97a3860ae21079a9597cfedc6.tar.gz",
-        strip_prefix = "SoftHSMv2-4975c0df4c7090e97a3860ae21079a9597cfedc6",
+        url = "https://github.com/opendnssec/SoftHSMv2/archive/{}.tar.gz".format(SOFTHSM2_COMMIT_HASH),
+        strip_prefix = "SoftHSMv2-{}".format(SOFTHSM2_COMMIT_HASH),
         sha256 = "72cf979ec4f74ca4555861dcae45cf7d1b667cc2e4f3ee3fb26e6ff1b99aec95",
         patches = [
-            Label("//third_party/softhsm2:0001-Disable-filename-logging.patch"),
-            Label("//third_party/softhsm2:0002-Implement-PKCS-11-HKDF-key-derivation.patch"),
+            Label("//util/containers/softhsm2:0001-Disable-filename-logging.patch"),
+            Label("//util/containers/softhsm2:0002-Implement-PKCS-11-HKDF-key-derivation.patch"),
         ],
         patch_args = ["-p1"],
     )

@@ -40,8 +40,7 @@ go_binary(
 go_image(
     name = "spm_server_image",
     srcs = ["spm_server.go"],
-    base = "//:base_image",
-    static = "on",
+    base = "@container_softhsm2//image",
     deps = SPM_SERVER_DEPS,
 )
 

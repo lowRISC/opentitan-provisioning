@@ -22,13 +22,6 @@ def docker_deps():
     _go_image_repos()
 
     container_pull(
-        name = "ubuntu2204",
-        digest = "sha256:42ba2dfce475de1113d55602d40af18415897167d47c2045ec7b6d9746ff148f",
-        registry = "index.docker.io",
-        repository = "ubuntu",
-    )
-
-    container_pull(
         name = "container_etcd",
         registry = "gcr.io/etcd-development",
         digest = "sha256:9344cfb9cbe4df0635478b6a2b62765330128fbdf3ca8fc9f2edac262552f700",
@@ -50,4 +43,11 @@ def docker_deps():
         repository = "pause",
         digest = "sha256:369201a612f7b2b585a8e6ca99f77a36bcdbd032463d815388a96800b63ef2c8",
         tag = "3.5",
+    )
+
+    container_pull(
+        name = "container_softhsm2",
+        registry = "us-docker.pkg.dev/opentitan/opentitan-public",
+        repository = "ot-prov-softhsm2",
+        tag = "latest",
     )

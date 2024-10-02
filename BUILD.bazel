@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@bazel_gazelle//:def.bzl", "gazelle")
-load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 load("@io_bazel_rules_go//go:def.bzl", "nogo")
 
 exports_files([
@@ -36,11 +35,4 @@ gazelle(
         "--build_file_proto_mode=disable_global",
     ],
     command = "update-repos",
-)
-
-container_image(
-    name = "base_image",
-    base = "@ubuntu2204//image",
-    files = ["@softhsm2"],
-    visibility = ["//visibility:public"],
 )
