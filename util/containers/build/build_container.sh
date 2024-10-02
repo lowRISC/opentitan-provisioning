@@ -12,4 +12,4 @@ then
     exit
 fi
 
-podman build -t opentitan-prov-dev -f util/containers/build/Dockerfile .
+podman build -t ot-prov-dev -f util/containers/build/Dockerfile .

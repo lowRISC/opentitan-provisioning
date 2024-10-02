@@ -4,9 +4,7 @@
 
 # Docker container used for development.
 
-# Main container image.
-FROM ubuntu:22.04 AS opentitan-prov-dev
-
+FROM ubuntu:22.04
 LABEL version="1.0"
 LABEL description="OpenTitan provisioning development container."
 LABEL maintainer="moidx@opentitan.org"
@@ -42,7 +40,6 @@ RUN apt-get update \
 ENV LC_ALL en_US.UTF-8
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
-
 
 # Configure bazelisk
 RUN go install github.com/bazelbuild/bazelisk@latest

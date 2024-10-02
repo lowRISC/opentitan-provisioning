@@ -35,5 +35,5 @@ podman run -t -i \
   --network=host \
   --hostname provisioning-builder \
   --workdir=/working_dir/src \
-  opentitan-prov-dev:latest \
+  ot-prov-dev:latest \
   "${COMMAND}"
