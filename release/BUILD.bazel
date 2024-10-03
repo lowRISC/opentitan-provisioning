@@ -33,7 +33,6 @@ container_bundle(
 pkg_tar(
     name = "provisioning_appliance_binaries",
     srcs = [
-        ":provisioning_appliance_containers_tar",
         "//src/pa:loadtest",
         "//src/pa:pa_server",
         "//src/spm:spm_server",
