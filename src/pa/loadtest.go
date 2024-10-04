@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -87,9 +88,14 @@ func (c *clientTask) setup(ctx context.Context) error {
 		return err
 	}
 
+	// Create new client contect with distinct user ID.
+	md := metadata.Pairs("user_id", strconv.Itoa(c.id))
+	client_ctx := metadata.NewOutgoingContext(ctx, md)
 	c.client = pbp.NewProvisioningApplianceServiceClient(conn)
+
+	// Send request to PA and wait for response that contains auth_token.
 	request := &pbp.InitSessionRequest{Sku: testSKUName, SkuAuth: testSKUAuth}
-	response, err := c.client.InitSession(ctx, request)
+	response, err := c.client.InitSession(client_ctx, request)
 	c.auth_token = response.SkuSessionToken
 	if err != nil {
 		return err
@@ -101,12 +107,13 @@ func (c *clientTask) setup(ctx context.Context) error {
 // produces a `callResult` which is sent to the `clientTask.results` channel.
 func (c *clientTask) run(ctx context.Context, numCalls int) {
 	// Prepare request and auth token.
-	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", c.auth_token)
+	md := metadata.Pairs("user_id", strconv.Itoa(c.id), "authorization", c.auth_token)
+	client_ctx := metadata.NewOutgoingContext(ctx, md)
 	request := &pbp.CreateKeyAndCertRequest{Sku: testSKUName}
 
 	// Send request to PA.
 	for i := 0; i < numCalls; i++ {
-		_, err := c.client.CreateKeyAndCert(ctx, request)
+		_, err := c.client.CreateKeyAndCert(client_ctx, request)
 		if err != nil {
 			log.Printf("error: client id: %d, error: %v", c.id, err)
 		}

@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	pbp "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
@@ -49,17 +50,28 @@ func NewProvisioningApplianceServer(spmClient pbs.SpmServiceClient, rbClient pbr
 // InitSession sends a SKU initialization request to the SPM and returns a
 // session token and associated PA endpoint.
 func (s *server) InitSession(ctx context.Context, request *pbp.InitSessionRequest) (*pbp.InitSessionResponse, error) {
+	// Generate a session token with the SPM.
 	r, err := s.spmClient.InitSession(ctx, request)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "SPM returned error: %v", err)
 	}
+
+	// Get authorization controller for the PA.
 	auth_controller, err := auth_service.GetInstance()
 	if err != nil {
 		log.Printf("internal error, try to reset pa server")
 		return nil, err
 	}
 
-	userID := auth_service.GetClientIP(ctx)
+	// Get context metadata.
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		log.Printf("metadata is not provided")
+		return nil, status.Errorf(codes.Unauthenticated, "metadata is not provided")
+	}
+
+	// Get userID and set session token.
+	userID := auth_service.GetUserID(ctx, md)
 	log.Printf("In PA InitSession: Add User: name = %s, token = %s, sku = %s", userID, r.SkuSessionToken, request.Sku)
 	_, err = auth_controller.AddUser(userID, r.SkuSessionToken, request.Sku, r.AuthMethods)
 	if err != nil {
@@ -67,6 +79,7 @@ func (s *server) InitSession(ctx context.Context, request *pbp.InitSessionReques
 	}
 
 	r.PaEndpoint = "TODO: SET_PA_ENDPOINT"
+
 	return r, nil
 }
 
@@ -74,17 +87,29 @@ func (s *server) InitSession(ctx context.Context, request *pbp.InitSessionReques
 // session token and associated PA endpoint.
 func (s *server) CloseSession(ctx context.Context, request *pbp.CloseSessionRequest) (*pbp.CloseSessionResponse, error) {
 	log.Printf("In PA CloseSession")
+
+	// Get authorization controller for the PA.
 	auth_controller, err := auth_service.GetInstance()
 	if err != nil {
 		log.Printf("internal error, try to reset pa server")
 		return nil, err
 	}
-	userID := auth_service.GetClientIP(ctx)
+
+	// Get context metadata.
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		log.Printf("metadata is not provided")
+		return nil, status.Errorf(codes.Unauthenticated, "metadata is not provided")
+	}
+
+	// Get userID and close session.
+	userID := auth_service.GetUserID(ctx, md)
 	user, err := auth_controller.RemoveUser(userID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to remove user: %v", err)
 	}
 	fmt.Println("Remove User: ", user)
+
 	return &pbp.CloseSessionResponse{}, nil
 }
 

@@ -31,9 +31,18 @@ func excludeMethodsList() []string {
 	return []string{"InitSession", "CloseSession"}
 }
 
-func GetClientIP(ctx context.Context) string {
+func getClientIP(ctx context.Context) string {
 	clientIP, _ := grpconn.ExtractClientIP(ctx)
 	return clientIP
+}
+
+func GetUserID(ctx context.Context, md metadata.MD) string {
+	userID := getClientIP(ctx)
+	clientProvidedUserID := md["user_id"]
+	if clientProvidedUserID != nil {
+		userID = clientProvidedUserID[0]
+	}
+	return userID
 }
 
 // Unary returns a server interceptor function to authenticate and authorize unary RPC
@@ -70,46 +79,49 @@ func hasSuffix(str_in string, str_list []string) (string, bool) {
 }
 
 func (interceptor *AuthInterceptor) authorize(ctx context.Context, method string) error {
-	// Check if the method is accessible to all
+	// Check if the method is accessible without authorization.
 	exclude_method, ok := hasSuffix(method, interceptor.excludeMethods)
 	if ok {
 		log.Printf("exit authorize, method = %v", exclude_method)
 		return nil
 	}
 
+	// Get authorization controller for the PA.
 	auth_controller, err := GetInstance()
 	if err != nil {
 		log.Printf("session is not initialized: %v", err)
 		return status.Errorf(codes.Internal, "session is not initialized: %v", err)
 	}
 
-	// get the host IP address and use it as userID
-	userID := GetClientIP(ctx)
-
-	user, err := auth_controller.FindUser(userID)
-	if err != nil {
-		log.Printf("user not found (user, err): %v , %v", user, err)
-		return status.Errorf(codes.Internal, "user not found (user, err): %v , %v", user, err)
-	}
-
+	// Get context metadata.
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		log.Printf("metadata is not provided")
 		return status.Errorf(codes.Unauthenticated, "metadata is not provided")
 	}
 
+	// Extract userID and lookup in memory store.
+	// If userID is not provided, use the host IP address as the userID.
+	userID := GetUserID(ctx, md)
+	user, err := auth_controller.FindUser(userID)
+	if err != nil {
+		log.Printf("user not found (user, err): %v , %v", user, err)
+		return status.Errorf(codes.Internal, "user not found (user, err): %v , %v", user, err)
+	}
+
+	// Extract authorization token and validate it.
 	values := md["authorization"]
 	if len(values) == 0 {
 		log.Printf("authorization token is not provided")
 		return status.Errorf(codes.Unauthenticated, "authorization token is not provided")
 	}
-
 	accessToken := values[0]
 	if user.sessionToken != accessToken {
 		log.Printf("incorrect access token")
 		return status.Errorf(codes.NotFound, "incorrect access token")
 	}
 
+	// Validate RPC function is accessible after authorization.
 	for _, accessible_method := range user.authMethods {
 		if strings.HasSuffix(method, accessible_method) {
 			log.Printf("exit authorize, method = %v", method)
