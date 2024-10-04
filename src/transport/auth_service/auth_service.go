@@ -46,11 +46,8 @@ func (ctrl *AuthController) RemoveUser(userID string) (*User, error) {
 }
 
 func (ctrl *AuthController) AddUser(userID, token, sku string, authMethods []string) (*User, error) {
-	log.Printf("In auth_service AddUser: recieved user ID =%s", userID)
-
 	user, err := ctrl.FindUser(userID)
 	if err == nil {
-		//User already exist
 		fmt.Println("Debug: AddUser: user already exist: ", user)
 		user, err = ctrl.RemoveUser(userID)
 	}

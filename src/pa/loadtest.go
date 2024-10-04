@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	pbp "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/grpconn"
@@ -51,9 +52,16 @@ type clientTask struct {
 	// results is a channel used to aggregate the results.
 	results chan *callResult
 
-	// delayPerCall is the delay applied between
+	// delayPerCall is the delay applied between.
 	delayPerCall time.Duration
-	client       pbp.ProvisioningApplianceServiceClient
+
+	// client is the ProvisioningAppliance service client.
+	client pbp.ProvisioningApplianceServiceClient
+
+	// auth_token is the authentication token used to invoke ProvisioningAppliance
+	// RPCs after a session has been opened and authenticated with the
+	// ProvisioningAppliance.
+	auth_token string
 }
 
 type callResult struct {
@@ -61,8 +69,9 @@ type callResult struct {
 	err error
 }
 
-// setup creates a connection to the ProvisioningAppliance server. The
-// connection supports the `enableTLS` flag and associated certificates.
+// setup creates a connection to the ProvisioningAppliance server, saving an
+// authentication token provided by the ProvisioningAppliance. The connection
+// supports the `enableTLS` flag and associated certificates.
 func (c *clientTask) setup(ctx context.Context) error {
 	opts := grpc.WithInsecure()
 	if *enableTLS {
@@ -79,9 +88,9 @@ func (c *clientTask) setup(ctx context.Context) error {
 	}
 
 	c.client = pbp.NewProvisioningApplianceServiceClient(conn)
-
 	request := &pbp.InitSessionRequest{Sku: testSKUName, SkuAuth: testSKUAuth}
-	_, err = c.client.InitSession(ctx, request)
+	response, err := c.client.InitSession(ctx, request)
+	c.auth_token = response.SkuSessionToken
 	if err != nil {
 		return err
 	}
@@ -91,7 +100,11 @@ func (c *clientTask) setup(ctx context.Context) error {
 // run executes the CreateKeyAndCertRequest call for a `numCalls` total and
 // produces a `callResult` which is sent to the `clientTask.results` channel.
 func (c *clientTask) run(ctx context.Context, numCalls int) {
+	// Prepare request and auth token.
+	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", c.auth_token)
 	request := &pbp.CreateKeyAndCertRequest{Sku: testSKUName}
+
+	// Send request to PA.
 	for i := 0; i < numCalls; i++ {
 		_, err := c.client.CreateKeyAndCert(ctx, request)
 		if err != nil {
