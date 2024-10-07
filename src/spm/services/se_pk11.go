@@ -53,8 +53,8 @@ func (q *sessionQueue) insert(s *pk11.Session) error {
 // getHandle returns a session from the queue and a release function to
 // get the session back into the queue. Recommended use:
 //
-//  session, release := s.getHandle()
-//  defer release()
+//	session, release := s.getHandle()
+//	defer release()
 //
 // Note: failing to call the release function can result into deadlocks
 // if the queue remains empty after calling the `insert` function.
@@ -87,6 +87,12 @@ type HSMConfig struct {
 	// KcaName is the KCA key label used to find the key in the HSM.
 	KcaName string
 
+	// KHsksName is the HighSecKdfSeed key label used to find the key in the HSM.
+	KHsksName string
+
+	// KLsksName is the LowSecKdfSeed key label used to find the key in the HSM.
+	KLsksName string
+
 	// hsmType contains the type of the HSM (SoftHSM or NetworkHSM)
 	HSMType pk11.HSMType
 }
@@ -101,7 +107,7 @@ type HSM struct {
 	//
 	// May be nil if those keys are not present and not used by any of the called
 	// methods.
-	KG, KT, Kca []byte
+	KG, KT, Kca, KHsks, KLsks []byte
 
 	// The PKCS#11 session we're working with.
 	sessions *sessionQueue
@@ -167,6 +173,18 @@ func NewHSM(cfg HSMConfig) (*HSM, error) {
 		hsm.KG, err = hsm.getKeyIDByLabel(session, pk11.ClassSecretKey, cfg.KGName)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "fail to find KG key ID: %q, error: %v", cfg.KGName, err)
+		}
+	}
+	if cfg.KHsksName != "" {
+		hsm.KHsks, err = hsm.getKeyIDByLabel(session, pk11.ClassSecretKey, cfg.KHsksName)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "fail to find KHsks key ID: %q, error: %v", cfg.KHsksName, err)
+		}
+	}
+	if cfg.KLsksName != "" {
+		hsm.KLsks, err = hsm.getKeyIDByLabel(session, pk11.ClassSecretKey, cfg.KLsksName)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "fail to find KLsks key ID: %q, error: %v", cfg.KLsksName, err)
 		}
 	}
 
@@ -313,4 +331,53 @@ func (h *HSM) GenerateKeyPairAndCert(caCert *x509.Certificate, params []SigningP
 	}
 
 	return certs, nil
+}
+
+// GenerateSymmetricKey generates a symmetric key.
+func (h *HSM) GenerateSymmetricKey(params []*SymmetricKeygenParams) ([]pk11.AESKey, error) {
+	session, release := h.sessions.getHandle()
+	defer release()
+	var symmetricKeys []pk11.AESKey
+
+	for _, p := range params {
+		// Select the seed asset to use (High or Low security seed).
+		var seed pk11.SecretKey
+		var err error
+		if p.UseHighSecuritySeed {
+			seed, err = session.FindSecretKey(h.KHsks)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to get KHsks key object: %v", err)
+			}
+		} else {
+			seed, err = session.FindSecretKey(h.KLsks)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to get KLsks key object: %v", err)
+			}
+		}
+
+		// Generate key from seed and extract.
+		seKey, err := seed.HKDFDeriveAES(crypto.SHA256, []byte(p.Sku),
+			[]byte(p.Diversifier), p.SizeInBits, &pk11.KeyOptions{Extractable: true})
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed HKDFDeriveAES: %v", err)
+		}
+
+		// Extract the key from the SE.
+		exportedKey, err := seKey.ExportKey()
+		if err != nil {
+			return nil, status.Errorf(codes.Internal,
+				"failed to extract symmetric key: %v", err)
+		}
+
+		// Parse and format the key bytes.
+		keyBytes, ok := exportedKey.(pk11.AESKey)
+		if !ok {
+			return nil, status.Errorf(codes.Internal,
+				"failed to parse extracted symmetric key: %v", err)
+		}
+		// TODO: format it based on type (i.e. LC token or RAW)
+		symmetricKeys = append(symmetricKeys, keyBytes)
+	}
+
+	return symmetricKeys, nil
 }

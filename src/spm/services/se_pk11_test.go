@@ -11,6 +11,9 @@ import (
 	"crypto/elliptic"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/hex"
+	"io"
+	"log"
 	"math/rand"
 	"testing"
 	"time"
@@ -30,34 +33,123 @@ import (
 //
 // Returns the hsm, the (host-side) bytes of the KG, and the (host-side) bytes
 // of the KT.
-func MakeHSM(t *testing.T) (*HSM, []byte, []byte) {
+func MakeHSM(t *testing.T) (*HSM, []byte, []byte, []byte, []byte) {
 	t.Helper()
 	s := ts.GetSession(t)
 	ts.Check(t, s.Login(pk11.NormalUser, ts.UserPin))
 
+	// Initialize HSM with KG.
 	global, err := s.GenerateAES(256, &pk11.KeyOptions{Extractable: true})
 	ts.Check(t, err)
 	gUID, err := global.UID()
 	ts.Check(t, err)
-	globalBytes, err := global.ExportKey()
+	globalKeyBytes, err := global.ExportKey()
 	ts.Check(t, err)
 
-	secret := []byte("this is secret data for generating keys from")
-	transport, err := s.ImportKeyMaterial(secret, &pk11.KeyOptions{Extractable: true})
+	// Initialize HSM with KT.
+	transportKeySeed := []byte("this is secret data for generating keys from")
+	transport, err := s.ImportKeyMaterial(transportKeySeed, &pk11.KeyOptions{Extractable: true})
 	ts.Check(t, err)
 	tUID, err := transport.UID()
 	ts.Check(t, err)
 
+	// Initialize HSM with KHsks.
+	hsKeySeed := []byte("high security KDF seed")
+	hsks, err := s.ImportKeyMaterial(hsKeySeed, &pk11.KeyOptions{Extractable: false})
+	ts.Check(t, err)
+	hsksUID, err := hsks.UID()
+	ts.Check(t, err)
+
+	// Initialize HSM with KLsks.
+	lsKeySeed := []byte("low security KDF seed")
+	lsks, err := s.ImportKeyMaterial(lsKeySeed, &pk11.KeyOptions{Extractable: false})
+	ts.Check(t, err)
+	lsksUID, err := lsks.UID()
+	ts.Check(t, err)
+
+	// Initialize session queue.
 	numSessions := 1
 	sessions := newSessionQueue(numSessions)
 	err = sessions.insert(s)
 	ts.Check(t, err)
 
-	return &HSM{KG: gUID, KT: tUID, sessions: sessions}, []byte(globalBytes.(pk11.AESKey)), secret
+	return &HSM{KG: gUID, KT: tUID, KHsks: hsksUID, KLsks: lsksUID, sessions: sessions},
+		[]byte(globalKeyBytes.(pk11.AESKey)),
+		transportKeySeed,
+		hsKeySeed,
+		lsKeySeed
+}
+
+func TestGenerateSymmKey(t *testing.T) {
+	hsm, _, _, hsKeySeed, lsKeySeed := MakeHSM(t)
+
+	// Symmetric keygen parameters.
+	// test unlock token
+	testUnlockTokenParams := SymmetricKeygenParams{
+		UseHighSecuritySeed: false,
+		KeyType:             SymmetricKeyTypeRaw,
+		SizeInBits:          128,
+		Sku:                 "test sku",
+		Diversifier:         "test_unlock",
+	}
+	// test exit token
+	testExitTokenParams := SymmetricKeygenParams{
+		UseHighSecuritySeed: false,
+		KeyType:             SymmetricKeyTypeRaw,
+		SizeInBits:          128,
+		Sku:                 "test sku",
+		Diversifier:         "test_exit",
+	}
+	// RMA token
+	rmaTokenParams := SymmetricKeygenParams{
+		UseHighSecuritySeed: true,
+		KeyType:             SymmetricKeyTypeRaw,
+		SizeInBits:          128,
+		Sku:                 "test sku",
+		Diversifier:         "rma: device_id",
+	}
+	// wafer authentication secret
+	wasParams := SymmetricKeygenParams{
+		UseHighSecuritySeed: true,
+		KeyType:             SymmetricKeyTypeRaw,
+		SizeInBits:          256,
+		Sku:                 "test sku",
+		Diversifier:         "was",
+	}
+	params := []*SymmetricKeygenParams{
+		&testUnlockTokenParams,
+		&testExitTokenParams,
+		&rmaTokenParams,
+		&wasParams,
+	}
+
+	// Generate the actual keys (using the HSM).
+	keys, err := hsm.GenerateSymmetricKey(params)
+	ts.Check(t, err)
+
+	// Check actual keys match those generated using the go crypto package.
+	for i, p := range params {
+		// Generate expected key.
+		var keyGenerator io.Reader
+		if p.UseHighSecuritySeed {
+			keyGenerator = hkdf.New(crypto.SHA256.New, hsKeySeed, []byte(p.Sku), []byte(p.Diversifier))
+		} else {
+			keyGenerator = hkdf.New(crypto.SHA256.New, lsKeySeed, []byte(p.Sku), []byte(p.Diversifier))
+		}
+		expected_key := make([]byte, len(keys[i]))
+		keyGenerator.Read(expected_key)
+
+		// Check the actual and expected keys are equal.
+		log.Printf("Actual   Key: %q", hex.EncodeToString(keys[i]))
+		log.Printf("Expected Key: %q", hex.EncodeToString(expected_key))
+		if !bytes.Equal(keys[i], expected_key) {
+			t.Fatal("symmetric keygen failed")
+		}
+	}
 }
 
 func TestTransport(t *testing.T) {
-	hsm, kg, kt := MakeHSM(t)
+	hsm, kg, kt, _, _ := MakeHSM(t)
 
 	key, err := hsm.DeriveAndWrapTransportSecret([]byte("my device id"))
 	ts.Check(t, err)
@@ -85,7 +177,7 @@ func CreateCAKeys(t *testing.T, hsm *HSM) (pk11.KeyPair, error) {
 }
 
 func TestGenerateCert(t *testing.T) {
-	hsm, kg, _ := MakeHSM(t)
+	hsm, kg, _, _, _ := MakeHSM(t)
 
 	ca, err := CreateCAKeys(t, hsm)
 	ts.Check(t, err)

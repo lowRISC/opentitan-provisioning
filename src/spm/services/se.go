@@ -8,6 +8,7 @@ package se
 
 import (
 	"crypto/x509"
+	"github.com/lowRISC/opentitan-provisioning/src/pk11"
 )
 
 // Parameters for generating an RSA keypair.
@@ -27,6 +28,20 @@ type SigningParams struct {
 // The return type of GenerateKeyPairAndCert().
 type CertInfo struct {
 	WrappedKey, Iv, Cert []byte
+}
+
+const (
+	SymmetricKeyTypeRaw = iota
+	SymmetricKeyTypeHashedOtLcToken
+)
+
+// Parameters for GenerateSymmetricKey().
+type SymmetricKeygenParams struct {
+	UseHighSecuritySeed bool
+	KeyType             uint
+	SizeInBits          uint
+	Sku                 string
+	Diversifier         string
 }
 
 // SE is an interface representing a secure element, which may be implemented
@@ -49,6 +64,15 @@ type SE interface {
 	// is returned, the returned slice will contain all certificates that were
 	// successfully generated up until that point.
 	GenerateKeyPairAndCert(caCert *x509.Certificate, params []SigningParams) ([]CertInfo, error)
+
+	// Generates symmetric keys.
+	//
+	// These keys are generated via the HKDF mechanism and may be used as:
+	//   - Wafer Authentication Secrets, or
+	//   - Lifecycle Tokens.
+	//
+	// Returns: slice of AESKey objects.
+	GenerateSymmetricKey(params []*SymmetricKeygenParams) ([]pk11.AESKey, error)
 
 	// GenerateRandom returns random data extracted from the HSM.
 	GenerateRandom(length int) ([]byte, error)
