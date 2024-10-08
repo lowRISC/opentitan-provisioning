@@ -269,8 +269,8 @@ func (s *server) CreateKeyAndCert(ctx context.Context, request *pbp.CreateKeyAnd
 	}, nil
 }
 
-// DeriveSymmetricKey generates a symmetric key from a seed and diversification string.
-func (s *server) DeriveSymmetricKey(ctx context.Context, request *pbp.DeriveSymmetricKeyRequest) (*pbp.DeriveSymmetricKeyResponse, error) {
+// DeriveSymmetricKeys generates a symmetric key from a seed and diversification string.
+func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSymmetricKeysRequest) (*pbp.DeriveSymmetricKeysResponse, error) {
 	// Acquire mutex before accessing SKU configuration.
 	s.muSKU.RLock()
 	defer s.muSKU.RUnlock()
@@ -280,55 +280,56 @@ func (s *server) DeriveSymmetricKey(ctx context.Context, request *pbp.DeriveSymm
 			"unable to find sku %q. Try calling InitSession first", request.Sku)
 	}
 
-	// Retrieve seed configuration.
-	var useHighSecSeed bool
-	if request.Seed == pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_HIGH_SECURITY {
-		useHighSecSeed = true
-	} else if request.Seed == pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_LOW_SECURITY {
-		useHighSecSeed = false
-	} else {
-		return nil, status.Errorf(codes.InvalidArgument,
-			"invalid key seed requested: %d", request.Seed)
+	// Build parameter list for all keygens requested.
+	var keygenParams []*se.SymmetricKeygenParams
+	for _, p := range request.Params {
+		params := new(se.SymmetricKeygenParams)
+
+		// Retrieve seed configuration.
+		if p.Seed == pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_HIGH_SECURITY {
+			params.UseHighSecuritySeed = true
+		} else if p.Seed == pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_LOW_SECURITY {
+			params.UseHighSecuritySeed = false
+		} else {
+			return nil, status.Errorf(codes.InvalidArgument,
+				"invalid key seed requested: %d", p.Seed)
+		}
+
+		// Retrieve key size.
+		if p.Size == pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS {
+			params.SizeInBits = 128
+		} else if p.Size == pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_256_BITS {
+			params.SizeInBits = 256
+		} else {
+			return nil, status.Errorf(codes.InvalidArgument,
+				"invalid key size requested: %d", p.Size)
+		}
+
+		// Retrieve key type.
+		if p.Type == pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW {
+			params.KeyType = se.SymmetricKeyTypeRaw
+		} else if p.Type == pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_HASHED_OT_LC_TOKEN {
+			params.KeyType = se.SymmetricKeyTypeHashedOtLcToken
+		} else {
+			return nil, status.Errorf(codes.InvalidArgument,
+				"invalid key type requested: %d", p.Type)
+		}
+
+		// Set sku and diversifier strings.
+		params.Sku = request.Sku
+		params.Diversifier = p.Diversifier
+
+		keygenParams = append(keygenParams, params)
 	}
 
-	// Retrieve key size.
-	var keySizeInBits uint
-	if request.Size == pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS {
-		keySizeInBits = 128
-	} else if request.Size == pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_256_BITS {
-		keySizeInBits = 256
-	} else {
-		return nil, status.Errorf(codes.InvalidArgument,
-			"invalid key size requested: %d", request.Size)
-	}
-
-	// Retrieve key type.
-	var keyType uint
-	if request.Type == pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW {
-		keyType = se.SymmetricKeyTypeRaw
-	} else if request.Type == pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_HASHED_OT_LC_TOKEN {
-		keyType = se.SymmetricKeyTypeHashedOtLcToken
-	} else {
-		return nil, status.Errorf(codes.InvalidArgument,
-			"invalid key type requested: %d", request.Type)
-	}
-
-	// Generate the symmetric key.
-	p := se.SymmetricKeygenParams{
-		UseHighSecuritySeed: useHighSecSeed,
-		KeyType:             keyType,
-		SizeInBits:          keySizeInBits,
-		Sku:                 request.Sku,
-		Diversifier:         request.Diversifier,
-	}
-	keygenParams := []*se.SymmetricKeygenParams{&p}
-	keys, err := sku.seHandle.GenerateSymmetricKey(keygenParams)
+	// Generate the symmetric keys.
+	keys, err := sku.seHandle.GenerateSymmetricKeys(keygenParams)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not generate symmetric key: %s", err)
 	}
 
-	return &pbp.DeriveSymmetricKeyResponse{
-		Key: keys[0],
+	return &pbp.DeriveSymmetricKeysResponse{
+		Keys: keys,
 	}, nil
 }
 

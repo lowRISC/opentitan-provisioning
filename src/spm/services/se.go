@@ -8,7 +8,6 @@ package se
 
 import (
 	"crypto/x509"
-	"github.com/lowRISC/opentitan-provisioning/src/pk11"
 )
 
 // Parameters for generating an RSA keypair.
@@ -35,7 +34,7 @@ const (
 	SymmetricKeyTypeHashedOtLcToken
 )
 
-// Parameters for GenerateSymmetricKey().
+// Parameters for GenerateSymmetricKeys().
 type SymmetricKeygenParams struct {
 	UseHighSecuritySeed bool
 	KeyType             uint
@@ -72,7 +71,7 @@ type SE interface {
 	//   - Lifecycle Tokens.
 	//
 	// Returns: slice of AESKey objects.
-	GenerateSymmetricKey(params []*SymmetricKeygenParams) ([]pk11.AESKey, error)
+	GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([][]byte, error)
 
 	// GenerateRandom returns random data extracted from the HSM.
 	GenerateRandom(length int) ([]byte, error)

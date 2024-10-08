@@ -32,11 +32,11 @@ service SpmService {
   rpc CreateKeyAndCert(pa.CreateKeyAndCertRequest)
       returns (pa.CreateKeyAndCertResponse) {}
 
-  // DeriveSymmetricKey generates a symmetric key from the following inputs:
+  // DeriveSymmetricKeys generates symmetric keys from the following inputs:
   //   - a seed type (that matches a seed pre-provisioned in the SPM),
   //   - a key type (raw or cSHAKE128 hashed OpenTitan LC token),
   //   - a size, and
   //   - a diversifier string.
-  rpc DeriveSymmetricKey(pa.DeriveSymmetricKeyRequest)
-      returns (pa.DeriveSymmetricKeyResponse) {}
+  rpc DeriveSymmetricKeys(pa.DeriveSymmetricKeysRequest)
+      returns (pa.DeriveSymmetricKeysResponse) {}
 }

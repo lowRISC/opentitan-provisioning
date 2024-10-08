@@ -117,23 +117,46 @@ func (c *clientTask) tpm_run(ctx context.Context, numCalls int) {
 	}
 }
 
-// ot_run executes the DeriveSymmetricKey call for a `numCalls` total and
+// ot_run executes the DeriveSymmetricKeys call for a `numCalls` total and
 // produces a `callResult` which is sent to the `clientTask.results` channel.
 func (c *clientTask) ot_run(ctx context.Context, numCalls int) {
 	// Prepare request and auth token.
 	md := metadata.Pairs("user_id", strconv.Itoa(c.id), "authorization", c.auth_token)
 	client_ctx := metadata.NewOutgoingContext(ctx, md)
-	request := &pbp.DeriveSymmetricKeyRequest{
-		Sku:         *testSKUName,
-		Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_LOW_SECURITY,
-		Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW,
-		Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS,
-		Diversifier: "test_unlock",
+
+	request := &pbp.DeriveSymmetricKeysRequest{
+		Sku: *testSKUName,
+		Params: []*pbp.SymmetricKeygenParams{
+			&pbp.SymmetricKeygenParams{
+				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_LOW_SECURITY,
+				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW,
+				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS,
+				Diversifier: "test_unlock",
+			},
+			&pbp.SymmetricKeygenParams{
+				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_LOW_SECURITY,
+				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW,
+				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS,
+				Diversifier: "test_exit",
+			},
+			&pbp.SymmetricKeygenParams{
+				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_HIGH_SECURITY,
+				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW,
+				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS,
+				Diversifier: "rma,device_id",
+			},
+			&pbp.SymmetricKeygenParams{
+				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_HIGH_SECURITY,
+				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW,
+				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_256_BITS,
+				Diversifier: "was,device_id",
+			},
+		},
 	}
 
 	// Send request to PA.
 	for i := 0; i < numCalls; i++ {
-		_, err := c.client.DeriveSymmetricKey(client_ctx, request)
+		_, err := c.client.DeriveSymmetricKeys(client_ctx, request)
 		if err != nil {
 			log.Printf("error: client id: %d, error: %v", c.id, err)
 		}

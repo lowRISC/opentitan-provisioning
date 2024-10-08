@@ -133,11 +133,11 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 	return nil, nil
 }
 
-// DeriveSymmetricKey generates a symmetric key from a seed (pre-provisioned in
+// DeriveSymmetricKeys generates a symmetric key from a seed (pre-provisioned in
 // the SPM/HSM) and diversifier string.
-func (s *server) DeriveSymmetricKey(ctx context.Context, request *pbp.DeriveSymmetricKeyRequest) (*pbp.DeriveSymmetricKeyResponse, error) {
-	log.Printf("In PA - Recieved DeriveSymmetricKey request with diversifier string: %s", request.Diversifier)
-	r, err := s.spmClient.DeriveSymmetricKey(ctx, request)
+func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSymmetricKeysRequest) (*pbp.DeriveSymmetricKeysResponse, error) {
+	log.Printf("In PA - Recieved DeriveSymmetricKeys request")
+	r, err := s.spmClient.DeriveSymmetricKeys(ctx, request)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "SPM returned error: %v", err)
 	}

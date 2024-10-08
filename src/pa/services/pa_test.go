@@ -61,9 +61,9 @@ func (c *fakeRbClient) RegisterDevice(ctx context.Context, request *pbp.Registra
 // fakeSpmClient provides a fake client interface to the SPM server. Test
 // cases can set the fake responses as part of the test setup.
 type fakeSpmClient struct {
-	initSession        initSessionResponse
-	createKeyAndCert   createKeyAndCertFakeResponse
-	deriveSymmetricKey deriveSymmetricKeyResponse
+	initSession         initSessionResponse
+	createKeyAndCert    createKeyAndCertFakeResponse
+	deriveSymmetricKeys deriveSymmetricKeysResponse
 }
 
 type initSessionResponse struct {
@@ -76,8 +76,8 @@ type createKeyAndCertFakeResponse struct {
 	err      error
 }
 
-type deriveSymmetricKeyResponse struct {
-	response *pbp.DeriveSymmetricKeyResponse
+type deriveSymmetricKeysResponse struct {
+	response *pbp.DeriveSymmetricKeysResponse
 	err      error
 }
 
@@ -89,8 +89,8 @@ func (c *fakeSpmClient) CreateKeyAndCert(ctx context.Context, request *pbp.Creat
 	return c.createKeyAndCert.response, c.createKeyAndCert.err
 }
 
-func (c *fakeSpmClient) DeriveSymmetricKey(ctx context.Context, request *pbp.DeriveSymmetricKeyRequest, opts ...grpc.CallOption) (*pbp.DeriveSymmetricKeyResponse, error) {
-	return c.deriveSymmetricKey.response, c.deriveSymmetricKey.err
+func (c *fakeSpmClient) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSymmetricKeysRequest, opts ...grpc.CallOption) (*pbp.DeriveSymmetricKeysResponse, error) {
+	return c.deriveSymmetricKeys.response, c.deriveSymmetricKeys.err
 }
 
 func TestCreateKeyAndCert(t *testing.T) {
@@ -168,9 +168,9 @@ func TestDeriveSymmetricKey(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		request     *pbp.DeriveSymmetricKeyRequest
+		request     *pbp.DeriveSymmetricKeysRequest
 		expCode     codes.Code
-		spmResponse *pbp.DeriveSymmetricKeyResponse
+		spmResponse *pbp.DeriveSymmetricKeysResponse
 		spmError    error
 	}{
 		{
@@ -179,26 +179,26 @@ func TestDeriveSymmetricKey(t *testing.T) {
 			// logic added to the PA service.
 			name:        "ok",
 			expCode:     codes.OK,
-			request:     &pbp.DeriveSymmetricKeyRequest{},
-			spmResponse: &pbp.DeriveSymmetricKeyResponse{},
+			request:     &pbp.DeriveSymmetricKeysRequest{},
+			spmResponse: &pbp.DeriveSymmetricKeysResponse{},
 			spmError:    nil,
 		},
 		{
 			// SPM errors are converted to code.Internal.
 			name:        "spm_error",
 			expCode:     codes.Internal,
-			request:     &pbp.DeriveSymmetricKeyRequest{},
-			spmResponse: &pbp.DeriveSymmetricKeyResponse{},
+			request:     &pbp.DeriveSymmetricKeysRequest{},
+			spmResponse: &pbp.DeriveSymmetricKeysResponse{},
 			spmError:    status.Errorf(codes.InvalidArgument, "invalid argument"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			spmClient.deriveSymmetricKey.response = tt.spmResponse
-			spmClient.deriveSymmetricKey.err = tt.spmError
+			spmClient.deriveSymmetricKeys.response = tt.spmResponse
+			spmClient.deriveSymmetricKeys.err = tt.spmError
 
-			got, err := client.DeriveSymmetricKey(ctx, tt.request)
+			got, err := client.DeriveSymmetricKeys(ctx, tt.request)
 			s, ok := status.FromError(err)
 			if !ok {
 				t.Fatal("unable to extract status code from error")

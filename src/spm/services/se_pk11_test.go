@@ -80,7 +80,7 @@ func MakeHSM(t *testing.T) (*HSM, []byte, []byte, []byte, []byte) {
 		lsKeySeed
 }
 
-func TestGenerateSymmKey(t *testing.T) {
+func TestGenerateSymmKeys(t *testing.T) {
 	hsm, _, _, hsKeySeed, lsKeySeed := MakeHSM(t)
 
 	// Symmetric keygen parameters.
@@ -124,7 +124,7 @@ func TestGenerateSymmKey(t *testing.T) {
 	}
 
 	// Generate the actual keys (using the HSM).
-	keys, err := hsm.GenerateSymmetricKey(params)
+	keys, err := hsm.GenerateSymmetricKeys(params)
 	ts.Check(t, err)
 
 	// Check actual keys match those generated using the go crypto package.

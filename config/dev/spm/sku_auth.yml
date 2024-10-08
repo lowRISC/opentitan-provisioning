@@ -6,7 +6,7 @@ skuAuthCfgList:
   "sival":
     # bcrypt hash of "test_password" (used by .../pa/loadtest.go)
     skuAuth: "$2a$10$7ZjR5zTQpig.aomnunzte.Ve1eW4GT2ACx1iy4fxtfzysprfrNMfG"
-    methods: ["DeriveSymmetricKey"]
+    methods: ["DeriveSymmetricKeys"]
   "tpm_1":
     # bcrypt hash of "test_password" (used by .../pa/loadtest.go)
     skuAuth: "$2a$10$7ZjR5zTQpig.aomnunzte.Ve1eW4GT2ACx1iy4fxtfzysprfrNMfG"

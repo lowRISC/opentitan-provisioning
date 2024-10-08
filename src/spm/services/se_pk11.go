@@ -333,11 +333,11 @@ func (h *HSM) GenerateKeyPairAndCert(caCert *x509.Certificate, params []SigningP
 	return certs, nil
 }
 
-// GenerateSymmetricKey generates a symmetric key.
-func (h *HSM) GenerateSymmetricKey(params []*SymmetricKeygenParams) ([]pk11.AESKey, error) {
+// GenerateSymmetricKeys generates a symmetric key.
+func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([][]byte, error) {
 	session, release := h.sessions.getHandle()
 	defer release()
-	var symmetricKeys []pk11.AESKey
+	var symmetricKeys [][]byte
 
 	for _, p := range params {
 		// Select the seed asset to use (High or Low security seed).
@@ -370,11 +370,12 @@ func (h *HSM) GenerateSymmetricKey(params []*SymmetricKeygenParams) ([]pk11.AESK
 		}
 
 		// Parse and format the key bytes.
-		keyBytes, ok := exportedKey.(pk11.AESKey)
+		aesKey, ok := exportedKey.(pk11.AESKey)
 		if !ok {
 			return nil, status.Errorf(codes.Internal,
-				"failed to parse extracted symmetric key: %v", err)
+				"failed to parse extracted symmetric key: %v", ok)
 		}
+		keyBytes := []byte(aesKey)
 		// TODO: format it based on type (i.e. LC token or RAW)
 		symmetricKeys = append(symmetricKeys, keyBytes)
 	}

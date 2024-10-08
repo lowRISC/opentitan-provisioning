@@ -23,8 +23,8 @@ service ProvisioningApplianceService {
     returns (CreateKeyAndCertResponse) {}
   rpc EndorseCerts(EndorseCertsRequest)
     returns (EndorseCertsResponse) {}
-  rpc DeriveSymmetricKey(DeriveSymmetricKeyRequest)
-    returns (DeriveSymmetricKeyResponse) {}
+  rpc DeriveSymmetricKeys(DeriveSymmetricKeysRequest)
+    returns (DeriveSymmetricKeysResponse) {}
   rpc SendDeviceRegistrationPayload(RegistrationRequest)
     returns (RegistrationResponse) {}
 }
@@ -87,24 +87,29 @@ enum SymmetricKeySize {
   SYMMETRIC_KEY_SIZE_256_BITS = 2;
 }
 
-// Derive symmetric key request.
-message DeriveSymmetricKeyRequest{
-  // SKU identifier. Required.
-  string sku = 1;
+message SymmetricKeygenParams{
   // Symmetric key seed to use. Required.
-  SymmetricKeySeed seed = 2;
+  SymmetricKeySeed seed = 1;
   // Symmetric key type to generate. Required.
-  SymmetricKeyType type = 3;
+  SymmetricKeyType type = 2;
   // Symmetric key size. Required.
-  SymmetricKeySize size = 4;
+  SymmetricKeySize size = 3;
   // Diversifier string to use in KDF operation. Required.
-  string diversifier = 5;
+  string diversifier = 4;
 }
 
-// Derive symmetric key response.
-message DeriveSymmetricKeyResponse{
+// Derive symmetric keys request.
+message DeriveSymmetricKeysRequest{
+  // SKU identifier. Required.
+  string sku = 1;
+  // Key generation parameters. Required.
+  repeated SymmetricKeygenParams params = 2;
+}
+
+// Derive symmetric keys response.
+message DeriveSymmetricKeysResponse{
   // Key bytes. Size is provided in the request.
-  bytes key = 1;
+  repeated bytes keys = 1;
 }
 
 // Create key and endorsement certificates request.
