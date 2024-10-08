@@ -2,12 +2,15 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-# lowRISC Linters and release process
+# lowRISC linters and release process.
 load("//third_party/lowrisc:repos.bzl", "lowrisc_repos")
 lowrisc_repos()
-load("//third_party/lowrisc:deps.bzl", "lowrisc_deps")
-lowrisc_deps()
-
+# Release process.
+load("@lowrisc_bazel_release//:repos.bzl", "lowrisc_bazel_release_repos")
+lowrisc_bazel_release_repos()
+load("@lowrisc_bazel_release//:deps.bzl", "lowrisc_bazel_release_deps")
+lowrisc_bazel_release_deps()
+# Linters.
 # The linter deps need to be loaded like this to get the python and PIP
 # dependencies established in the proper order.
 load("@lowrisc_misc_linters//rules:repos.bzl", "lowrisc_misc_linters_repos")
@@ -41,8 +44,8 @@ go_deps()
 load("//third_party/lint:repos.bzl", "lint_repos")
 lint_repos()
 
-# All of the Google repositories we need:
-# BoringSSL, RE2, GoogleTest, Protobuf Matchers, ABSL, Protobuf, GRPC.
+# Google dependencies.
+# BoringSSL, RE2, GoogleTest, Protobuf Matchers, ABSL, Protobuf, gRPC.
 load("//third_party/google:repos.bzl", "google_repos")
 google_repos()
 # Load the deps from the Google repos in the correct order.
@@ -53,14 +56,17 @@ grpc_deps()
 load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
 grpc_extra_deps()
 
+# Foreign CC and packaging/release rules.
 load("//third_party/bazel:repos.bzl", "bazel_repos")
 bazel_repos()
 load("//third_party/bazel:deps.bzl", "bazel_deps")
 bazel_deps()
 
+# SoftHSM2.
 load("//third_party/softhsm2:deps.bzl", "softhsm2_deps")
 softhsm2_deps()
 
+# Docker rules.
 load("//third_party/docker:repos.bzl", "docker_repos")
 docker_repos()
 load("//third_party/docker:deps.bzl", "docker_deps")
