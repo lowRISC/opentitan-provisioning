@@ -60,6 +60,7 @@ go_library(
         "//src/pk11",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
+        "@org_golang_x_crypto//sha3",
     ],
 )
 
@@ -76,5 +77,6 @@ go_test(
         "@com_github_google_go_cmp//cmp",
         "@com_github_google_tink_go//kwp/subtle:go_default_library",
         "@org_golang_x_crypto//hkdf",
+        "@org_golang_x_crypto//sha3",
     ],
 )

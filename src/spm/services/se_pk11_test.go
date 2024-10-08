@@ -21,6 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	kwp "github.com/google/tink/go/kwp/subtle"
 	"golang.org/x/crypto/hkdf"
+	"golang.org/x/crypto/sha3"
 
 	"github.com/lowRISC/opentitan-provisioning/src/cert/signer"
 	"github.com/lowRISC/opentitan-provisioning/src/cert/templates/tpm"
@@ -103,7 +104,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 	// RMA token
 	rmaTokenParams := SymmetricKeygenParams{
 		UseHighSecuritySeed: true,
-		KeyType:             SymmetricKeyTypeRaw,
+		KeyType:             SymmetricKeyTypeHashedOtLcToken,
 		SizeInBits:          128,
 		Sku:                 "test sku",
 		Diversifier:         "rma: device_id",
@@ -138,6 +139,11 @@ func TestGenerateSymmKeys(t *testing.T) {
 		}
 		expected_key := make([]byte, len(keys[i]))
 		keyGenerator.Read(expected_key)
+		if p.KeyType == SymmetricKeyTypeHashedOtLcToken {
+			hasher := sha3.NewCShake128([]byte(""), []byte("LC_CTRL"))
+			hasher.Write(expected_key)
+			hasher.Read(expected_key)
+		}
 
 		// Check the actual and expected keys are equal.
 		log.Printf("Actual   Key: %q", hex.EncodeToString(keys[i]))

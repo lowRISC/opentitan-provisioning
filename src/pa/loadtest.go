@@ -141,7 +141,7 @@ func (c *clientTask) ot_run(ctx context.Context, numCalls int) {
 			},
 			&pbp.SymmetricKeygenParams{
 				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_HIGH_SECURITY,
-				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW,
+				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_HASHED_OT_LC_TOKEN,
 				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS,
 				Diversifier: "rma,device_id",
 			},

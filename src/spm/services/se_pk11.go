@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"golang.org/x/crypto/sha3"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -376,7 +377,14 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([][]byte, 
 				"failed to parse extracted symmetric key: %v", ok)
 		}
 		keyBytes := []byte(aesKey)
-		// TODO: format it based on type (i.e. LC token or RAW)
+		if p.KeyType == SymmetricKeyTypeHashedOtLcToken {
+			// OpenTitan lifecycle tokens are stored in OTP in hashed form using the
+			// cSHAKE128 algorithm with the "LC_CTRL" customization string.
+			hasher := sha3.NewCShake128([]byte(""), []byte("LC_CTRL"))
+			hasher.Write(keyBytes)
+			hasher.Read(keyBytes)
+		}
+
 		symmetricKeys = append(symmetricKeys, keyBytes)
 	}
 
