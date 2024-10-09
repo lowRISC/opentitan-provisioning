@@ -49,5 +49,6 @@ def docker_deps():
         name = "container_softhsm2",
         registry = "us-docker.pkg.dev/opentitan/opentitan-public",
         repository = "ot-prov-softhsm2",
+        digest = "sha256:b7da668a27ffe47a7da34a476bbb2acf59ac390cb9f7b166d76aa437c61088d6",
         tag = "latest",
     )
