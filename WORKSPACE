@@ -34,16 +34,17 @@ crt_register_toolchains(
     win64 = True,
 )
 
-# Google dependencies.
-# BoringSSL, RE2, GoogleTest, Protobuf Matchers, ABSL.
-load("//third_party/google:repos.bzl", "google_repos")
-google_repos()
-
+# Go dependencies.
 # gazelle:repository_macro third_party/go/deps.bzl%go_packages_
 load("//third_party/go:repos.bzl", "go_repos")
 go_repos()
 load("//third_party/go:deps.bzl", "go_deps")
 go_deps()
+
+# Google dependencies.
+# BoringSSL, RE2, GoogleTest, Protobuf Matchers, ABSL.
+load("//third_party/google:repos.bzl", "google_repos")
+google_repos()
 
 # Protobuf rules.
 load("//third_party/protobuf:repos.bzl", "protobuf_repos")
