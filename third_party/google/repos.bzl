@@ -49,23 +49,3 @@ def google_repos():
         strip_prefix = "abseil-cpp-20230125.0",
         sha256 = "3ea49a7d97421b88a8c48a0de16c16048e17725c7ec0f1d3ea2683a2a75adc21",
     )
-
-    # Protobuf toolchain
-    http_archive(
-        name = "com_google_protobuf",
-        urls = [
-            "https://github.com/protocolbuffers/protobuf/releases/download/v3.17.3/protobuf-all-3.17.3.tar.gz",
-        ],
-        strip_prefix = "protobuf-3.17.3",
-        sha256 = "77ad26d3f65222fd96ccc18b055632b0bfedf295cb748b712a98ba1ac0b704b2",
-    )
-
-    # gRPC
-    http_archive(
-        name = "com_github_grpc_grpc",
-        sha256 = "ec19657a677d49af59aa806ec299c070c882986c9fcc022b1c22c2a3caf01bcd",
-        strip_prefix = "grpc-1.45.0",
-        urls = ["https://github.com/grpc/grpc/archive/refs/tags/v1.45.0.tar.gz"],
-        patches = [Label("//third_party/google:grpc-windows-constraints.patch")],
-        patch_args = ["-p1"],
-    )

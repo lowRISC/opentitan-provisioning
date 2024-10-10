@@ -34,27 +34,31 @@ crt_register_toolchains(
     win64 = True,
 )
 
+# Google dependencies.
+# BoringSSL, RE2, GoogleTest, Protobuf Matchers, ABSL.
+load("//third_party/google:repos.bzl", "google_repos")
+google_repos()
+
 # gazelle:repository_macro third_party/go/deps.bzl%go_packages_
 load("//third_party/go:repos.bzl", "go_repos")
 go_repos()
 load("//third_party/go:deps.bzl", "go_deps")
 go_deps()
 
-# Various linters.
-load("//third_party/lint:repos.bzl", "lint_repos")
-lint_repos()
-
-# Google dependencies.
-# BoringSSL, RE2, GoogleTest, Protobuf Matchers, ABSL, Protobuf, gRPC.
-load("//third_party/google:repos.bzl", "google_repos")
-google_repos()
-# Load the deps from the Google repos in the correct order.
+# Protobuf rules.
+load("//third_party/protobuf:repos.bzl", "protobuf_repos")
+protobuf_repos()
+# Load the proto deps in the right order
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 protobuf_deps()
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 grpc_deps()
 load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
 grpc_extra_deps()
+
+# Various linters.
+load("//third_party/lint:repos.bzl", "lint_repos")
+lint_repos()
 
 # Foreign CC and packaging/release rules.
 load("//third_party/bazel:repos.bzl", "bazel_repos")
