@@ -91,7 +91,7 @@ typedef struct {
 typedef struct {
   // Endpoint address in IP or DNS format including port number. For example:
   // "localhost:5000".
-  const char* target;
+  const char* pa_socket;
 
   // File containing the Client certificate in PEM format. Required when
   // `enable_mtls` set to true.

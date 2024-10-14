@@ -262,7 +262,7 @@ DLLEXPORT void CreateClient(
 
   // convert from ate_client_ptr to AteClient::Options
   o.enable_mtls = options->enable_mtls;
-  o.target = options->target;
+  o.pa_socket = options->pa_socket;
   if (o.enable_mtls) {
     // Load the PEM data from the pointed files
     absl::Status s =

@@ -20,7 +20,7 @@
 #include "src/pa/proto/pa.grpc.pb.h"
 #include "src/version/version.h"
 
-ABSL_FLAG(std::string, target, "",
+ABSL_FLAG(std::string, pa_socket, "",
           "host:port of the target provisioning appliance server.");
 ABSL_FLAG(bool, enable_mtls, false, "Enable mTLS secure channel.");
 ABSL_FLAG(std::string, client_key, "",
@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
 
   AteClient::Options options;
   options.enable_mtls = absl::GetFlag(FLAGS_enable_mtls);
-  options.target = absl::GetFlag(FLAGS_target);
+  options.pa_socket = absl::GetFlag(FLAGS_pa_socket);
   if (options.enable_mtls) {
     std::unordered_map<absl::Flag<std::string> *, std::string *> pem_options = {
         {&FLAGS_client_key, &options.pem_private_key},

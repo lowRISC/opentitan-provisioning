@@ -22,7 +22,7 @@ class AteClient {
   struct Options {
     // Endpoint address in IP or DNS format including port number. For example:
     // "localhost:5000".
-    std::string target;
+    std::string pa_socket;
 
     // Set to true to enable mTLS connection. When set to false, the connection
     // is established with insecure credentials.

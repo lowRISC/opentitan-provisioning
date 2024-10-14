@@ -56,7 +56,8 @@ std::unique_ptr<AteClient> AteClient::Create(AteClient::Options options) {
   LOG(INFO) << "debug info: In AteClient::Create"
             << " AteClient.options: " << options;
 
-  // establish a grpc channel between the client and the targeted server:
+  // establish a grpc channel between the client (test program) and the targeted
+  // provisioning appliance server:
   // 1. set the grpc channel properties (insecured by default, authenticated and
   // encrypted if specified in options.enable_mtls parameter)
   auto credentials = grpc::InsecureChannelCredentials();
@@ -64,9 +65,8 @@ std::unique_ptr<AteClient> AteClient::Create(AteClient::Options options) {
     credentials = BuildCredentials(options);
   }
   // 2. create the grpc channel between the client and the targeted server
-  // (specified in options.target parameter)
   auto ate = absl::make_unique<AteClient>(ProvisioningApplianceService::NewStub(
-      grpc::CreateChannel(options.target, credentials)));
+      grpc::CreateChannel(options.pa_socket, credentials)));
 
   return ate;
 }
@@ -148,7 +148,7 @@ Status AteClient::SendDeviceRegistrationPayload(RegistrationRequest& request,
 // overloads operator<< for AteClient::Options objects printouts
 std::ostream& operator<<(std::ostream& os, const AteClient::Options& options) {
   // write obj to stream
-  os << std::endl << "options.target = " << options.target << std::endl;
+  os << std::endl << "options.pa_socket = " << options.pa_socket << std::endl;
   os << "options.enable_mtls = " << options.enable_mtls << std::endl;
   os << "options.pem_cert_chain = " << options.pem_cert_chain << std::endl;
   os << "options.pem_private_key = " << options.pem_private_key << std::endl;
