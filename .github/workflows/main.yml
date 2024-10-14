@@ -45,7 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Run PA loadtest (in containers)
-        run: ./run_integration_tests.sh -c
+        run: ./run_integration_tests.sh
 
   # Test airgapped build.
   airgapped_build_test:
