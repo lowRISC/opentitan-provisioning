@@ -2,13 +2,14 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@//rules:repo.bzl", "http_archive_or_local")
 
 SOFTHSM2_COMMIT_HASH = "4975c0df4c7090e97a3860ae21079a9597cfedc6"
 
-def softhsm2_deps():
-    http_archive(
+def softhsm2_repos(local = None):
+    http_archive_or_local(
         name = "softhsm2",
+        local = local,
         build_file = Label("//third_party/softhsm2:BUILD.softhsm2.bazel"),
         url = "https://github.com/opendnssec/SoftHSMv2/archive/{}.tar.gz".format(SOFTHSM2_COMMIT_HASH),
         strip_prefix = "SoftHSMv2-{}".format(SOFTHSM2_COMMIT_HASH),

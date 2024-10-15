@@ -68,8 +68,8 @@ load("//third_party/bazel:deps.bzl", "bazel_deps")
 bazel_deps()
 
 # SoftHSM2.
-load("//third_party/softhsm2:deps.bzl", "softhsm2_deps")
-softhsm2_deps()
+load("//third_party/softhsm2:repos.bzl", "softhsm2_repos")
+softhsm2_repos()
 
 # Docker rules.
 load("//third_party/docker:repos.bzl", "docker_repos")
