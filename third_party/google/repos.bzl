@@ -5,7 +5,7 @@
 load("@//rules:repo.bzl", "http_archive_or_local")
 
 _RE2_VERSION = "2024-02-01"
-_GOOGLETEST_VERSION = "1.13.0"
+_GOOGLETEST_VERSION = "1.14.0"
 _ABSL_VERSION = "20230125.0"
 
 def google_repos(
@@ -45,7 +45,7 @@ def google_repos(
         local = googletest,
         url = "https://github.com/google/googletest/archive/refs/tags/v{}.tar.gz".format(_GOOGLETEST_VERSION),
         strip_prefix = "googletest-{}".format(_GOOGLETEST_VERSION),
-        sha256 = "ad7fdba11ea011c1d925b3289cf4af2c66a352e18d4c7264392fead75e919363",
+        sha256 = "8ad598c73ad796e0d8280b082cebd82a630d73e73cd3c70057938a6501bba5d7",
     )
 
     # Protobuf matchers for googletest.
