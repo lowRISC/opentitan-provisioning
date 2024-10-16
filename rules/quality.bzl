@@ -209,3 +209,59 @@ def protolint_check(**kwargs):
     # Note: the "external" tag is a workaround for bazelbuild#15516.
     kwargs["tags"] = _ensure_tag(tags, "no-sandbox", "no-cache", "external")
     _protolint_test(**kwargs)
+
+################################################################################
+# include guard
+################################################################################
+include_guard_attrs = {
+    "patterns": attr.string_list(
+        default = ["*.h"],
+        doc = "Filename patterns for format checking.",
+    ),
+    "exclude_patterns": attr.string_list(
+        doc = "Filename patterns to exlucde from format checking.",
+    ),
+    "mode": attr.string(
+        default = "diff",
+        values = ["diff", "fix"],
+        doc = "Execution mode: display diffs or fix formatting.",
+    ),
+    "lint_tool": attr.label(
+        default = "//util:fix_include_guard.py",
+        allow_single_file = True,
+        cfg = "host",
+        executable = True,
+        doc = "The include_guard.py tool.",
+    ),
+    "workspace": attr.label(
+        allow_single_file = True,
+        doc = "Label of the WORKSPACE file",
+    ),
+    "_runner": attr.label(
+        default = "//rules/scripts:include_guard.sh",
+        allow_single_file = True,
+    ),
+    "_runner_general": attr.label(
+        default = "//rules/scripts:general_lint.template.sh",
+        allow_single_file = True,
+    ),
+}
+
+include_guard_fix = rule(
+    implementation = _general_lint_impl,
+    attrs = include_guard_attrs,
+    executable = True,
+)
+
+_include_guard_test = rule(
+    implementation = _general_lint_impl,
+    attrs = include_guard_attrs,
+    test = True,
+)
+
+def include_guard_check(**kwargs):
+    tags = kwargs.get("tags", [])
+
+    # Note: the "external" tag is a workaround for bazelbuild#15516.
+    kwargs["tags"] = _ensure_tag(tags, "no-sandbox", "no-cache", "external")
+    _include_guard_test(**kwargs)

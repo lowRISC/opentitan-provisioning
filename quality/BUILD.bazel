@@ -4,7 +4,17 @@
 
 load("@lowrisc_misc_linters//rules:rules.bzl", "licence_test")
 load("@bazelbuild_buildtools//buildifier:def.bzl", "buildifier", "buildifier_test")
-load("//rules:quality.bzl", "clang_format_check", "clang_format_fix", "gofmt_check", "gofmt_fix", "protolint_check", "protolint_fix")
+load(
+    "//rules:quality.bzl",
+    "clang_format_check",
+    "clang_format_fix",
+    "gofmt_check",
+    "gofmt_fix",
+    "include_guard_check",
+    "include_guard_fix",
+    "protolint_check",
+    "protolint_fix",
+)
 
 package(default_visibility = ["//visibility:public"])
 
@@ -65,6 +75,21 @@ gofmt_check(
 
 gofmt_fix(
     name = "gofmt_fix",
+    mode = "fix",
+)
+
+################################################################################
+# Include guard lint/formatting.
+################################################################################
+include_guard_check(
+    name = "include_guard_check",
+    mode = "diff",
+    tags = ["lint"],
+    workspace = "//:WORKSPACE",
+)
+
+include_guard_fix(
+    name = "include_guard_fix",
     mode = "fix",
 )
 
