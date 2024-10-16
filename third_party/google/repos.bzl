@@ -4,6 +4,10 @@
 
 load("@//rules:repo.bzl", "http_archive_or_local")
 
+_RE2_VERSION = "2022-12-01"
+_GOOGLETEST_VERSION = "1.13.0"
+_ABSL_VERSION = "20230125.0"
+
 def google_repos(
         boringssl = None,
         re2 = None,
@@ -27,8 +31,8 @@ def google_repos(
     http_archive_or_local(
         name = "com_googlesource_code_re2",
         local = re2,
-        urls = ["https://github.com/google/re2/archive/refs/tags/2022-12-01.tar.gz"],
-        strip_prefix = "re2-2022-12-01",
+        url = "https://github.com/google/re2/archive/refs/tags/{}.tar.gz".format(_RE2_VERSION),
+        strip_prefix = "re2-{}".format(_RE2_VERSION),
         sha256 = "665b65b6668156db2b46dddd33405cd422bd611352c5052ab3dae6a5fbac5506",
     )
 
@@ -36,8 +40,8 @@ def google_repos(
     http_archive_or_local(
         name = "com_google_googletest",
         local = googletest,
-        urls = ["https://github.com/google/googletest/archive/refs/tags/v1.13.0.tar.gz"],
-        strip_prefix = "googletest-1.13.0",
+        url = "https://github.com/google/googletest/archive/refs/tags/v{}.tar.gz".format(_GOOGLETEST_VERSION),
+        strip_prefix = "googletest-{}".format(_GOOGLETEST_VERSION),
         sha256 = "ad7fdba11ea011c1d925b3289cf4af2c66a352e18d4c7264392fead75e919363",
     )
 
@@ -55,7 +59,7 @@ def google_repos(
     http_archive_or_local(
         name = "com_google_absl",
         local = absl,
-        urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20230125.0.tar.gz"],
-        strip_prefix = "abseil-cpp-20230125.0",
+        url = "https://github.com/abseil/abseil-cpp/archive/refs/tags/{}.tar.gz".format(_ABSL_VERSION),
+        strip_prefix = "abseil-cpp-{}".format(_ABSL_VERSION),
         sha256 = "3ea49a7d97421b88a8c48a0de16c16048e17725c7ec0f1d3ea2683a2a75adc21",
     )
