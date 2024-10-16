@@ -4,7 +4,7 @@
 
 load("@//rules:repo.bzl", "http_archive_or_local")
 
-_RE2_VERSION = "2022-12-01"
+_RE2_VERSION = "2024-02-01"
 _GOOGLETEST_VERSION = "1.13.0"
 _ABSL_VERSION = "20230125.0"
 
@@ -14,6 +14,7 @@ def google_repos(
         googletest = None,
         pbuf_matchers = None,
         absl = None):
+    # BoringSSL.
     http_archive_or_local(
         name = "boringssl",
         local = boringssl,
@@ -28,12 +29,14 @@ def google_repos(
         patches = [Label("//third_party/google:boringssl-windows-constraints.patch")],
         patch_args = ["-p1"],
     )
+
+    # Regular Expression Library.
     http_archive_or_local(
         name = "com_googlesource_code_re2",
         local = re2,
         url = "https://github.com/google/re2/archive/refs/tags/{}.tar.gz".format(_RE2_VERSION),
         strip_prefix = "re2-{}".format(_RE2_VERSION),
-        sha256 = "665b65b6668156db2b46dddd33405cd422bd611352c5052ab3dae6a5fbac5506",
+        sha256 = "cd191a311b84fcf37310e5cd876845b4bf5aee76fdd755008eef3b6478ce07bb",
     )
 
     # Googletest https://google.github.io/googletest/
