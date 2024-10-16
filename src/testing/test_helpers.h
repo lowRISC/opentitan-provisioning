@@ -1,8 +1,8 @@
 // Copyright lowRISC contributors (OpenTitan project).
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
-#ifndef OT_PROVISIONING_SRC_TESTING_TEST_HELPERS_H
-#define OT_PROVISIONING_SRC_TESTING_TEST_HELPERS_H
+#ifndef OPENTITAN_PROVISIONING_SRC_TESTING_TEST_HELPERS_H_
+#define OPENTITAN_PROVISIONING_SRC_TESTING_TEST_HELPERS_H_
 
 #include <cstdlib>
 
@@ -31,4 +31,4 @@ using ::protobuf_matchers::proto::Partially;
 using ::protobuf_matchers::proto::WhenDeserialized;
 
 }  // namespace testing
-#endif  // OT_PROVISIONING_SRC_TESTING_TEST_HELPERS_H
+#endif  // OPENTITAN_PROVISIONING_SRC_TESTING_TEST_HELPERS_H_

@@ -1,8 +1,8 @@
 // Copyright lowRISC contributors (OpenTitan project).
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
-#ifndef OT_PROVISIONING_SRC_UTILS_SERVICE_CREDENTIALS_H
-#define OT_PROVISIONING_SRC_UTILS_SERVICE_CREDENTIALS_H
+#ifndef OPENTITAN_PROVISIONING_SRC_TRANSPORT_SERVICE_CREDENTIALS_H_
+#define OPENTITAN_PROVISIONING_SRC_TRANSPORT_SERVICE_CREDENTIALS_H_
 
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/security/credentials.h>
@@ -42,4 +42,4 @@ class ServiceCredentials : public grpc::MetadataCredentialsPlugin {
 }  // namespace transport
 }  // namespace provisioning
 
-#endif  // OT_PROVISIONING_SRC_UTILS_SERVICE_CREDENTIALS_H
+#endif  // OPENTITAN_PROVISIONING_SRC_TRANSPORT_SERVICE_CREDENTIALS_H_

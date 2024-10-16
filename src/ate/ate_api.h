@@ -1,8 +1,8 @@
 // Copyright lowRISC contributors (OpenTitan project).
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
-#ifndef OT_PROVISIONING_SRC_ATE_ATE_API_H
-#define OT_PROVISIONING_SRC_ATE_ATE_API_H
+#ifndef OPENTITAN_PROVISIONING_SRC_ATE_ATE_API_H_
+#define OPENTITAN_PROVISIONING_SRC_ATE_ATE_API_H_
 #include <stddef.h>
 #include <stdint.h>
 
@@ -192,4 +192,4 @@ DLLEXPORT int CreateKeyAndCertificate(ate_client_ptr client, const char* sku,
 #ifdef __cplusplus
 }
 #endif
-#endif  // OT_PROVISIONING_SRC_ATE_ATE_API_H
+#endif  // OPENTITAN_PROVISIONING_SRC_ATE_ATE_API_H_

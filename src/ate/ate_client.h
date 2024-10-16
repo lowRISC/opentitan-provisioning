@@ -1,8 +1,8 @@
 // Copyright lowRISC contributors (OpenTitan project).
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
-#ifndef OT_PROVISIONING_SRC_ATE_ATE_CLIENT_H
-#define OT_PROVISIONING_SRC_ATE_ATE_CLIENT_H
+#ifndef OPENTITAN_PROVISIONING_SRC_ATE_ATE_CLIENT_H_
+#define OPENTITAN_PROVISIONING_SRC_ATE_ATE_CLIENT_H_
 
 #include <grpcpp/grpcpp.h>
 
@@ -88,4 +88,4 @@ std::ostream& operator<<(std::ostream& os, const AteClient::Options& options);
 
 }  // namespace ate
 }  // namespace provisioning
-#endif  // OT_PROVISIONING_SRC_ATE_ATE_CLIENT_H
+#endif  // OPENTITAN_PROVISIONING_SRC_ATE_ATE_CLIENT_H_

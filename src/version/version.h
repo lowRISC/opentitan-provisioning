@@ -1,8 +1,8 @@
 // Copyright lowRISC contributors (OpenTitan project).
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
-#ifndef OT_PROVISIONING_SRC_VERSION_VERSION_H
-#define OT_PROVISIONING_SRC_VERSION_VERSION_H
+#ifndef OPENTITAN_PROVISIONING_SRC_VERSION_VERSION_H_
+#define OPENTITAN_PROVISIONING_SRC_VERSION_VERSION_H_
 
 #include <string>
 
@@ -41,4 +41,4 @@ std::string VersionFormatted();
 
 }  // namespace provisioning
 
-#endif  // OT_PROVISIONING_SRC_VERSION_VERSION_H
+#endif  // OPENTITAN_PROVISIONING_SRC_VERSION_VERSION_H_
