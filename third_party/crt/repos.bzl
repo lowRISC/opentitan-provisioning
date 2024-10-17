@@ -5,12 +5,14 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("@//rules:repo.bzl", "http_archive_or_local")
 
+_CRT_VERSION = "0.4.14"
+
 def crt_repos(local = None):
     maybe(
         http_archive_or_local,
         local = local,
         name = "crt",
-        url = "https://github.com/lowRISC/crt/archive/refs/tags/v0.3.9.tar.gz",
-        sha256 = "3f6e8e103595d2a6affbac5e2d9c14d1876f82fc6c8aca2a7528c97098a2f7ff",
-        strip_prefix = "crt-0.3.9",
+        url = "https://github.com/lowRISC/crt/archive/refs/tags/v{}.tar.gz".format(_CRT_VERSION),
+        sha256 = "aad71e39d0361d3eede8cb889d5ffb3a560108671598b01a4b6deadcfe75d6a6",
+        strip_prefix = "crt-{}".format(_CRT_VERSION),
     )

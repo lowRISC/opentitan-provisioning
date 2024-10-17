@@ -2,14 +2,26 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-# lowRISC linters and release process.
+# lowRISC opentitan, linters, and release process.
 load("//third_party/lowrisc:repos.bzl", "lowrisc_repos")
 lowrisc_repos()
+
+# Python Toolchain + PIP Dependencies from the lowrisc_opentitan repo.
+load("@lowrisc_opentitan//third_party/python:repos.bzl", "python_repos")
+python_repos()
+load("@lowrisc_opentitan//third_party/python:deps.bzl", "python_deps")
+python_deps()
+load("@lowrisc_opentitan//third_party/python:pip.bzl", "pip_deps")
+pip_deps()
+load("@ot_python_deps//:requirements.bzl", install_ot_python_deps="install_deps")
+install_ot_python_deps()
+
 # Release process.
 load("@lowrisc_bazel_release//:repos.bzl", "lowrisc_bazel_release_repos")
 lowrisc_bazel_release_repos()
 load("@lowrisc_bazel_release//:deps.bzl", "lowrisc_bazel_release_deps")
 lowrisc_bazel_release_deps()
+
 # Linters.
 # The linter deps need to be loaded like this to get the python and PIP
 # dependencies established in the proper order.
@@ -19,6 +31,30 @@ load("@lowrisc_misc_linters//rules:deps.bzl", "lowrisc_misc_linters_dependencies
 lowrisc_misc_linters_dependencies()
 load("@lowrisc_misc_linters//rules:pip.bzl", "lowrisc_misc_linters_pip_dependencies")
 lowrisc_misc_linters_pip_dependencies()
+load("@lowrisc_misc_linters_pip//:requirements.bzl", install_lowrisc_lint_python_deps="install_deps")
+install_lowrisc_lint_python_deps()
+
+# Rust Toolchain + crates.io dependencies from the lowrisc_opentitan repo.
+load("@lowrisc_opentitan//third_party/rust:repos.bzl", "rust_repos")
+rust_repos()
+load("@lowrisc_opentitan//third_party/rust:deps.bzl", "rust_deps")
+rust_deps()
+load("@rules_rust//crate_universe:repositories.bzl", "crate_universe_dependencies")
+crate_universe_dependencies(bootstrap = True)
+load("@lowrisc_opentitan//third_party/rust/crates:crates.bzl", "crate_repositories")
+crate_repositories()
+
+# HyperDebug firmware (required for opentitanlib) from the lowrisc_opentitan repo.
+load("@lowrisc_opentitan//third_party/hyperdebug:repos.bzl", "hyperdebug_repos")
+hyperdebug_repos()
+
+# OpenOCD (required for opentitanlib) from the lowrisc_opentitan repo.
+load("@lowrisc_opentitan//third_party/openocd:repos.bzl", "openocd_repos")
+openocd_repos()
+
+# SPHINCS+ Test Vectors (required for opentitanlib).
+load("@lowrisc_opentitan//third_party/sphincsplus:repos.bzl", "sphincsplus_repos")
+sphincsplus_repos()
 
 # CRT is the Compiler Repository Toolkit.  It contains the configuration for
 # the windows compiler.
@@ -30,6 +66,7 @@ load("@crt//:deps.bzl", "crt_deps")
 crt_deps()
 load("@crt//config:registration.bzl", "crt_register_toolchains")
 crt_register_toolchains(
+    riscv32 = True,
     win32 = True,
     win64 = True,
 )

@@ -41,7 +41,7 @@ def google_repos(
 
     # Googletest https://google.github.io/googletest/
     http_archive_or_local(
-        name = "com_google_googletest",
+        name = "googletest",
         local = googletest,
         url = "https://github.com/google/googletest/archive/refs/tags/v{}.tar.gz".format(_GOOGLETEST_VERSION),
         strip_prefix = "googletest-{}".format(_GOOGLETEST_VERSION),
