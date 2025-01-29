@@ -17,7 +17,12 @@ g++
 git
 gnupg
 golang
+libftdi1-2
+libftdi1-dev
+libncursesw5
 libssl-dev
+libudev-dev
+libusb-1.0-0
 lsb-release
 make
 podman

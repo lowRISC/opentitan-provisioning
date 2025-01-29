@@ -17,8 +17,14 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "src/ate/ate_client.h"
+#include "src/ate/test_programs/dut_lib/dut_lib.h"
 #include "src/pa/proto/pa.grpc.pb.h"
 #include "src/version/version.h"
+
+/**
+ * DUT configuration flags.
+ */
+ABSL_FLAG(std::string, fpga, "", "FPGA platform to use.");
 
 /**
  * PA configuration flags.
@@ -42,6 +48,7 @@ ABSL_FLAG(std::string, ca_root_certs, "",
 namespace {
 using provisioning::VersionFormatted;
 using provisioning::ate::AteClient;
+using provisioning::test_programs::DutLib;
 
 // Returns `filename` content in a std::string format
 absl::StatusOr<std::string> ReadFile(const std::string &filename) {
@@ -104,6 +111,12 @@ int main(int argc, char **argv) {
     LOG(ERROR) << "InitSession failed with " << status.error_code() << ": "
                << status.error_message() << std::endl;
   }
+
+  // Init session with DUT.
+  auto dut = DutLib::Create();
+  dut->DutInit(absl::GetFlag(FLAGS_fpga),
+               absl::StrCat("third_party/lowrisc/ot_bitstreams/cp_",
+                            absl::GetFlag(FLAGS_fpga), ".bit"));
 
   // TODO(#6): add CP test code here.
 

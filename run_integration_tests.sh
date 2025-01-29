@@ -45,13 +45,3 @@ for sku in "${SKUS[@]}"; do
     --parallel_clients=10 \
     --total_calls_per_client=10
 done
-
-# Run the reference CP flow.
-CP_SKUS=("sival")
-for sku in "${CP_SKUS[@]}"; do
-  echo "Running reference CP flow with sku: ${sku} ..."
-  bazelisk run //src/ate/test_programs:cp -- \
-    --pa_socket="localhost:5001" \
-    --sku="${sku}" \
-    --sku_auth_pw="test_password"
-done

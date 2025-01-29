@@ -1,0 +1,7 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+# This is just a dummy config file to enable the third party @lowrisc_opentitan
+# Bazel repo dependencies to build cleanly without having to close the repo.
+workspace(name = "provisioning_exts")
