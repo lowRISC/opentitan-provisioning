@@ -10,7 +10,7 @@ _BAZEL_RELEASE_VERSION = "0.0.3"
 _BAZEL_SKYLIB_VERSION = "1.5.0"
 
 # TODO(timothytrippel): pin a tagged release once one is created on the earlgrey_1.0.0 branch.
-_OPENTITAN_VERSION = "a48293cd4e4865fea6c74bf036db5905736f6687"
+_OPENTITAN_VERSION = "Earlgrey-PROD-A2-M6-RC0"
 
 def lowrisc_repos(misc_linters = None, bazel_release = None, bazel_skylib = None, opentitan = None):
     maybe(
@@ -43,7 +43,7 @@ def lowrisc_repos(misc_linters = None, bazel_release = None, bazel_skylib = None
         http_archive_or_local,
         local = opentitan,
         name = "lowrisc_opentitan",
-        sha256 = "3e53aa13816e370b92f88a8e7ce319a627e442663ada53cbba4a4ac515d0dc07",
+        sha256 = "dfd6b1a475a302ed7ec14c6405310722c57752ba9184c7aed0ab700d22344ed9",
         strip_prefix = "opentitan-{}".format(_OPENTITAN_VERSION),
-        url = "https://github.com/lowRISC/opentitan/archive/{}.tar.gz".format(_OPENTITAN_VERSION),
+        url = "https://github.com/lowRISC/opentitan/archive/refs/tags/{}.tar.gz".format(_OPENTITAN_VERSION),
     )

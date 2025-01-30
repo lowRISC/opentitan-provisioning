@@ -6,6 +6,18 @@
 load("//third_party/lowrisc:repos.bzl", "lowrisc_repos")
 lowrisc_repos()
 
+# Setup for linking in externally managed provisioning customizations for both
+# secure/non-secure manufacturer domains.
+load("@lowrisc_opentitan//rules:hooks_setup.bzl", "provisioning_exts_setup")
+provisioning_exts_setup(
+    name = "provisioning_exts_setup",
+    dummy = "sw/device/silicon_creator/manuf/extensions",
+)
+
+# Declare the external repository for provisioning source code extensions.
+load("@provisioning_exts_setup//:repos.bzl", "provisioning_exts_repo")
+provisioning_exts_repo(name = "provisioning_exts")
+
 # Python Toolchain + PIP Dependencies from the lowrisc_opentitan repo.
 load("@lowrisc_opentitan//third_party/python:repos.bzl", "python_repos")
 python_repos()
