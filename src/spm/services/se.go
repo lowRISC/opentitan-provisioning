@@ -24,6 +24,14 @@ type SigningParams struct {
 	KeyParams any
 }
 
+// Parameters for EndorseCert().
+type EndorseCertParams struct {
+	// Key label. Used to identify the key in the HSM.
+	KeyLabel string
+	// Signature algorithm to use.
+	SignatureAlgorithm x509.SignatureAlgorithm
+}
+
 // The return type of GenerateKeyPairAndCert().
 type CertInfo struct {
 	WrappedKey, Iv, Cert []byte
@@ -72,6 +80,15 @@ type SE interface {
 	//
 	// Returns: slice of AESKey objects.
 	GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([][]byte, error)
+
+	// Endorses a certificate.
+	//
+	// This operation is used to sign a certificate with the SE's private key.
+	// The certificate is provided in raw form, and the SE will return the
+	// signed certificate in DER format.
+	//
+	// Returns: Raw signature in bytes.
+	EndorseCert(tbs []byte, params EndorseCertParams) ([]byte, error)
 
 	// GenerateRandom returns random data extracted from the HSM.
 	GenerateRandom(length int) ([]byte, error)

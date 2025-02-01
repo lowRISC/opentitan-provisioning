@@ -39,4 +39,9 @@ service SpmService {
   //   - a diversifier string.
   rpc DeriveSymmetricKeys(pa.DeriveSymmetricKeysRequest)
       returns (pa.DeriveSymmetricKeysResponse) {}
+
+  // EndorseCerts endorses a set of certificates for a given SKU. The
+  // certificates are signed with a CA private key stored in the SPM.
+  rpc EndorseCerts(pa.EndorseCertsRequest)
+      returns (pa.EndorseCertsResponse) {}
 }

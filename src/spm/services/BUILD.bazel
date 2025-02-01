@@ -6,6 +6,13 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 package(default_visibility = ["//visibility:public"])
 
+filegroup(
+    name = "testdata",
+    srcs = glob([
+        "testdata/*",
+    ]),
+)
+
 go_library(
     name = "spm",
     srcs = ["spm.go"],
@@ -67,6 +74,7 @@ go_library(
 go_test(
     name = "se_pk11_test",
     srcs = ["se_pk11_test.go"],
+    data = [":testdata"],
     embed = [":se"],
     deps = [
         ":certloader",
@@ -76,6 +84,7 @@ go_test(
         "//src/pk11:test_support",
         "@com_github_google_go_cmp//cmp",
         "@com_github_google_tink_go//kwp/subtle:go_default_library",
+        "@io_bazel_rules_go//go/tools/bazel",
         "@org_golang_x_crypto//hkdf",
         "@org_golang_x_crypto//sha3",
     ],

@@ -12,12 +12,18 @@ package(default_visibility = ["//visibility:public"])
 proto_library(
     name = "cert_proto",
     srcs = ["cert.proto"],
+    deps = [
+        ":ecdsa_proto",
+    ],
 )
 
 go_proto_library(
     name = "cert_go_pb",
     importpath = "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/cert_go_pb",
     proto = ":cert_proto",
+    deps = [
+        ":ecdsa_go_pb",
+    ],
 )
 
 proto_library(

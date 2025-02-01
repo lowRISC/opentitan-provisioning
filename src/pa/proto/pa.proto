@@ -29,15 +29,20 @@ service ProvisioningApplianceService {
     returns (RegistrationResponse) {}
 }
 
+// List of certificates to endorse and endorse key parameters.
+message EndorseCertBundle {
+  // Certificate signing key parameters. Required.
+  crypto.cert.SigningKeyParams key_params = 1;
+  // Array of TBS certificates to be endorsed. Required.
+  repeated crypto.cert.Certificate certs = 2;
+}
+
 // Endorse certs request.
 message EndorseCertsRequest {
   // SKU identifier. Required.
   string sku = 1;
-  // (Per SKU) Serial number of CA that should endorse these certificates.
-  // Required. Size enforced by SKU implementation.
-  bytes ca_serial_number = 2;
-  // Array of TBS certificates to be endorsed.
-  repeated crypto.cert.Certificate certs = 3;
+  // List of certificates to endorse. Required.
+  repeated EndorseCertBundle bundles = 2;
 }
 
 // Endorse certs response.

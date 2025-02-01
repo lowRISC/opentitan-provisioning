@@ -64,6 +64,7 @@ type fakeSpmClient struct {
 	initSession         initSessionResponse
 	createKeyAndCert    createKeyAndCertFakeResponse
 	deriveSymmetricKeys deriveSymmetricKeysResponse
+	endorseCerts        endorseCertsResponse
 }
 
 type initSessionResponse struct {
@@ -81,6 +82,11 @@ type deriveSymmetricKeysResponse struct {
 	err      error
 }
 
+type endorseCertsResponse struct {
+	response *pbp.EndorseCertsResponse
+	err      error
+}
+
 func (c *fakeSpmClient) InitSession(ctx context.Context, request *pbp.InitSessionRequest, opts ...grpc.CallOption) (*pbp.InitSessionResponse, error) {
 	return c.initSession.response, c.initSession.err
 }
@@ -91,6 +97,10 @@ func (c *fakeSpmClient) CreateKeyAndCert(ctx context.Context, request *pbp.Creat
 
 func (c *fakeSpmClient) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSymmetricKeysRequest, opts ...grpc.CallOption) (*pbp.DeriveSymmetricKeysResponse, error) {
 	return c.deriveSymmetricKeys.response, c.deriveSymmetricKeys.err
+}
+
+func (c *fakeSpmClient) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequest, opts ...grpc.CallOption) (*pbp.EndorseCertsResponse, error) {
+	return c.endorseCerts.response, c.endorseCerts.err
 }
 
 func TestCreateKeyAndCert(t *testing.T) {
@@ -199,6 +209,76 @@ func TestDeriveSymmetricKey(t *testing.T) {
 			spmClient.deriveSymmetricKeys.err = tt.spmError
 
 			got, err := client.DeriveSymmetricKeys(ctx, tt.request)
+			s, ok := status.FromError(err)
+			if !ok {
+				t.Fatal("unable to extract status code from error")
+			}
+			if s.Code() != tt.expCode {
+				t.Errorf("expected status code: %v, got: %v", tt.expCode, s.Code())
+			}
+			if got != nil {
+				if diff := cmp.Diff(tt.spmResponse, got, protocmp.Transform()); diff != "" {
+					t.Errorf("call returned unexpected diff (-want +got):\n%s", diff)
+				}
+			}
+		})
+	}
+}
+
+func TestEndorseCerts(t *testing.T) {
+	ctx := context.Background()
+	spmClient := &fakeSpmClient{}
+	rbClient := &fakeRbClient{}
+	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(bufferDialer(t, spmClient, rbClient)))
+	if err != nil {
+		t.Fatalf("failed to connect to test server: %v", err)
+	}
+	defer conn.Close()
+
+	client := pbp.NewProvisioningApplianceServiceClient(conn)
+
+	tests := []struct {
+		name        string
+		request     *pbp.EndorseCertsRequest
+		expCode     codes.Code
+		spmResponse *pbp.EndorseCertsResponse
+		spmError    error
+	}{
+		{
+			// This is a simple connectivity test. The request and expected
+			// response values should be updated if there is additional
+			// logic added to the PA service.
+			name:        "ok",
+			expCode:     codes.OK,
+			request:     &pbp.EndorseCertsRequest{},
+			spmResponse: &pbp.EndorseCertsResponse{},
+			spmError:    nil,
+		},
+		{
+			// SPM errors are converted to code.Internal.
+			name:        "spm_error",
+			expCode:     codes.Internal,
+			request:     &pbp.EndorseCertsRequest{},
+			spmResponse: &pbp.EndorseCertsResponse{},
+			spmError:    status.Errorf(codes.InvalidArgument, "invalid argument"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spmClient.createKeyAndCert.response = &pbp.CreateKeyAndCertResponse{}
+			spmClient.createKeyAndCert.err = nil
+
+			spmClient.deriveSymmetricKeys.response = &pbp.DeriveSymmetricKeysResponse{}
+			spmClient.deriveSymmetricKeys.err = nil
+
+			spmClient.createKeyAndCert.response = &pbp.CreateKeyAndCertResponse{}
+			spmClient.createKeyAndCert.err = nil
+
+			spmClient.endorseCerts.response = tt.spmResponse
+			spmClient.endorseCerts.err = tt.spmError
+
+			got, err := client.EndorseCerts(ctx, tt.request)
 			s, ok := status.FromError(err)
 			if !ok {
 				t.Fatal("unable to extract status code from error")

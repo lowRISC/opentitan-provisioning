@@ -9,8 +9,11 @@ import (
 	"crypto"
 	"crypto/elliptic"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"errors"
 	"fmt"
+	"math/big"
 	"reflect"
 
 	"golang.org/x/crypto/sha3"
@@ -150,6 +153,23 @@ func openSessions(hsmType pk11.HSMType, soPath, hsmPW string, tokSlot, numSessio
 	return sessions, nil
 }
 
+// getKeyIDByLabel returns the object ID from a given label
+func getKeyIDByLabel(session *pk11.Session, classKeyType pk11.ClassAttribute, label string) ([]byte, error) {
+	keyObj, err := session.FindKeyByLabel(classKeyType, label)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := keyObj.UID()
+	if err != nil {
+		return nil, err
+	}
+	if id == nil {
+		return nil, status.Errorf(codes.Internal, "fail to find ID attribute")
+	}
+	return id, nil
+}
+
 // NewHSM creates a new instance of HSM, with dedicated session and keys.
 func NewHSM(cfg HSMConfig) (*HSM, error) {
 	sq, err := openSessions(cfg.HSMType, cfg.SOPath, cfg.HSMPassword, cfg.SlotID, cfg.NumSessions)
@@ -165,25 +185,25 @@ func NewHSM(cfg HSMConfig) (*HSM, error) {
 	defer release()
 
 	if cfg.KcaName != "" {
-		hsm.Kca, err = hsm.getKeyIDByLabel(session, pk11.ClassPrivateKey, cfg.KcaName)
+		hsm.Kca, err = getKeyIDByLabel(session, pk11.ClassPrivateKey, cfg.KcaName)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "fail to find Kca key ID: %q, error: %v", cfg.KcaName, err)
 		}
 	}
 	if cfg.KGName != "" {
-		hsm.KG, err = hsm.getKeyIDByLabel(session, pk11.ClassSecretKey, cfg.KGName)
+		hsm.KG, err = getKeyIDByLabel(session, pk11.ClassSecretKey, cfg.KGName)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "fail to find KG key ID: %q, error: %v", cfg.KGName, err)
 		}
 	}
 	if cfg.KHsksName != "" {
-		hsm.KHsks, err = hsm.getKeyIDByLabel(session, pk11.ClassSecretKey, cfg.KHsksName)
+		hsm.KHsks, err = getKeyIDByLabel(session, pk11.ClassSecretKey, cfg.KHsksName)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "fail to find KHsks key ID: %q, error: %v", cfg.KHsksName, err)
 		}
 	}
 	if cfg.KLsksName != "" {
-		hsm.KLsks, err = hsm.getKeyIDByLabel(session, pk11.ClassSecretKey, cfg.KLsksName)
+		hsm.KLsks, err = getKeyIDByLabel(session, pk11.ClassSecretKey, cfg.KLsksName)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "fail to find KLsks key ID: %q, error: %v", cfg.KLsksName, err)
 		}
@@ -234,23 +254,6 @@ func (h *HSM) DeriveAndWrapTransportSecret(deviceId []byte) ([]byte, error) {
 
 	ciphertext, _, err := global.WrapAES(transport)
 	return ciphertext, err
-}
-
-// getKeyIDByLabel returns the object ID from a given label
-func (h *HSM) getKeyIDByLabel(session *pk11.Session, classKeyType pk11.ClassAttribute, label string) ([]byte, error) {
-	keyObj, err := session.FindKeyByLabel(classKeyType, label)
-	if err != nil {
-		return nil, err
-	}
-
-	id, err := keyObj.UID()
-	if err != nil {
-		return nil, err
-	}
-	if id == nil {
-		return nil, status.Errorf(codes.Internal, "fail to find ID attribute")
-	}
-	return id, nil
 }
 
 // VerifySession verifies that a session to the HSM for a given SKU is active
@@ -389,4 +392,109 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([][]byte, 
 	}
 
 	return symmetricKeys, nil
+}
+
+// OIDs for ECDSA signature algorithms corresponding to SHA-256, SHA-384 and
+// SHA-512.
+//
+// See https://datatracker.ietf.org/doc/html/rfc5758#section-3.1. The following
+// text is copied from the spec for reference:
+//
+// ecdsa-with-SHA256 OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+//   us(840) ansi-X9-62(10045) signatures(4) ecdsa-with-SHA2(3) 2 }
+
+// ecdsa-with-SHA384 OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+//   us(840) ansi-X9-62(10045) signatures(4) ecdsa-with-SHA2(3) 3 }
+
+// ecdsa-with-SHA512 OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+//   us(840) ansi-X9-62(10045) signatures(4) ecdsa-with-SHA2(3) 4 }
+var (
+	oidECDSAWithSHA256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 2}
+	oidECDSAWithSHA384 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 3}
+	oidECDSAWithSHA512 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 4}
+)
+
+// oidFromSignatureAlgorithm returns the ASN.1 object identifier for the given
+// signature algorithm.
+func oidFromSignatureAlgorithm(alg x509.SignatureAlgorithm) (asn1.ObjectIdentifier, error) {
+	switch alg {
+	case x509.ECDSAWithSHA256:
+		return oidECDSAWithSHA256, nil
+	case x509.ECDSAWithSHA384:
+		return oidECDSAWithSHA384, nil
+	case x509.ECDSAWithSHA512:
+		return oidECDSAWithSHA512, nil
+	default:
+		return nil, fmt.Errorf("unsupported signature algorithm: %v", alg)
+	}
+}
+
+// hashFromSignatureAlgorithm returns the crypto.Hash for the given signature
+// algorithm.
+func hashFromSignatureAlgorithm(alg x509.SignatureAlgorithm) (crypto.Hash, error) {
+	switch alg {
+	case x509.ECDSAWithSHA256:
+		return crypto.SHA256, nil
+	case x509.ECDSAWithSHA384:
+		return crypto.SHA384, nil
+	case x509.ECDSAWithSHA512:
+		return crypto.SHA512, nil
+	default:
+		return 0, fmt.Errorf("unsupported signature algorithm: %v", alg)
+	}
+}
+
+func (h *HSM) EndorseCert(tbs []byte, params EndorseCertParams) ([]byte, error) {
+	session, release := h.sessions.getHandle()
+	defer release()
+
+	keyID, err := getKeyIDByLabel(session, pk11.ClassPrivateKey, params.KeyLabel)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "fail to find key with label: %q, error: %v", params.KeyLabel, err)
+	}
+
+	key, err := session.FindPrivateKey(keyID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to find key object %q: %v", keyID, err)
+	}
+
+	hash, err := hashFromSignatureAlgorithm(params.SignatureAlgorithm)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get hash from signature algorithm: %v", err)
+	}
+
+	rb, sb, err := key.SignECDSA(hash, tbs)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to sign: %v", err)
+	}
+
+	// Encode the signature as ASN.1 DER.
+	var sig struct{ R, S *big.Int }
+	sig.R, sig.S = new(big.Int), new(big.Int)
+	sig.R.SetBytes(rb)
+	sig.S.SetBytes(sb)
+	s, err := asn1.Marshal(sig)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to marshal signature: %v", err)
+	}
+
+	sigType, err := oidFromSignatureAlgorithm(params.SignatureAlgorithm)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get signature algorithm OID: %v", err)
+	}
+
+	certRaw := struct {
+		TBSCertificate     asn1.RawValue
+		SignatureAlgorithm pkix.AlgorithmIdentifier
+		SignatureValue     asn1.BitString
+	}{
+		TBSCertificate:     asn1.RawValue{FullBytes: tbs},
+		SignatureAlgorithm: pkix.AlgorithmIdentifier{Algorithm: sigType},
+		SignatureValue:     asn1.BitString{Bytes: s, BitLength: len(s) * 8},
+	}
+	cert, err := asn1.Marshal(certRaw)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to marshal certificate: %v", err)
+	}
+	return cert, nil
 }
