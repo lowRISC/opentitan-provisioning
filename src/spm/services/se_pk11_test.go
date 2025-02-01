@@ -12,12 +12,15 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/hex"
+	"encoding/pem"
 	"io"
 	"log"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	"github.com/google/go-cmp/cmp"
 	kwp "github.com/google/tink/go/kwp/subtle"
 	"golang.org/x/crypto/hkdf"
@@ -29,6 +32,26 @@ import (
 	ts "github.com/lowRISC/opentitan-provisioning/src/pk11/test_support"
 	certloader "github.com/lowRISC/opentitan-provisioning/src/spm/services/certloader"
 )
+
+const (
+	diceTBSPath    = "src/spm/services/testdata/tbs.der"
+	diceCAKeyPath  = "src/spm/services/testdata/sk.pkcs8.der"
+	diceCACertPath = "src/spm/services/testdata/dice_ca.pem"
+)
+
+// readFile reads a file from the runfiles directory.
+func readFile(t *testing.T, filename string) []byte {
+	t.Helper()
+	filename, err := bazel.Runfile(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("unable to load file: %q, error: %v", filename, err)
+	}
+	return data
+}
 
 // Creates a new HSM for a test by reaching into the tests's SoftHSM token.
 //
@@ -155,6 +178,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 }
 
 func TestTransport(t *testing.T) {
+	log.Printf("TestTransport")
 	hsm, kg, kt, _, _ := MakeHSM(t)
 
 	key, err := hsm.DeriveAndWrapTransportSecret([]byte("my device id"))
@@ -183,6 +207,7 @@ func CreateCAKeys(t *testing.T, hsm *HSM) (pk11.KeyPair, error) {
 }
 
 func TestGenerateCert(t *testing.T) {
+	log.Printf("TestGenerateCert")
 	hsm, kg, _, _, _ := MakeHSM(t)
 
 	ca, err := CreateCAKeys(t, hsm)
@@ -208,9 +233,7 @@ func TestGenerateCert(t *testing.T) {
 			Model:        "NPCT75x",
 			Version:      "id:00070002",
 		})
-	if err != nil {
-		t.Fatalf("unable to build subject alteraive name, error: %v", err)
-	}
+	ts.Check(t, err)
 
 	template, err := b.Build(&signer.Params{
 		SerialNumber: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19},
@@ -305,4 +328,65 @@ func TestGenerateCert(t *testing.T) {
 	if !ecdsa.Verify(pub, bytes, r, s) {
 		t.Fatal("verification failed")
 	}
+}
+
+func TestEndorseCert(t *testing.T) {
+	log.Printf("TestEndorseCert")
+	hsm, _, _, _, _ := MakeHSM(t)
+
+	const kcaPrivName = "kca_priv"
+
+	// The following nested function is required to avoid deadlocks when calling
+	// `hsm.sessions.getHandle()` in the `EndorseCert` function.
+	importCAKey := func() {
+		privateKeyDer := readFile(t, diceCAKeyPath)
+		privateKey, err := x509.ParsePKCS8PrivateKey(privateKeyDer)
+		ts.Check(t, err)
+
+		// Import the CA key into the HSM.
+		session, release := hsm.sessions.getHandle()
+		defer release()
+
+		// Cast the private key to an ECDSA private key to make sure the
+		// `ImportKey` function imports the key as an ECDSA key.
+		privateKey = privateKey.(*ecdsa.PrivateKey)
+		ca, err := session.ImportKey(privateKey, &pk11.KeyOptions{
+			Extractable: true,
+			Token:       true,
+		})
+		ts.Check(t, err)
+		err = ca.SetLabel(kcaPrivName)
+		ts.Check(t, err)
+	}
+
+	importCAKey()
+	caCertPEM := readFile(t, diceCACertPath)
+	caCertBlock, _ := pem.Decode(caCertPEM)
+	caCert, err := x509.ParseCertificate(caCertBlock.Bytes)
+	ts.Check(t, err)
+
+	roots := x509.NewCertPool()
+	roots.AddCert(caCert)
+
+	log.Printf("Reading TBS")
+	tbs := readFile(t, diceTBSPath)
+
+	log.Printf("Endorsing cert")
+	certDER, err := hsm.EndorseCert(tbs, EndorseCertParams{
+		KeyLabel:           kcaPrivName,
+		SignatureAlgorithm: x509.ECDSAWithSHA256,
+	})
+	ts.Check(t, err)
+
+	cert, err := x509.ParseCertificate(certDER)
+	ts.Check(t, err)
+
+	// DICE extensions marked as critical end up in this list. We explicitly
+	// clear the list to get x509.Verify to pass.
+	cert.UnhandledCriticalExtensions = nil
+
+	_, err = cert.Verify(x509.VerifyOptions{
+		Roots: roots,
+	})
+	ts.Check(t, err)
 }

@@ -333,6 +333,55 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 	}, nil
 }
 
+// ecdsaSignatureAlgorithmFromHashType returns the x509.SignatureAlgorithm
+// corresponding to the given pbcommon.HashType.
+func ecdsaSignatureAlgorithmFromHashType(h pbcommon.HashType) x509.SignatureAlgorithm {
+	switch h {
+	case pbcommon.HashType_HASH_TYPE_SHA256:
+		return x509.ECDSAWithSHA256
+	case pbcommon.HashType_HASH_TYPE_SHA384:
+		return x509.ECDSAWithSHA384
+	case pbcommon.HashType_HASH_TYPE_SHA512:
+		return x509.ECDSAWithSHA512
+	default:
+		return x509.UnknownSignatureAlgorithm
+	}
+}
+
+func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequest) (*pbp.EndorseCertsResponse, error) {
+	log.Printf("SPM.EndorseCertsRequest - Sku:%q", request.Sku)
+
+	s.muSKU.RLock()
+	defer s.muSKU.RUnlock()
+	sku, ok := s.skus[request.Sku]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.Sku)
+	}
+
+	var certs []*pbc.Certificate
+	for _, bundle := range request.Bundles {
+		switch key := bundle.KeyParams.Key.(type) {
+		case *pbc.SigningKeyParams_EcdsaParams:
+			params := se.EndorseCertParams{
+				KeyLabel:           bundle.KeyParams.KeyLabel,
+				SignatureAlgorithm: ecdsaSignatureAlgorithmFromHashType(key.EcdsaParams.HashType),
+			}
+			for _, tbs := range bundle.Certs {
+				cert, err := sku.seHandle.EndorseCert(tbs.Blob, params)
+				if err != nil {
+					return nil, status.Errorf(codes.Internal, "could not endorse cert: %v", err)
+				}
+				certs = append(certs, &pbc.Certificate{Blob: cert})
+			}
+		default:
+			return nil, status.Errorf(codes.Unimplemented, "unsupported key format")
+		}
+	}
+	return &pbp.EndorseCertsResponse{
+		Certs: certs,
+	}, nil
+}
+
 func (s *server) initializeSKU(skuName string) error {
 	s.muSKU.Lock()
 	defer s.muSKU.Unlock()
