@@ -30,7 +30,7 @@ jobs:
               --copy "${PWD}/artifacts" \
               "no_tag_not_a_release"
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: artifacts
           path: artifacts/*
