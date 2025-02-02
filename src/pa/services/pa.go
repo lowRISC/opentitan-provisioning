@@ -115,7 +115,7 @@ func (s *server) CloseSession(ctx context.Context, request *pbp.CloseSessionRequ
 
 // CreateKeyAndCert generates a set of wrapped keys, returns them and their endorsement certificates.
 func (s *server) CreateKeyAndCert(ctx context.Context, request *pbp.CreateKeyAndCertRequest) (*pbp.CreateKeyAndCertResponse, error) {
-	log.Printf("In PA - Recieved CreateKeyAndCert request with Sku=%s", request.Sku)
+	log.Printf("In PA - Received CreateKeyAndCert request with Sku=%s", request.Sku)
 
 	// Call the service method, wait for server response.
 	r, err := s.spmClient.CreateKeyAndCert(ctx, request)
@@ -127,16 +127,19 @@ func (s *server) CreateKeyAndCert(ctx context.Context, request *pbp.CreateKeyAnd
 
 // EndorseCerts endorses a set of TBS certificates and returns them.
 func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequest) (*pbp.EndorseCertsResponse, error) {
-	log.Printf("In PA - Recieved EndorseCerts request with Sku=%s", request.Sku)
+	log.Printf("In PA - Received EndorseCerts request with Sku=%s", request.Sku)
 
-	// TODO(#4) implement backend operations.
-	return nil, nil
+	r, err := s.spmClient.EndorseCerts(ctx, request)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "SPM returned error: %v", err)
+	}
+	return r, nil
 }
 
 // DeriveSymmetricKeys generates a symmetric key from a seed (pre-provisioned in
 // the SPM/HSM) and diversifier string.
 func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSymmetricKeysRequest) (*pbp.DeriveSymmetricKeysResponse, error) {
-	log.Printf("In PA - Recieved DeriveSymmetricKeys request")
+	log.Printf("In PA - Received DeriveSymmetricKeys request")
 	r, err := s.spmClient.DeriveSymmetricKeys(ctx, request)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "SPM returned error: %v", err)

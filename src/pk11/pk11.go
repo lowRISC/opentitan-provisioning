@@ -236,11 +236,8 @@ func (s *Session) DestroyKeyPairObject(kp KeyPair) error {
 
 // makeHash computes a hash of message.
 func makeHash(hash crypto.Hash, message []byte) ([]byte, error) {
-	switch hash {
-	case crypto.SHA256, crypto.SHA384, crypto.SHA512:
-		break
-	default:
-		return nil, fmt.Errorf("unknown hash function: %s", hash)
+	if !hash.Available() {
+		return nil, fmt.Errorf("hash function %v not available", hash)
 	}
 
 	hasher := hash.New()
@@ -253,4 +250,8 @@ func makeHash(hash crypto.Hash, message []byte) ([]byte, error) {
 	}
 
 	return hasher.Sum(nil), nil
+}
+
+func ComputeHash(hash crypto.Hash, message []byte) ([]byte, error) {
+	return makeHash(hash, message)
 }
