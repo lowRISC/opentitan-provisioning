@@ -25,8 +25,8 @@ load("@lowrisc_opentitan//third_party/python:deps.bzl", "python_deps")
 python_deps()
 load("@lowrisc_opentitan//third_party/python:pip.bzl", "pip_deps")
 pip_deps()
-load("@ot_python_deps//:requirements.bzl", install_ot_python_deps="install_deps")
-install_ot_python_deps()
+load("@lowrisc_opentitan//third_party/python:requirements.bzl", install_ot_python_deps="install_deps")
+install_ot_python_deps(local_wheels_repo_target = "@ot_python_wheels//:sanitized_requirements.txt")
 
 # Release process.
 load("@lowrisc_bazel_release//:repos.bzl", "lowrisc_bazel_release_repos")

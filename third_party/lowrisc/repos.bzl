@@ -2,15 +2,13 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("@//rules:repo.bzl", "http_archive_or_local")
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
 _MISC_LINTERS_VERSION = "20240820_01"
 _BAZEL_RELEASE_VERSION = "0.0.3"
 _BAZEL_SKYLIB_VERSION = "1.5.0"
-
-# TODO(timothytrippel): pin a tagged release once one is created on the earlgrey_1.0.0 branch.
-_OPENTITAN_VERSION = "Earlgrey-PROD-A2-M6-RC0"
+_OPENTITAN_VERSION = "Earlgrey-PROD-A2-M6-ROM-RC1"
 
 def lowrisc_repos(misc_linters = None, bazel_release = None, bazel_skylib = None, opentitan = None):
     maybe(
@@ -43,7 +41,7 @@ def lowrisc_repos(misc_linters = None, bazel_release = None, bazel_skylib = None
         http_archive_or_local,
         local = opentitan,
         name = "lowrisc_opentitan",
-        sha256 = "dfd6b1a475a302ed7ec14c6405310722c57752ba9184c7aed0ab700d22344ed9",
+        sha256 = "ad7cdcc5806ff94b3064addf6218b0e0f6e2a57b8e519724a3df0d4191bb59da",
         strip_prefix = "opentitan-{}".format(_OPENTITAN_VERSION),
         url = "https://github.com/lowRISC/opentitan/archive/refs/tags/{}.tar.gz".format(_OPENTITAN_VERSION),
     )
