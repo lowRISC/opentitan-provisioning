@@ -85,17 +85,13 @@ type HSMConfig struct {
 	// NumSessions configures the number of sessions to open in `SlotID`.
 	NumSessions int
 
-	// KGName is the KG key label used to find the key in the HSM.
-	KGName string
+	// SymmetricKeys contains the list of symmetric key labels to use for
+	// retrieving long-lived symmetric keys on the HSM.
+	SymmetricKeys []string
 
-	// KcaName is the KCA key label used to find the key in the HSM.
-	KcaName string
-
-	// KHsksName is the HighSecKdfSeed key label used to find the key in the HSM.
-	KHsksName string
-
-	// KLsksName is the LowSecKdfSeed key label used to find the key in the HSM.
-	KLsksName string
+	// PrivateKeys contains the list of private key labels to use for
+	// retrieving long-lived private keys on the HSM.
+	PrivateKeys []string
 
 	// hsmType contains the type of the HSM (SoftHSM or NetworkHSM)
 	HSMType pk11.HSMType
@@ -103,15 +99,13 @@ type HSMConfig struct {
 
 // HSM is a wrapper over a pk11 session that conforms to the SPM interface.
 type HSM struct {
-	// UIDs of key objects to use for retrieving long-lived keys on the HSM.
-	//
-	// KG and KT are their names in the flows specification: they correspond to the
-	// product revision-wide global secret (KG) and the static transport key used
-	// to derive per-device transport keys (KT).
-	//
-	// May be nil if those keys are not present and not used by any of the called
-	// methods.
-	KG, KT, Kca, KHsks, KLsks []byte
+	// UIDs of key objects to use for retrieving long-lived symmetric keys on
+	// the HSM.
+	SymmetricKeys map[string][]byte
+
+	// UIDs of key objects to use for retrieving long-lived private keys on
+	// the HSM.
+	PrivateKeys map[string][]byte
 
 	// The PKCS#11 session we're working with.
 	sessions *sessionQueue
@@ -184,29 +178,22 @@ func NewHSM(cfg HSMConfig) (*HSM, error) {
 	session, release := hsm.sessions.getHandle()
 	defer release()
 
-	if cfg.KcaName != "" {
-		hsm.Kca, err = getKeyIDByLabel(session, pk11.ClassPrivateKey, cfg.KcaName)
+	hsm.SymmetricKeys = make(map[string][]byte)
+	for _, key := range cfg.SymmetricKeys {
+		id, err := getKeyIDByLabel(session, pk11.ClassSecretKey, key)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "fail to find Kca key ID: %q, error: %v", cfg.KcaName, err)
+			return nil, status.Errorf(codes.Internal, "fail to find symmetric key ID: %q, error: %v", key, err)
 		}
+		hsm.SymmetricKeys[key] = id
 	}
-	if cfg.KGName != "" {
-		hsm.KG, err = getKeyIDByLabel(session, pk11.ClassSecretKey, cfg.KGName)
+
+	hsm.PrivateKeys = make(map[string][]byte)
+	for _, key := range cfg.PrivateKeys {
+		id, err := getKeyIDByLabel(session, pk11.ClassPrivateKey, key)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "fail to find KG key ID: %q, error: %v", cfg.KGName, err)
+			return nil, status.Errorf(codes.Internal, "fail to find private key ID: %q, error: %v", key, err)
 		}
-	}
-	if cfg.KHsksName != "" {
-		hsm.KHsks, err = getKeyIDByLabel(session, pk11.ClassSecretKey, cfg.KHsksName)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "fail to find KHsks key ID: %q, error: %v", cfg.KHsksName, err)
-		}
-	}
-	if cfg.KLsksName != "" {
-		hsm.KLsks, err = getKeyIDByLabel(session, pk11.ClassSecretKey, cfg.KLsksName)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "fail to find KLsks key ID: %q, error: %v", cfg.KLsksName, err)
-		}
+		hsm.PrivateKeys[key] = id
 	}
 
 	return hsm, nil
@@ -227,7 +214,11 @@ var transportKeyLabel = []byte("transport key")
 // deriveTransportSecret derives the transport secret for the device with the
 // given ID, and returns a handle to it.
 func (h *HSM) deriveTransportSecret(session *pk11.Session, deviceId []byte) (pk11.SecretKey, error) {
-	transportStatic, err := session.FindSecretKey(h.KT)
+	kt, ok := h.SymmetricKeys["KT"]
+	if !ok {
+		return pk11.SecretKey{}, status.Errorf(codes.Internal, "failed to find KT key UID")
+	}
+	transportStatic, err := session.FindSecretKey(kt)
 	if err != nil {
 		return pk11.SecretKey{}, err
 	}
@@ -242,7 +233,12 @@ func (h *HSM) DeriveAndWrapTransportSecret(deviceId []byte) ([]byte, error) {
 	session, release := h.sessions.getHandle()
 	defer release()
 
-	global, err := session.FindSecretKey(h.KG)
+	kg, ok := h.SymmetricKeys["KG"]
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "failed to find KG key UID")
+	}
+
+	global, err := session.FindSecretKey(kg)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +256,13 @@ func (h *HSM) DeriveAndWrapTransportSecret(deviceId []byte) ([]byte, error) {
 func (h *HSM) VerifySession() error {
 	session, release := h.sessions.getHandle()
 	defer release()
-	_, err := session.FindPrivateKey(h.Kca)
+
+	kca, ok := h.PrivateKeys["KCAPriv"]
+	if !ok {
+		return status.Errorf(codes.Internal, "failed to find KCAPriv key UID")
+	}
+
+	_, err := session.FindPrivateKey(kca)
 	if err != nil {
 		return status.Errorf(codes.Internal, "failed to verify session: %v", err)
 	}
@@ -280,7 +282,12 @@ func (h *HSM) GenerateKeyPairAndCert(caCert *x509.Certificate, params []SigningP
 	session, release := h.sessions.getHandle()
 	defer release()
 
-	caObj, err := session.FindPrivateKey(h.Kca)
+	kca, ok := h.PrivateKeys["KCAPriv"]
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "failed to find KCAPriv key UID")
+	}
+
+	caObj, err := session.FindPrivateKey(kca)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to find Kca key object: %v", err)
 	}
@@ -290,7 +297,12 @@ func (h *HSM) GenerateKeyPairAndCert(caCert *x509.Certificate, params []SigningP
 		return nil, status.Errorf(codes.Internal, "failed to get Kca signer: %v", err)
 	}
 
-	wi, err := session.FindSecretKey(h.KG)
+	kg, ok := h.SymmetricKeys["KG"]
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "failed to find KG key UID")
+	}
+
+	wi, err := session.FindSecretKey(kg)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get KG key object: %v", err)
 	}
@@ -348,12 +360,20 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([][]byte, 
 		var seed pk11.SecretKey
 		var err error
 		if p.UseHighSecuritySeed {
-			seed, err = session.FindSecretKey(h.KHsks)
+			khs, ok := h.SymmetricKeys["HighSecKdfSeed"]
+			if !ok {
+				return nil, status.Errorf(codes.Internal, "failed to find HighSecKdfSeed key UID")
+			}
+			seed, err = session.FindSecretKey(khs)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "failed to get KHsks key object: %v", err)
 			}
 		} else {
-			seed, err = session.FindSecretKey(h.KLsks)
+			kls, ok := h.SymmetricKeys["LowSecKdfSeed"]
+			if !ok {
+				return nil, status.Errorf(codes.Internal, "failed to find LowSecKdfSeed key UID")
+			}
+			seed, err = session.FindSecretKey(kls)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "failed to get KLsks key object: %v", err)
 			}

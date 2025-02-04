@@ -91,10 +91,10 @@ func (c *clientTask) setup(ctx context.Context) error {
 	// Send request to PA and wait for response that contains auth_token.
 	request := &pbp.InitSessionRequest{Sku: *testSKUName, SkuAuth: *testSKUAuth}
 	response, err := c.client.InitSession(client_ctx, request)
-	c.auth_token = response.SkuSessionToken
 	if err != nil {
 		return err
 	}
+	c.auth_token = response.SkuSessionToken
 	return nil
 }
 
@@ -127,25 +127,25 @@ func (c *clientTask) ot_run(ctx context.Context, numCalls int) {
 	request := &pbp.DeriveSymmetricKeysRequest{
 		Sku: *testSKUName,
 		Params: []*pbp.SymmetricKeygenParams{
-			&pbp.SymmetricKeygenParams{
+			{
 				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_LOW_SECURITY,
 				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW,
 				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS,
 				Diversifier: "test_unlock",
 			},
-			&pbp.SymmetricKeygenParams{
+			{
 				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_LOW_SECURITY,
 				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW,
 				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS,
 				Diversifier: "test_exit",
 			},
-			&pbp.SymmetricKeygenParams{
+			{
 				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_HIGH_SECURITY,
 				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_HASHED_OT_LC_TOKEN,
 				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS,
 				Diversifier: "rma,device_id",
 			},
-			&pbp.SymmetricKeygenParams{
+			{
 				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_HIGH_SECURITY,
 				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW,
 				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_256_BITS,

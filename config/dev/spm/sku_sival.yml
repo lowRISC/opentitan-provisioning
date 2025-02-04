@@ -5,7 +5,6 @@
 sku: "prod_a"
 slotId: 0
 numSessions: 3
-highSecSeedKeyName: "HighSecKdfSeed"
-lowSecSeedKeyName: "LowSecKdfSeed"
-caKeyName: "KCAPriv"
-rootCAPath: certs/NuvotonTPMRootCA0200.cer
+symmetricKeys:
+  - name: "HighSecKdfSeed"
+  - name: "LowSecKdfSeed"

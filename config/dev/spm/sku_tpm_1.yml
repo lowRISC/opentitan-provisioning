@@ -5,11 +5,15 @@
 sku: "tpm_1"
 slotId: 0
 numSessions: 3
-wrapKeyName: "KG"
-caKeyName: "KCAPriv"
-certTemplate:
-    - certPath: certs/TPMEkRsaCertTemplate.cer
-    - certPath: certs/TPMEkEccCertTemplate.cer
+symmetricKeys:
+    - name: "KG"
+privateKeys:
+    - name: "KCAPriv"
+certTemplates:
+    - name: "TPMEkRsaCertTemplate"
+      path: certs/TPMEkRsaCertTemplate.cer
+    - name: "TPMEkEccCertTemplate"
+      path: certs/TPMEkEccCertTemplate.cer
 certTemplateSAN:
   tpmManufacturer: "id:4E544300"
   tpmModel: "NPCT75x"
@@ -27,4 +31,6 @@ keyWrapConfig:
       size: 384
       name: 1
       hash: 2
-rootCAPath: certs/NuvotonTPMRootCA0200.cer
+certs:
+    - name: "RootCA"
+      path: certs/NuvotonTPMRootCA0200.cer

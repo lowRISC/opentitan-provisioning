@@ -101,25 +101,25 @@ type AuthConfig struct {
 }
 
 type Config struct {
-	Sku                string                               `yaml:"sku"`
-	SlotID             int                                  `yaml:"slotId"`
-	NumSessions        int                                  `yaml:"numSessions"`
-	WrapKeyName        string                               `yaml:"wrapKeyName"`
-	HighSecSeedKeyName string                               `yaml:"highSecSeedKeyName"`
-	LowSecSeedKeyName  string                               `yaml:"lowSecSeedKeyName"`
-	CaKeyName          string                               `yaml:"caKeyName"`
-	CertTemplate       []certloader.CertificateConfig       `yaml:"certTemplate"`
-	CertTemplateSan    certloader.CertificateSubjectAltName `yaml:"certTemplateSAN"`
-	Keys               []certloader.Key                     `yaml:"keyWrapConfig"`
-	RootCaPath         string                               `yaml:"rootCAPath"`
+	Sku             string                               `yaml:"sku"`
+	SlotID          int                                  `yaml:"slotId"`
+	NumSessions     int                                  `yaml:"numSessions"`
+	SymmetricKeys   []certloader.SymmetricKey            `yaml:"symmetricKeys"`
+	PrivateKeys     []certloader.PrivateKey              `yaml:"privateKeys"`
+	Keys            []certloader.Key                     `yaml:"keyWrapConfig"`
+	CertTemplates   []certloader.CertificateConfig       `yaml:"certTemplates"`
+	CertTemplateSan certloader.CertificateSubjectAltName `yaml:"certTemplateSAN"`
+	Certs           []certloader.CertificateConfig       `yaml:"certs"`
 }
 
 type skuState struct {
 	// config contains the SKU configuration data loaded by `InitSession()`.
 	config *Config
 
-	// rootCACert is the root CA certificate associated with the SKU.
-	rootCACert *x509.Certificate
+	// certs contains a map of certificates loaded at SKU init configuration.
+	// time. They key is the certificate name which can be referenced by SPM
+	// clients.
+	certs map[string]*x509.Certificate
 
 	// Instance of HSM.
 	seHandle se.SE
@@ -252,7 +252,12 @@ func (s *server) CreateKeyAndCert(ctx context.Context, request *pbp.CreateKeyAnd
 		return nil, status.Errorf(codes.OutOfRange, "could not retrieve cert template for device: %s", err)
 	}
 
-	certs, err := sku.seHandle.GenerateKeyPairAndCert(sku.rootCACert, signParams)
+	rootCA, ok := sku.certs["RootCA"]
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "could not find root CA certificate")
+	}
+
+	certs, err := sku.seHandle.GenerateKeyPairAndCert(rootCA, signParams)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not mint certificate: %s", err)
 	}
@@ -398,12 +403,6 @@ func (s *server) initializeSKU(skuName string) error {
 		return fmt.Errorf("could not load config: %v", err)
 	}
 
-	rootCACert, err := utils.LoadCertFromFile(s.configDir, cfg.RootCaPath)
-	if err != nil {
-		log.Printf("could not load root ca cert: %v", err)
-		return fmt.Errorf("could not load root ca cert: %v", err)
-	}
-
 	var hsmPassword string
 	if s.hsmPasswordFile != "" {
 		val, err := utils.ReadFile(s.hsmPasswordFile)
@@ -421,27 +420,48 @@ func (s *server) initializeSKU(skuName string) error {
 		hsmPassword = val
 	}
 
+	log.Printf("Initializing symmetric keys: %v", cfg.SymmetricKeys)
+	akeys := make([]string, len(cfg.SymmetricKeys))
+	for i, key := range cfg.SymmetricKeys {
+		akeys[i] = key.Name
+	}
+
+	log.Printf("Initializing private keys: %v", cfg.PrivateKeys)
+	pkeys := make([]string, len(cfg.PrivateKeys))
+	for i, key := range cfg.PrivateKeys {
+		pkeys[i] = key.Name
+	}
+
+	log.Printf("Initializing HSM: %v", cfg)
 	// Create new instance of HSM (KT is empty since there no need for it in the TPM)
 	seHandle, err := se.NewHSM(se.HSMConfig{
-		SOPath:      s.hsmSOLibPath,
-		SlotID:      cfg.SlotID,
-		HSMPassword: hsmPassword,
-		NumSessions: cfg.NumSessions,
-		KGName:      cfg.WrapKeyName,
-		KcaName:     cfg.CaKeyName,
-		KHsksName:   cfg.HighSecSeedKeyName,
-		KLsksName:   cfg.LowSecSeedKeyName,
-		HSMType:     s.hsmType,
+		SOPath:        s.hsmSOLibPath,
+		SlotID:        cfg.SlotID,
+		HSMPassword:   hsmPassword,
+		NumSessions:   cfg.NumSessions,
+		SymmetricKeys: akeys,
+		PrivateKeys:   pkeys,
+		HSMType:       s.hsmType,
 	})
 	if err != nil {
 		log.Printf("fail to create an instance of HSM: %v", err)
 		return fmt.Errorf("fail to create an instance of HSM: %v", err)
 	}
 
+	// Load all certificates referenced in the SKU configuration.
+	certs := make(map[string]*x509.Certificate)
+	for _, cert := range cfg.Certs {
+		c, err := utils.LoadCertFromFile(s.configDir, cert.Path)
+		if err != nil {
+			return fmt.Errorf("could not load cert: %v", err)
+		}
+		certs[cert.Name] = c
+	}
+
 	s.skus[skuName] = &skuState{
-		config:     &cfg,
-		rootCACert: rootCACert,
-		seHandle:   seHandle,
+		config:   &cfg,
+		certs:    certs,
+		seHandle: seHandle,
 	}
 	return nil
 }
@@ -509,7 +529,7 @@ func (s *server) getSigningParams(sku *skuState, subjectSerialNumber string) ([]
 
 		// Load from SKU configuration blob as this certificate is
 		// generated at SKU creation time.
-		template, err := s.loader.LoadTemplateFromFile(s.configDir, sku.config.CertTemplate[i].CertPath)
+		template, err := s.loader.LoadTemplateFromFile(s.configDir, sku.config.CertTemplates[i].Path)
 		if err != nil {
 			return nil, status.Errorf(codes.OutOfRange, "could not retrieve cert template for device: %v", err)
 		}
@@ -522,7 +542,18 @@ func (s *server) getSigningParams(sku *skuState, subjectSerialNumber string) ([]
 			template.NotAfter = time.Now().AddDate(20, 0, 0)
 		}
 
-		issuingCertificateURL, err := certloader.UpdateIssuingCertificateURL(template.IssuingCertificateURL[0], sku.config.RootCaPath)
+		rootCAPath := ""
+		for _, cert := range sku.config.Certs {
+			if cert.Name == "RootCA" {
+				rootCAPath = cert.Path
+				break
+			}
+		}
+		if rootCAPath == "" {
+			return nil, status.Errorf(codes.Internal, "could not find root CA certificate")
+		}
+
+		issuingCertificateURL, err := certloader.UpdateIssuingCertificateURL(template.IssuingCertificateURL[0], rootCAPath)
 		if err != nil {
 			return nil, err
 		}

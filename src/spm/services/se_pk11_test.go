@@ -97,7 +97,16 @@ func MakeHSM(t *testing.T) (*HSM, []byte, []byte, []byte, []byte) {
 	err = sessions.insert(s)
 	ts.Check(t, err)
 
-	return &HSM{KG: gUID, KT: tUID, KHsks: hsksUID, KLsks: lsksUID, sessions: sessions},
+	return &HSM{
+			SymmetricKeys: map[string][]byte{
+				"KG":             gUID,
+				"KT":             tUID,
+				"HighSecKdfSeed": hsksUID,
+				"LowSecKdfSeed":  lsksUID,
+			},
+			PrivateKeys: map[string][]byte{},
+			sessions:    sessions,
+		},
 		[]byte(globalKeyBytes.(pk11.AESKey)),
 		transportKeySeed,
 		hsKeySeed,
@@ -290,7 +299,7 @@ func TestGenerateCert(t *testing.T) {
 	})
 	ts.Check(t, err)
 
-	hsm.Kca = caKeyHandle
+	hsm.PrivateKeys["KCAPriv"] = caKeyHandle
 	certs, err := hsm.GenerateKeyPairAndCert(caCert, []SigningParams{{template, elliptic.P256()}})
 	ts.Check(t, err)
 

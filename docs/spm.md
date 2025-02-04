@@ -80,7 +80,7 @@ to run outside of a container. For example:
 $ config/dev/softhsm/init.sh \
     config/dev \
     bazel-bin/external/softhsm2/softhsm2 \
-    "$(pwd)/.opentitan
+    "$(pwd)/.opentitan"
 Execute the following command before launching the spm service:
 export SOFTHSM2_CONF=/home/user/ot-provisioning/.opentitan/spm/softhsm2/softhsm2.conf
 SoftHSM configuration result: PASS!

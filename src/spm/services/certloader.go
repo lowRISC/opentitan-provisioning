@@ -51,6 +51,14 @@ type Key struct {
 	Exp  []byte            `yaml:"exp"`
 }
 
+type SymmetricKey struct {
+	Name string `yaml:"name"`
+}
+
+type PrivateKey struct {
+	Name string `yaml:"name"`
+}
+
 // A SKUKey tracks information necessary to identify a specific signer
 // template.
 type SKUKey struct {
@@ -71,7 +79,8 @@ type CertificateSubjectAltName struct {
 }
 
 type CertificateConfig struct {
-	CertPath string `yaml:"certPath"`
+	Name string `yaml:"name"`
+	Path string `yaml:"path"`
 }
 
 // New creates a new instance of the tpm certificate template builder.
