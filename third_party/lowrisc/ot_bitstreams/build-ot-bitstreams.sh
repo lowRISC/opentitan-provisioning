@@ -19,7 +19,7 @@ fi
 
 OT_REPO_TOP=$1
 
-_OT_REPO_BRANCH="Earlgrey-PROD-A2-M6-ROM-RC1"
+_OT_REPO_BRANCH="Earlgrey-A2-Provisioning-RC0"
 _PROVISIONING_REPO_TOP=$(pwd)
 _FPGAS=("hyper310" "cw340")
 _CP_SKUS=("emulation")
