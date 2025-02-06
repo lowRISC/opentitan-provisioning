@@ -62,68 +62,107 @@ absl::StatusOr<std::string> ReadFile(const std::string &filename) {
   return output_stream.str();
 }
 
-}  // namespace
-
-int main(int argc, char **argv) {
-  // Parse cmd line args.
-  absl::FlagsUsageConfig config;
-  config.version_string = &VersionFormatted;
-  absl::SetFlagsUsageConfig(config);
-  absl::ParseCommandLine(argc, argv);
-  LOG(INFO) << VersionFormatted();
-
-  // Extract and validate ATE client options.
+absl::StatusOr<AteClient::Options> ValidateAteClientOptions(void) {
   AteClient::Options options;
   options.pa_socket = absl::GetFlag(FLAGS_pa_socket);
   options.enable_mtls = absl::GetFlag(FLAGS_enable_mtls);
+
+  // If mTLS is enabled, load key and certs.
   if (options.enable_mtls) {
     std::unordered_map<absl::Flag<std::string> *, std::string *> pem_options = {
         {&FLAGS_client_key, &options.pem_private_key},
         {&FLAGS_client_cert, &options.pem_cert_chain},
         {&FLAGS_ca_root_certs, &options.pem_root_certs},
     };
-
     for (auto opt : pem_options) {
+      // Check the required filepath flag was provided.
       std::string filename = absl::GetFlag(*opt.first);
       if (filename.empty()) {
-        LOG(ERROR) << "--" << absl::GetFlagReflectionHandle(*opt.first).Name()
-                   << " not set. This is a required argument when "
-                   << " --enable_mtls is set to true." << std::endl;
-        return -1;
+        return absl::InvalidArgumentError(
+            absl::StrCat("--", absl::GetFlagReflectionHandle(*opt.first).Name(),
+                         " not set. This is a required argument when "
+                         "--enable_mtls is set to true."));
       }
+      // Check the required filepath is valid by attempting to read it.
       auto result = ReadFile(filename);
       if (!result.ok()) {
-        LOG(ERROR) << "--" << absl::GetFlagReflectionHandle(*opt.first).Name()
-                   << " " << result.status() << std::endl;
-        return -1;
+        return absl::InvalidArgumentError(
+            absl::StrCat("--", absl::GetFlagReflectionHandle(*opt.first).Name(),
+                         " ", result.status().message()));
       }
       *opt.second = result.value();
     }
   }
+  return options;
+}
 
-  // Instantiate a client.
-  auto ate = AteClient::Create(options);
+absl::StatusOr<std::string> ValidateDutOptions(void) {
+  std::string fpga_bitstream_path =
+      absl::StrCat("third_party/lowrisc/ot_bitstreams/cp_",
+                   absl::GetFlag(FLAGS_fpga), ".bit");
+  std::ifstream file_stream(fpga_bitstream_path);
+  if (file_stream.good()) {
+    return fpga_bitstream_path;
+  }
+  return absl::InvalidArgumentError(
+      absl::StrCat("Unable to open file: \"", fpga_bitstream_path, "\""));
+}
+}  // namespace
 
-  // Init/Close session.
-  grpc::Status status = ate->InitSession(absl::GetFlag(FLAGS_sku),
-                                         absl::GetFlag(FLAGS_sku_auth_pw));
-  if (!status.ok()) {
-    LOG(ERROR) << "InitSession failed with " << status.error_code() << ": "
-               << status.error_message() << std::endl;
+int main(int argc, char **argv) {
+  // Parse cmd line args.
+  absl::FlagsUsageConfig config;
+  absl::SetFlagsUsageConfig(config);
+  absl::ParseCommandLine(argc, argv);
+
+  // Set version string.
+  config.version_string = &VersionFormatted;
+  LOG(INFO) << VersionFormatted();
+
+  // Validate cmd line args.
+  auto ate_opts_result = ValidateAteClientOptions();
+  if (!ate_opts_result.ok()) {
+    LOG(ERROR) << ate_opts_result.status().message() << std::endl;
+    return -1;
+  }
+  AteClient::Options ate_options = ate_opts_result.value();
+  auto dut_opts_result = ValidateDutOptions();
+  if (!dut_opts_result.ok()) {
+    LOG(ERROR) << dut_opts_result.status().message() << std::endl;
+    return -1;
+  }
+  std::string fpga_bitstream_path = dut_opts_result.value();
+
+  // Instantiate an ATE client (gateway to PA).
+  auto ate = AteClient::Create(ate_options);
+
+  // Init session with PA.
+  grpc::Status pa_status = ate->InitSession(absl::GetFlag(FLAGS_sku),
+                                            absl::GetFlag(FLAGS_sku_auth_pw));
+  if (!pa_status.ok()) {
+    LOG(ERROR) << "InitSession with PA failed " << pa_status.error_code()
+               << ": " << pa_status.error_message() << std::endl;
+    return -1;
   }
 
   // Init session with DUT.
   auto dut = DutLib::Create();
-  dut->DutInit(absl::GetFlag(FLAGS_fpga),
-               absl::StrCat("third_party/lowrisc/ot_bitstreams/cp_",
-                            absl::GetFlag(FLAGS_fpga), ".bit"));
+  absl::Status dut_status =
+      dut->DutInit(absl::GetFlag(FLAGS_fpga), fpga_bitstream_path);
+  if (!dut_status.ok()) {
+    LOG(ERROR) << "DutInit failed with " << dut_status.code() << ": "
+               << dut_status.message() << std::endl;
+    return -1;
+  }
 
   // TODO(#6): add CP test code here.
 
-  status = ate->CloseSession();
-  if (!status.ok()) {
-    LOG(ERROR) << "CloseSession failed with " << status.error_code() << ": "
-               << status.error_message() << std::endl;
+  // Close session with PA.
+  pa_status = ate->CloseSession();
+  if (!pa_status.ok()) {
+    LOG(ERROR) << "CloseSession failed with " << pa_status.error_code() << ": "
+               << pa_status.error_message() << std::endl;
+    return -1;
   }
 
   return 0;

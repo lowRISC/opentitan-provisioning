@@ -37,6 +37,13 @@ pub extern "C" fn OtLibFpgaInit(fpga: *mut c_char, fpga_bitstream: *mut c_char) 
         verilator_args: vec![],
     };
 
+    // SAFETY: The FPGA string must be defined by the caller and be valid.
+    let fpga_cstr = unsafe { CStr::from_ptr(fpga) };
+    let fpga_in = fpga_cstr.to_str().unwrap();
+    // SAFETY: The FPGA bitstream path string must be defined by the caller and be a valid path.
+    let fpga_bitstream_cstr = unsafe { CStr::from_ptr(fpga_bitstream) };
+    let fpga_bitstream_in = fpga_bitstream_cstr.to_str().unwrap();
+
     // Only the hyper310 backend is currently supported.
     let backend_opts = backend::BackendOpts {
         interface: String::from(fpga_in),
@@ -58,12 +65,6 @@ pub extern "C" fn OtLibFpgaInit(fpga: *mut c_char, fpga_bitstream: *mut c_char) 
     transport.apply_default_configuration(None).unwrap();
 
     // Load bitstream.
-    // SAFETY: The FPGA string must be defined by the caller and be valid.
-    let fpga_cstr = unsafe { CStr::from_ptr(fpga) };
-    let fpga_in = fpga_cstr.to_str().unwrap();
-    // SAFETY: The FPGA bitstream path string must be defined by the caller and be a valid path.
-    let fpga_bitstream_cstr = unsafe { CStr::from_ptr(fpga_bitstream) };
-    let fpga_bitstream_in = fpga_bitstream_cstr.to_str().unwrap();
     let load_bitstream = LoadBitstream {
         clear_bitstream: true,
         bitstream: Some(PathBuf::from_str(fpga_bitstream_in).unwrap()),
