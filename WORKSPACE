@@ -11,7 +11,7 @@ lowrisc_repos()
 load("@lowrisc_opentitan//rules:hooks_setup.bzl", "provisioning_exts_setup")
 provisioning_exts_setup(
     name = "provisioning_exts_setup",
-    dummy = "sw/device/silicon_creator/manuf/extensions",
+    dummy = "third_party/lowrisc/provisioning_exts",
 )
 
 # Declare the external repository for provisioning source code extensions.

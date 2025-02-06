@@ -7,8 +7,13 @@ package(default_visibility = ["//visibility:public"])
 cc_binary(
     name = "cp",
     srcs = ["cp.cc"],
+    data = [
+        "//third_party/lowrisc/ot_bitstreams:cp_cw340.bit",
+        "//third_party/lowrisc/ot_bitstreams:cp_hyper310.bit",
+    ],
     deps = [
         "//src/ate:ate_client",
+        "//src/ate/test_programs/dut_lib",
         "//src/version",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/flags:parse",

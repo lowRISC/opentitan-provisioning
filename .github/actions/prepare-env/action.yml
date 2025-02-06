@@ -1,0 +1,15 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Prepare environment
+description: Install dependencies and prepare environment needed for OpenTitan
+
+runs:
+  using: composite
+  steps:
+    - name: Install system dependencies
+      run: |
+        sudo apt update
+        grep '^[^#]' apt-requirements.txt | xargs sudo apt install -y
+      shell: bash

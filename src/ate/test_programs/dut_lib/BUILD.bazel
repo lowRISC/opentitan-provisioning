@@ -1,0 +1,27 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "dut_lib",
+    srcs = ["dut_lib.cc"],
+    hdrs = ["dut_lib.h"],
+    data = [
+        "@lowrisc_opentitan//sw/host/opentitanlib",
+    ],
+    # TODO(timothytrippel): make these bazel managed dependencies.
+    linkopts = [
+        "-lusb-1.0",
+        "-ludev",
+        "-lftdi1",
+    ],
+    deps = [
+        "//src/ate:ate_client",
+        "//src/ate/test_programs/otlib_wrapper",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
+        "@lowrisc_opentitan//sw/host/opentitanlib",
+    ],
+)
