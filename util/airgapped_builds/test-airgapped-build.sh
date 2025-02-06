@@ -22,23 +22,11 @@ sudo ip netns exec airgapped ip addr add 127.0.0.1/8 dev lo
 sudo ip netns exec airgapped ip link set dev lo up
 
 # Enter the network namespace and perform several builds.
-sudo ip netns exec airgapped sudo -u "$USER" bash -c \
-  "TARGET_PATTERN_FILE=\$(mktemp)
-  echo //... > \"\${TARGET_PATTERN_FILE}\"
-  bazel-airgapped/bazel cquery \
-    --distdir=$(pwd)/bazel-airgapped/bazel-distdir \
-    --repository_cache=$(pwd)/bazel-airgapped/bazel-cache \
-    --noinclude_aspects \
-    --output=starlark \
-    --starlark:expr='\"-{}\".format(target.label)' \
-    --define DISABLE_VERILATOR_BUILD=true \
-    -- \"rdeps(//..., kind(bitstream_splice, //...))\" \
-    >> \"\${TARGET_PATTERN_FILE}\"
-  echo Building target pattern:
-  cat \"\${TARGET_PATTERN_FILE}\"
-  bazel-airgapped/bazel build \
-    --distdir=$(pwd)/bazel-airgapped/bazel-distdir \
-    --repository_cache=$(pwd)/bazel-airgapped/bazel-cache \
-    --define DISABLE_VERILATOR_BUILD=true \
-    --target_pattern_file=\"\${TARGET_PATTERN_FILE}\""
+sudo ip netns exec airgapped sudo -u "$USER" \
+  env \
+    BAZEL_PYTHON_WHEELS_REPO="${PWD}/bazel-airgapped/ot_python_wheels" \
+  "${PWD}/bazel-airgapped/bazel" build                               \
+    --distdir="${PWD}/bazel-airgapped/bazel-distdir"                 \
+    --repository_cache="${PWD}/bazel-airgapped/bazel-cache"          \
+    //...
 exit 0

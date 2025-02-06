@@ -10,6 +10,7 @@ set -euo pipefail
 : "${BAZEL_AIRGAPPED_DIR:=bazel-airgapped}"
 : "${BAZEL_DISTDIR:=bazel-distdir}"
 : "${BAZEL_CACHEDIR:=bazel-cache}"
+: "${BAZEL_PYTHON_WHEEL_REPO:=ot_python_wheels}"
 
 LINE_SEP="====================================================================="
 
@@ -134,12 +135,27 @@ if [[ ${AIRGAPPED_DIR_CONTENTS} == "ALL" || \
   bazelisk fetch \
     --repository_cache=${BAZEL_AIRGAPPED_DIR}/${BAZEL_CACHEDIR} \
     //... \
-    @remotejdk11_linux//... \
+    @remote_java_tools//... \
+    @remote_java_tools_linux//... \
+    @bindgen_clang_linux//... \
+    @rules_rust_bindgen__bindgen-0.65.1//... \
+    @rules_rust_bindgen__bindgen-cli-0.65.1//... \
+    @go_sdk//... \
     @cmake-3.22.2-linux-x86_64//... \
-    @ninja_1.10.2_linux//... \
     @gnumake_src//... \
+    @go_sdk//... \
     @gcc_mxe_mingw32_files//... \
-    @gcc_mxe_mingw64_files//...
+    @gcc_mxe_mingw64_files//... \
+    @ninja_1.10.2_linux//... \
+    @ot_python_wheels//... \
+    @python3_toolchains//... \
+    @remotejdk11_linux//... \
+    @rustfmt_nightly-2023-10-05__x86_64-unknown-linux-gnu_tools//... \
+    @rust_analyzer_1.71.1_tools//... \
+    @rust_linux_x86_64__x86_64-unknown-linux-gnu__nightly_tools//... \
+    @rust_linux_x86_64__riscv32imc-unknown-none-elf__nightly_tools//...
+  cp -R "$(bazelisk info output_base)"/external/${BAZEL_PYTHON_WHEEL_REPO} \
+    ${BAZEL_AIRGAPPED_DIR}/
   echo "Done."
 fi
 
