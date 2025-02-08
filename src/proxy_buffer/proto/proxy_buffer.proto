@@ -28,9 +28,9 @@ enum DeviceRegistrationStatus {
   DEVICE_REGISTRATION_STATUS_BUFFER_FULL = 3;
 }
 message DeviceRegistrationRequest {
-  device_id.DeviceRecord device_record = 1;
+  ot_device_id.DeviceRecord device_record = 1;
 }
 message DeviceRegistrationResponse {
   DeviceRegistrationStatus status = 1;
-  device_id.DeviceId device_id = 2;
+  ot_device_id.DeviceId device_id = 2;
 }

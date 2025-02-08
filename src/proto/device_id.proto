@@ -7,7 +7,7 @@
 
 syntax = "proto3";
 
-package device_id;
+package ot_device_id;
 
 option go_package = "device_id_go_pb";
 
