@@ -37,12 +37,19 @@ PA_SERVER_DEPS = [
 go_binary(
     name = "loadtest",
     srcs = ["loadtest.go"],
+    data = [
+        "//src/spm/services:testdata",
+    ],
     deps = [
         "//src/pa/proto:pa_go_pb",
         "//src/pa/services:pa",
+        "//src/proto/crypto:cert_go_pb",
+        "//src/proto/crypto:common_go_pb",
+        "//src/proto/crypto:ecdsa_go_pb",
         "//src/registry_buffer/proto:registry_buffer_go_pb",
         "//src/spm/proto:spm_go_pb",
         "//src/transport:grpconn",
+        "@io_bazel_rules_go//go/tools/bazel",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//metadata",
         "@org_golang_x_sync//errgroup:go_default_library",

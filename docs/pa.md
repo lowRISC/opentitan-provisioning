@@ -43,7 +43,7 @@ $ bazelisk run //src/pa:loadtest -- \
     --ca_root_certs=$(pwd)/config/dev/certs/out/ca-cert.pem \
     --pa_address="localhost:5001" \
     --parallel_clients=20 \
-    --total_calls_per_client=100
+    --total_calls_per_method=100
 ```
 
 ## Read More

@@ -35,13 +35,9 @@ fi
 ./util/containers/deploy_test_k8_pod.sh
 
 # Run the loadtest on each SKU.
-SKUS=("tpm_1" "sival")
-for sku in "${SKUS[@]}"; do
-  echo "Running PA loadtest with sku: ${sku} ..."
-  bazelisk run //src/pa:loadtest -- \
+echo "Running PA loadtest with sku: ${sku} ..."
+bazelisk run //src/pa:loadtest -- \
     --pa_address="localhost:5001" \
-    --sku="${sku}" \
     --sku_auth="test_password" \
     --parallel_clients=10 \
-    --total_calls_per_client=10
-done
+    --total_calls_per_method=10

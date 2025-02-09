@@ -10,14 +10,19 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"time"
 
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
 	pbp "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
+	pbc "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/cert_go_pb"
+	pbcommon "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/common_go_pb"
+	pbe "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/ecdsa_go_pb"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/grpconn"
 )
 
@@ -25,6 +30,9 @@ const (
 	// Maximum number of buffered calls. This limits the number of concurrent
 	// calls to ensure the program does not run out of memory.
 	maxBufferedCallResults = 100000
+
+	// Path to the TBS file used for testing the EndorseCerts call.
+	diceTBSPath = "src/spm/services/testdata/tbs.der"
 )
 
 var (
@@ -33,10 +41,9 @@ var (
 	clientKey           = flag.String("client_key", "", "File path to the PEM encoding of the client's private key")
 	clientCert          = flag.String("client_cert", "", "File path to the PEM encoding of the client's certificate chain")
 	caRootCerts         = flag.String("ca_root_certs", "", "File path to the PEM encoding of the CA root certificates")
-	testSKUName         = flag.String("sku", "sival", "The SKU configuration to use in the SPM configuration dir.")
 	testSKUAuth         = flag.String("sku_auth", "test_password", "The SKU authorization password to use.")
 	parallelClients     = flag.Int("parallel_clients", 0, "The total number of clients to run concurrently")
-	totalCallsPerClient = flag.Int("total_calls_per_client", 0, "The total number of calls to execute during the load test")
+	totalCallsPerMethod = flag.Int("total_calls_per_method", 0, "The total number of calls to execute during the load test")
 	delayPerCall        = flag.Duration("delay_per_call", 10*time.Millisecond, "Delay between client calls used to emulate tester timeing. Default 100ms")
 )
 
@@ -61,14 +68,21 @@ type clientTask struct {
 }
 
 type callResult struct {
+	// id is the client identifier.
+	id int
 	// err is the error returned by the call, if any.
 	err error
+}
+
+type clientGroup struct {
+	clients []*clientTask
+	results chan *callResult
 }
 
 // setup creates a connection to the ProvisioningAppliance server, saving an
 // authentication token provided by the ProvisioningAppliance. The connection
 // supports the `enableTLS` flag and associated certificates.
-func (c *clientTask) setup(ctx context.Context) error {
+func (c *clientTask) setup(ctx context.Context, skuName string) error {
 	opts := grpc.WithInsecure()
 	if *enableTLS {
 		credentials, err := grpconn.LoadClientCredentials(*caRootCerts, *clientCert, *clientKey)
@@ -89,7 +103,7 @@ func (c *clientTask) setup(ctx context.Context) error {
 	c.client = pbp.NewProvisioningApplianceServiceClient(conn)
 
 	// Send request to PA and wait for response that contains auth_token.
-	request := &pbp.InitSessionRequest{Sku: *testSKUName, SkuAuth: *testSKUAuth}
+	request := &pbp.InitSessionRequest{Sku: skuName, SkuAuth: *testSKUAuth}
 	response, err := c.client.InitSession(client_ctx, request)
 	if err != nil {
 		return err
@@ -98,13 +112,17 @@ func (c *clientTask) setup(ctx context.Context) error {
 	return nil
 }
 
-// tpm_run executes the CreateKeyAndCertRequest call for a `numCalls` total and
+// callFunc is a function that executes a call to the ProvisioningAppliance
+// service.
+type callFunc func(context.Context, int, string, *clientTask)
+
+// Executes the CreateKeyAndCertRequest call for a `numCalls` total and
 // produces a `callResult` which is sent to the `clientTask.results` channel.
-func (c *clientTask) tpm_run(ctx context.Context, numCalls int) {
+func testTPMCreateKeyAndCertRequest(ctx context.Context, numCalls int, skuName string, c *clientTask) {
 	// Prepare request and auth token.
 	md := metadata.Pairs("user_id", strconv.Itoa(c.id), "authorization", c.auth_token)
 	client_ctx := metadata.NewOutgoingContext(ctx, md)
-	request := &pbp.CreateKeyAndCertRequest{Sku: *testSKUName}
+	request := &pbp.CreateKeyAndCertRequest{Sku: skuName}
 
 	// Send request to PA.
 	for i := 0; i < numCalls; i++ {
@@ -117,15 +135,15 @@ func (c *clientTask) tpm_run(ctx context.Context, numCalls int) {
 	}
 }
 
-// ot_run executes the DeriveSymmetricKeys call for a `numCalls` total and
+// Executes the DeriveSymmetricKeys call for a `numCalls` total and
 // produces a `callResult` which is sent to the `clientTask.results` channel.
-func (c *clientTask) ot_run(ctx context.Context, numCalls int) {
+func testOTDeriveSymmetricKeys(ctx context.Context, numCalls int, skuName string, c *clientTask) {
 	// Prepare request and auth token.
 	md := metadata.Pairs("user_id", strconv.Itoa(c.id), "authorization", c.auth_token)
 	client_ctx := metadata.NewOutgoingContext(ctx, md)
 
 	request := &pbp.DeriveSymmetricKeysRequest{
-		Sku: *testSKUName,
+		Sku: skuName,
 		Params: []*pbp.SymmetricKeygenParams{
 			{
 				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_LOW_SECURITY,
@@ -160,21 +178,65 @@ func (c *clientTask) ot_run(ctx context.Context, numCalls int) {
 		if err != nil {
 			log.Printf("error: client id: %d, error: %v", c.id, err)
 		}
-		c.results <- &callResult{err: err}
+		c.results <- &callResult{id: c.id, err: err}
 		time.Sleep(c.delayPerCall)
 	}
 }
 
-// run executes the load test launching `numClients` clients and executing
-// `numCalls` gRPC calls. Each client waits a duration of `delayPerCall`
-// between calls.
-func run(ctx context.Context, numClients, numCalls int, delayPerCall time.Duration) error {
-	if numClients <= 0 {
-		return fmt.Errorf("number of clients must be at least 1, got %d", numClients)
-	}
+func testOTEndorseCerts(ctx context.Context, numCalls int, skuName string, c *clientTask, tbs []byte) {
+	// Prepare request and auth token.
+	md := metadata.Pairs("user_id", strconv.Itoa(c.id), "authorization", c.auth_token)
+	client_ctx := metadata.NewOutgoingContext(ctx, md)
 
-	if numCalls <= 0 {
-		return fmt.Errorf("number of class must be at least 1, got: %d", numCalls)
+	request := &pbp.EndorseCertsRequest{
+		Sku: skuName,
+		Bundles: []*pbp.EndorseCertBundle{
+			{
+				KeyParams: &pbc.SigningKeyParams{
+					KeyLabel: "sku-sival-dice-priv-key-ver-0.0",
+					Key: &pbc.SigningKeyParams_EcdsaParams{
+						EcdsaParams: &pbe.EcdsaParams{
+							HashType: pbcommon.HashType_HASH_TYPE_SHA256,
+							Curve:    pbcommon.EllipticCurveType_ELLIPTIC_CURVE_TYPE_NIST_P256,
+							Encoding: pbe.EcdsaSignatureEncoding_ECDSA_SIGNATURE_ENCODING_DER,
+						},
+					},
+				},
+				Certs: []*pbc.Certificate{
+					{
+						Blob: tbs,
+					},
+				},
+			},
+		},
+	}
+	for i := 0; i < numCalls; i++ {
+		_, err := c.client.EndorseCerts(client_ctx, request)
+		if err != nil {
+			log.Printf("error: client id: %d, error: %v", c.id, err)
+		}
+		c.results <- &callResult{id: c.id, err: err}
+		time.Sleep(c.delayPerCall)
+	}
+}
+
+func NewEndorseCertTest() callFunc {
+	filename, err := bazel.Runfile(diceTBSPath)
+	if err != nil {
+		log.Fatalf("unable to find file: %q, error: %v", diceTBSPath, err)
+	}
+	diceTBS, err := os.ReadFile(filename)
+	if err != nil {
+		log.Fatalf("unable to load file: %q, error: %v", filename, err)
+	}
+	return callFunc(func(ctx context.Context, numCalls int, skuName string, c *clientTask) {
+		testOTEndorseCerts(ctx, numCalls, skuName, c, diceTBS)
+	})
+}
+
+func newClientGroup(ctx context.Context, numClients, numCalls int, delayPerCall time.Duration, skuName string) (*clientGroup, error) {
+	if numClients <= 0 {
+		return nil, fmt.Errorf("number of clients must be at least 1, got %d", numClients)
 	}
 
 	results := make(chan *callResult, maxBufferedCallResults)
@@ -190,33 +252,40 @@ func run(ctx context.Context, numClients, numCalls int, delayPerCall time.Durati
 				results:      results,
 				delayPerCall: delayPerCall,
 			}
-			return clients[i].setup(ctx_start)
+			return clients[i].setup(ctx_start, skuName)
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		return fmt.Errorf("error during client setup: %v", err)
+		return nil, fmt.Errorf("error during client setup: %v", err)
+	}
+	return &clientGroup{
+		clients: clients,
+		results: results,
+	}, nil
+}
+
+// run executes the load test launching `numClients` clients and executing
+// `numCalls` gRPC calls. Each client waits a duration of `delayPerCall`
+// between calls.
+func run(ctx context.Context, cg *clientGroup, numCalls int, skuName string, test callFunc) error {
+	if numCalls <= 0 {
+		return fmt.Errorf("number of calls must be at least 1, got: %d", numCalls)
 	}
 
-	log.Printf("Starting load test with %d calls per client", numCalls)
 	eg, ctx_test := errgroup.WithContext(ctx)
-	for _, c := range clients {
+	for _, c := range cg.clients {
 		c := c
 		eg.Go(func() error {
-			switch *testSKUName {
-			case "tpm_1":
-				c.tpm_run(ctx_test, numCalls)
-			case "sival":
-				c.ot_run(ctx_test, numCalls)
-			}
+			test(ctx_test, numCalls, skuName, c)
 			return nil
 		})
 	}
 
-	expectedNumCalls := numClients * numCalls
+	expectedNumCalls := len(cg.clients) * numCalls
 	errCount := 0
 	eg.Go(func() error {
 		for i := 0; i < expectedNumCalls; i++ {
-			r := <-results
+			r := <-cg.results
 			if r.err != nil {
 				errCount++
 			}
@@ -232,8 +301,67 @@ func run(ctx context.Context, numClients, numCalls int, delayPerCall time.Durati
 
 func main() {
 	flag.Parse()
-	if err := run(context.Background(), *parallelClients, *totalCallsPerClient, *delayPerCall); err != nil {
-		log.Fatalf("Load test completed with errors: %v", err)
+
+	type result struct {
+		skuName  string
+		testName string
+		pass     bool
+		msg      string
+	}
+	results := []result{}
+
+	for _, t := range []struct {
+		skuName  string
+		testName string
+		testFunc callFunc
+	}{
+		{
+			skuName:  "tpm_1",
+			testName: "TPM:CreateKeyAndCertRequest",
+			testFunc: testTPMCreateKeyAndCertRequest,
+		},
+		{
+			skuName:  "sival",
+			testName: "OT:DeriveSymmetricKeys",
+			testFunc: testOTDeriveSymmetricKeys,
+		},
+		{
+			skuName:  "sival",
+			testName: "OT:EndorseCerts",
+			testFunc: NewEndorseCertTest(),
+		},
+	} {
+		log.Printf("sku: %q", t.skuName)
+		result := result{skuName: t.skuName, testName: t.testName}
+		ctx := context.Background()
+		cg, err := newClientGroup(ctx, *parallelClients, *totalCallsPerMethod, *delayPerCall, t.skuName)
+		if err != nil {
+			result.pass = false
+			result.msg = fmt.Sprintf("failed to initialize client tasks: %v", err)
+			continue
+		}
+		log.Printf("Running test %q", t.testName)
+		if err := run(ctx, cg, *totalCallsPerMethod, t.skuName, t.testFunc); err != nil {
+			result.pass = false
+			result.msg = fmt.Sprintf("failed to execute test: %v", err)
+			results = append(results, result)
+			continue
+		}
+		result.pass = true
+		result.msg = "PASS"
+		results = append(results, result)
+	}
+
+	failed := 0
+	for _, r := range results {
+		if !r.pass {
+			failed = failed + 1
+		}
+		log.Printf("sku: %q, test: %q, result: %v, msg: %q", r.skuName, r.testName, r.pass, r.msg)
+	}
+	if failed > 0 {
+		log.Fatalf("Test FAIL!. %d tests failed", failed)
+		return
 	}
 	log.Print("Test PASS!")
 }

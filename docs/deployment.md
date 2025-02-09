@@ -69,7 +69,7 @@ instructions use `${STAGING_DIR}` to point to it.
         --enable_tls=false \
         --pa_address="localhost:5001" \
         --parallel_clients=20 \
-        --total_calls_per_client=10
+        --total_calls_per_method=10
     ```
 
 1. (Optional) Run the previous step after system reboot.
@@ -107,5 +107,5 @@ $ /var/lib/opentitan/release/loadtest \
     --enable_tls=false \
     --pa_address="localhost:5001" \
     --parallel_clients=20 \
-    --total_calls_per_client=10
+    --total_calls_per_method=10
 ```
