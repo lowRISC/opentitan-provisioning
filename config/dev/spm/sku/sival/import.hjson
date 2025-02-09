@@ -1,0 +1,33 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+
+// The following import operations are for testing purposes only.
+// They are not intended for production use.
+//
+// cd /var/lib/opentitan
+// bin/hsmtool --user=user --pin=${SPM_HSM_PIN_USER} \
+//   --module="${OPENTITAN_VAR_DIR}/softhsm2/libsofthsm2.so" \
+//   --token="${SPM_HSM_TOKEN_LABEL}" exec spm/config/sku/sival/import.hjson
+[
+  {
+    command: "ecdsa-import",
+    label: "sku-sival-dice-priv-key-ver-0.0",
+    public: false,
+    filename: "/var/lib/opentitan/spm/config/sku/sival/dice_priv_key_ver_0.0.pkcs8.der",
+    private_attrs: {
+        CKA_CLASS: "CKO_PRIVATE_KEY",
+        CKA_DECRYPT: false,
+        CKA_DESTROYABLE: false,
+        CKA_EXTRACTABLE: false,
+        CKA_KEY_TYPE: "CKK_EC",
+        CKA_MODIFIABLE: true,
+        CKA_PRIVATE: true,
+        CKA_SENSITIVE: false,
+        CKA_SIGN: true
+        CKA_TOKEN: true,
+        CKA_UNWRAP: false,
+    }
+  }
+]

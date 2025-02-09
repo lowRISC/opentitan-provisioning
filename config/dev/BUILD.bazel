@@ -13,6 +13,7 @@ filegroup(
             "env/**",
             "certs/**",
             "containers/**",
+            "sku/**",
             "softhsm/**",
             "spm/**",
         ],

@@ -60,6 +60,15 @@ ${CONFIG_DIR}/softhsm/init.sh "${CONFIG_DIR}" \
 echo "Done."
 
 ################################################################################
+# Install hsmtool to deployment dir.
+################################################################################
+echo "Installing hsmtool ..."
+if [ ! -d "${OPENTITAN_VAR_DIR}/bin" ]; then
+    mkdir -p "${OPENTITAN_VAR_DIR}/bin"
+fi
+tar -xvf "${RELEASE_DIR}/hsmtool.tar.xz" --directory "${OPENTITAN_VAR_DIR}/bin"
+
+################################################################################
 # Unpack the infrastructure release binaries (PA, SPM, etc.).
 ################################################################################
 echo "Unpacking release binaries and container images ..."

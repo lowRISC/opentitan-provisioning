@@ -58,6 +58,14 @@ pkg_tar(
     extension = "tar.xz",
 )
 
+pkg_tar(
+    name = "hsmtool",
+    srcs = [
+        "@lowrisc_opentitan//sw/host/hsmtool",
+    ],
+    extension = "tar.xz",
+)
+
 release(
     name = "release",
     artifacts = {
@@ -65,5 +73,6 @@ release(
         ":provisioning_appliance_binaries": "Provisioning Appliance binaries",
         ":softhsm_dev": "SoftHSM2 development binaries",
         "//src/ate:windows": "ATE Win32 binaries",
+        ":hsmtool": "hsmtool binaries",
     },
 )

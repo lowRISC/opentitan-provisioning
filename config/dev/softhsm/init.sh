@@ -63,7 +63,7 @@ EOCFG
 print_message "Initializing SoftHSM"
 
 ${SOFTHSM2_UTIL} --init-token --slot=0 --so-pin=${SPM_HSM_PIN_ADMIN} \
-    --label="SoftToken" --pin=${SPM_HSM_PIN_USER}
+    --label="${SPM_HSM_TOKEN_LABEL}" --pin=${SPM_HSM_PIN_USER}
 
 ${SOFTHSM2_UTIL} --show-slots
 

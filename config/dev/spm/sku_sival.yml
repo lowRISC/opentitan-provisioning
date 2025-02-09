@@ -8,3 +8,5 @@ numSessions: 3
 symmetricKeys:
   - name: "HighSecKdfSeed"
   - name: "LowSecKdfSeed"
+privateKeys:
+    - name: "sku-sival-dice-priv-key-ver-0.0"
