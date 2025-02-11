@@ -46,3 +46,8 @@ go_test(
     embed = [":validators"],
     deps = [":device_testdata"],
 )
+
+proto_library(
+    name = "registry_record_proto",
+    srcs = ["registry_record.proto"],
+)

@@ -1,0 +1,21 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package ot_registry_record;
+
+option go_package = "registry_record_go_pb";
+
+// OpenTitan Registry Record sent to a registry service.
+//
+// This will get sent to one (or many) registry service(s).
+message RegistryRecord {
+  // Device ID encoded as a hex string.
+  string device_id = 1;
+  // Verion number indicating version of device data field below.
+  sfixed32 version = 2;
+  // Device data encoded as a variable length bytes payload.
+  bytes data = 3;
+}
