@@ -73,11 +73,6 @@ message DeviceId {
   //
   // 128 bits (size is enforced at a higher level, not by protobuf).
   bytes sku_specific = 2;
-  // IEEE802.3 CRC32.
-  //
-  // This CRC covers the entire (deserialized) region above, and is calculated
-  // at a higher level, not by protobuf.
-  fixed32 crc32 = 3;
 }
 
 // OpenTitan Device Registration State.
