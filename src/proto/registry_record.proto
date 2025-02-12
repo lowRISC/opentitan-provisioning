@@ -14,8 +14,10 @@ option go_package = "registry_record_go_pb";
 message RegistryRecord {
   // Device ID encoded as a hex string.
   string device_id = 1;
+  // SKU identifier encoded as a string.
+  string sku = 2;
   // Verion number indicating version of device data field below.
-  sfixed32 version = 2;
+  uint32 version = 3;
   // Device data encoded as a variable length bytes payload.
-  bytes data = 3;
+  bytes data = 4;
 }
