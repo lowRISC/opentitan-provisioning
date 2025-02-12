@@ -51,3 +51,9 @@ proto_library(
     name = "registry_record_proto",
     srcs = ["registry_record.proto"],
 )
+
+go_proto_library(
+    name = "registry_record_go_pb",
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/proto/registry_record_go_pb",
+    proto = ":registry_record_proto",
+)
