@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	DeviceIdSkuSpecificLenInBytes  = 16
-	MaxDeviceDataPayloadLenInBytes = 8192
+	DeviceIdSkuSpecificLenInBytes = 16
+	WrappedRmaTokenLenInBytes     = 27 // 16 bytes of token + 11 PKCS#1v1.5 padding
+	MaxPersoTlvDataLenInBytes     = 8192
 )
 
 // Checks that a uint32 fits into 16 bits.
@@ -65,7 +66,7 @@ func ValidateHardwareOrigin(ho *dpb.HardwareOrigin) error {
 	if err := ValidateProductId(ho.ProductId); err != nil {
 		return err
 	}
-	// TODO: Validate ho.DeviceIdentificationNumber
+	// TODO(timothytrippel): Validate ho.DeviceIdentificationNumber
 	return nil
 }
 
@@ -79,18 +80,6 @@ func ValidateDeviceId(di *dpb.DeviceId) error {
 	// which is considered valid.
 	if len(di.SkuSpecific) != 0 && len(di.SkuSpecific) != DeviceIdSkuSpecificLenInBytes {
 		return fmt.Errorf("Invalid SkuSpecific string length: %v", len(di.SkuSpecific))
-	}
-
-	// TODO: Validate di.crc32
-	return nil
-}
-
-// Checks the length of the payload object ([]byte).  Since a payload is optional,
-// 0-length is considered valid.
-func validatePayload(payload []byte) error {
-	l := len(payload)
-	if l > MaxDeviceDataPayloadLenInBytes {
-		return fmt.Errorf("Invalid Payload length: %v", l)
 	}
 
 	return nil
@@ -117,11 +106,11 @@ func ValidateDeviceLifeCycle(lc dpb.DeviceLifeCycle) error {
 // ValidateDeviceData performs invariant checks for a DeviceData that
 // protobuf syntax cannot capture.
 func ValidateDeviceData(dd *dpb.DeviceData) error {
-	if err := validatePayload(dd.Payload); err != nil {
-		return err
+	if l := len(dd.WrappedRmaUnlockToken); l > WrappedRmaTokenLenInBytes {
+		return fmt.Errorf("Invalid Wrapped RMA Unlock Token length: %v", l)
 	}
-
-	// TODO: Validate metadata.
-
+	if l := len(dd.PersoTlvData); l > MaxPersoTlvDataLenInBytes {
+		return fmt.Errorf("Invalid Perso TLV Data length: %v", l)
+	}
 	return ValidateDeviceLifeCycle(dd.DeviceLifeCycle)
 }

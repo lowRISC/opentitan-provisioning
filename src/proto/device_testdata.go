@@ -7,11 +7,14 @@ package device_testdata
 
 import (
 	dpb "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_go_pb"
+	diu "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_utils"
+	rpb "github.com/lowRISC/opentitan-provisioning/src/proto/registry_record_go_pb"
 )
 
 const (
-	DeviceIdSkuSpecificLenInBytes  = 16
-	MaxDeviceDataPayloadLenInBytes = 8192
+	DeviceIdSkuSpecificLenInBytes = 16
+	WrappedRmaTokenLenInBytes     = 27 // 16 bytes of token + 11 PKCS#1v1.5 padding
+	MaxPersoTlvDataLenInBytes     = 8192
 )
 
 var (
@@ -20,7 +23,7 @@ var (
 	HwOriginOk = dpb.HardwareOrigin{
 		SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
 		ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_Z1,
-		DeviceIdentificationNumber: 0,
+		DeviceIdentificationNumber: 0xbeefcafefeed1234,
 	}
 	HwOriginBadSiliconCreatorId = dpb.HardwareOrigin{
 		SiliconCreatorId:           2,
@@ -54,20 +57,58 @@ var (
 		HardwareOrigin: &HwOriginOk,
 		SkuSpecific:    make([]byte, DeviceIdSkuSpecificLenInBytes+1),
 	}
-	// TODO: add deviceIdBadCrc, which would have a bad Crc32 field.
 
 	// DeviceData objects.
+	// TODO(timothytrippel): add metadata fields to validate?
 	DeviceDataOk = dpb.DeviceData{
-		Payload:         make([]byte, MaxDeviceDataPayloadLenInBytes),
-		DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
-	}
-	DeviceDataBadPayloadTooLarge = dpb.DeviceData{
-		Payload:         make([]byte, MaxDeviceDataPayloadLenInBytes+1),
-		DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
+		DeviceId:              &DeviceIdOk,
+		DeviceLifeCycle:       dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
+		WrappedRmaUnlockToken: make([]byte, WrappedRmaTokenLenInBytes),
+		PersoTlvData:          make([]byte, MaxPersoTlvDataLenInBytes),
 	}
 	DeviceDataBadLifeCycle = dpb.DeviceData{
-		Payload:         make([]byte, 0),
-		DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_UNSPECIFIED,
+		DeviceId:              &DeviceIdOk,
+		DeviceLifeCycle:       dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_UNSPECIFIED,
+		WrappedRmaUnlockToken: make([]byte, WrappedRmaTokenLenInBytes),
+		PersoTlvData:          make([]byte, MaxPersoTlvDataLenInBytes),
+	}
+	DeviceDataWrappedRmaUnlockTokenTooLarge = dpb.DeviceData{
+		DeviceId:              &DeviceIdOk,
+		DeviceLifeCycle:       dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
+		WrappedRmaUnlockToken: make([]byte, WrappedRmaTokenLenInBytes+1),
+		PersoTlvData:          make([]byte, MaxPersoTlvDataLenInBytes),
+	}
+	DeviceDataPersoTlvDataTooLarge = dpb.DeviceData{
+		DeviceId:              &DeviceIdOk,
+		DeviceLifeCycle:       dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
+		WrappedRmaUnlockToken: make([]byte, WrappedRmaTokenLenInBytes),
+		PersoTlvData:          make([]byte, MaxPersoTlvDataLenInBytes+1),
+	}
+
+	// RegistryRecord objects.
+	RegistryRecordOk = rpb.RegistryRecord{
+		DeviceId: diu.DeviceIdToHexString(&DeviceIdOk),
+		Sku:      "sival",
+		Version:  0,
+		Data:     make([]byte, 1000),
+	}
+	RegistryRecordEmptyDeviceId = rpb.RegistryRecord{
+		DeviceId: "",
+		Sku:      "sival",
+		Version:  0,
+		Data:     make([]byte, 1000),
+	}
+	RegistryRecordEmptySku = rpb.RegistryRecord{
+		DeviceId: diu.DeviceIdToHexString(&DeviceIdOk),
+		Sku:      "",
+		Version:  0,
+		Data:     make([]byte, 1000),
+	}
+	RegistryRecordEmptyData = rpb.RegistryRecord{
+		DeviceId: diu.DeviceIdToHexString(&DeviceIdOk),
+		Sku:      "sival",
+		Version:  0,
+		Data:     make([]byte, 0),
 	}
 )
 

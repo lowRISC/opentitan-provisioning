@@ -19,21 +19,21 @@ import (
 
 // server is the server object.
 type server struct {
-	d *db.DB
+	db *db.DB
 }
 
 // NewProxyBufferServer returns an implementation of the ProxyBufferService
 // gRPC server.
-func NewProxyBufferServer(d *db.DB) pbp.ProxyBufferServiceServer {
-	return &server{d: d}
+func NewProxyBufferServer(db *db.DB) pbp.ProxyBufferServiceServer {
+	return &server{db: db}
 }
 
 // RegisterDevice registers a new device record.
 //
 // Validates request and then durably records it (locally).
 func (s *server) RegisterDevice(ctx context.Context, request *pbp.DeviceRegistrationRequest) (*pbp.DeviceRegistrationResponse, error) {
-	device_id := request.DeviceRecord.Id
-	log.Printf("Received device-registration request with DeviceID: %v", device_id)
+	device_id := request.Record.DeviceId
+	log.Printf("Received device-registration request with DeviceID: %s", device_id)
 
 	response := &pbp.DeviceRegistrationResponse{
 		DeviceId: device_id,
@@ -44,9 +44,8 @@ func (s *server) RegisterDevice(ctx context.Context, request *pbp.DeviceRegistra
 		return response, status.Errorf(codes.InvalidArgument, "failed request validation: %v", err)
 	}
 
-	if err := s.d.InsertDevice(ctx, request.DeviceRecord); err != nil {
-		// E.g. The given device is still in the buffer but
-		// its DeviceData has changed.
+	if err := s.db.InsertDevice(ctx, request.Record); err != nil {
+		// E.g. The given device is still in the buffer but its DeviceData has changed.
 		response.Status = pbp.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_BAD_REQUEST
 		return response, status.Errorf(codes.Internal, "failed to insert record: %v", err)
 	}

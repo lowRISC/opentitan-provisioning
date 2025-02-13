@@ -46,6 +46,8 @@ go_library(
     importpath = "github.com/lowRISC/opentitan-provisioning/src/proto/device_testdata",
     deps = [
         ":device_id_go_pb",
+        ":device_id_utils",
+        ":registry_record_go_pb",
     ],
 )
 

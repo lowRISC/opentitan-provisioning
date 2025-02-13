@@ -175,7 +175,7 @@ func TestValidateDeviceId(t *testing.T) {
 			name: "sku too long",
 			di:   &dtd.DeviceIdSkuTooLong,
 		},
-		// TODO: test a device ID which has a bad DeviceIdentificationNumber field.
+		// TODO(timothytrippel): test a device ID which has a bad DeviceIdentificationNumber field.
 	}
 
 	for _, tt := range tests {
@@ -233,25 +233,21 @@ func TestValidateDeviceData(t *testing.T) {
 		ok   bool
 	}{
 		{
-			name: "empty payload",
-			dd: &dpb.DeviceData{
-				Payload:         make([]byte, 0),
-				DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_DEV,
-			},
-			ok: true,
-		},
-		{
-			name: "valid payload with one cert",
+			name: "valid payload with no data",
 			dd:   &dtd.DeviceDataOk,
 			ok:   true,
 		},
 		{
-			name: "payload too large",
-			dd:   &dtd.DeviceDataBadPayloadTooLarge,
-		},
-		{
 			name: "bad device life cycle",
 			dd:   &dtd.DeviceDataBadLifeCycle,
+		},
+		{
+			name: "wrapped rma unlock token too large",
+			dd:   &dtd.DeviceDataWrappedRmaUnlockTokenTooLarge,
+		},
+		{
+			name: "perso tlv data too large",
+			dd:   &dtd.DeviceDataPersoTlvDataTooLarge,
 		},
 	}
 

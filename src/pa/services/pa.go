@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	pbp "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
+	diu "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_utils"
 	pbr "github.com/lowRISC/opentitan-provisioning/src/registry_buffer/proto/registry_buffer_go_pb"
 	pbs "github.com/lowRISC/opentitan-provisioning/src/spm/proto/spm_go_pb"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/auth_service"
@@ -149,7 +150,7 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 
 // SendDeviceRegistrationPayload registers a new device record to the local MySql DB.
 func (s *server) SendDeviceRegistrationPayload(ctx context.Context, request *pbp.RegistrationRequest) (*pbp.RegistrationResponse, error) {
-	log.Printf("In PA - Received SendDeviceRegistrationPayload request with DeviceID: %v", request.DeviceRecord.Id)
+	log.Printf("In PA - Received SendDeviceRegistrationPayload request with DeviceID: %v", diu.DeviceIdToHexString(request.DeviceData.DeviceId))
 
 	if !s.enableRegBuff {
 		return nil, status.Errorf(codes.Internal, "RegisterDevice ended with error, PA started without registry buffer")

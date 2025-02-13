@@ -17,7 +17,6 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	dpb "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_go_pb"
 	dtd "github.com/lowRISC/opentitan-provisioning/src/proto/device_testdata"
 	pbp "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/proto/proxy_buffer_go_pb"
 	"github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/services/proxybuffer"
@@ -65,27 +64,33 @@ func TestRegisterDevice(t *testing.T) {
 		{
 			name: "ok",
 			drr: &pbp.DeviceRegistrationRequest{
-				DeviceRecord: &dpb.DeviceRecord{
-					Id: dtd.NewDeviceID(),
-					Data: &dpb.DeviceData{
-						DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
-					},
-				},
+				Record: &dtd.RegistryRecordOk,
 			},
 			expCode: codes.OK,
 			expDR: &pbp.DeviceRegistrationResponse{
 				Status:   pbp.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_SUCCESS,
-				DeviceId: dtd.NewDeviceID()},
+				DeviceId: dtd.RegistryRecordOk.DeviceId},
 		},
 		{
-			name: "invalid arg",
+			name: "empty device id",
 			drr: &pbp.DeviceRegistrationRequest{
-				DeviceRecord: &dpb.DeviceRecord{
-					Id: dtd.NewDeviceIdBadOrigin(),
-					Data: &dpb.DeviceData{
-						DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
-					},
-				},
+				Record: &dtd.RegistryRecordEmptyDeviceId,
+			},
+			expCode: codes.InvalidArgument,
+			expDR:   nil,
+		},
+		{
+			name: "empty sku",
+			drr: &pbp.DeviceRegistrationRequest{
+				Record: &dtd.RegistryRecordEmptySku,
+			},
+			expCode: codes.InvalidArgument,
+			expDR:   nil,
+		},
+		{
+			name: "empty data",
+			drr: &pbp.DeviceRegistrationRequest{
+				Record: &dtd.RegistryRecordEmptyData,
 			},
 			expCode: codes.InvalidArgument,
 			expDR:   nil,

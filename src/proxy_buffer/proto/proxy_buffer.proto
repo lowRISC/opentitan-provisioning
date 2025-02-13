@@ -8,7 +8,7 @@ syntax = "proto3";
 
 package proxy_buffer;
 
-import "src/proto/device_id.proto";
+import "src/proto/registry_record.proto";
 
 option go_package = "proxy_buffer_go_bp";
 
@@ -27,10 +27,12 @@ enum DeviceRegistrationStatus {
   DEVICE_REGISTRATION_STATUS_BAD_REQUEST = 2;
   DEVICE_REGISTRATION_STATUS_BUFFER_FULL = 3;
 }
+
 message DeviceRegistrationRequest {
-  ot_device_id.DeviceRecord device_record = 1;
+  ot_registry_record.RegistryRecord record = 1;
 }
+
 message DeviceRegistrationResponse {
   DeviceRegistrationStatus status = 1;
-  ot_device_id.DeviceId device_id = 2;
+  string device_id = 2;
 }

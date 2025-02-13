@@ -20,7 +20,7 @@ go_library(
     importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/db",
     deps = [
         ":connector",
-        "//src/proto:device_id_go_pb",
+        "//src/proto:registry_record_go_pb",
         "@com_github_golang_protobuf//proto:go_default_library",
     ],
 )
@@ -40,7 +40,7 @@ go_test(
     deps = [
         ":db",
         ":db_fake",
-        "//src/proto:device_id_go_pb",
+        "//src/proto:device_testdata",
         "@com_github_google_go_cmp//cmp",
         "@org_golang_google_protobuf//testing/protocmp",
     ],

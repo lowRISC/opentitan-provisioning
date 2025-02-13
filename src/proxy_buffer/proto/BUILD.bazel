@@ -14,7 +14,7 @@ package(default_visibility = ["//visibility:public"])
 proto_library(
     name = "proxy_buffer_proto",
     srcs = ["proxy_buffer.proto"],
-    deps = ["//src/proto:device_id_proto"],
+    deps = ["//src/proto:registry_record_proto"],
 )
 
 go_proto_library(
@@ -23,7 +23,7 @@ go_proto_library(
     importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/proto/proxy_buffer_go_pb",
     proto = ":proxy_buffer_proto",
     deps = [
-        "//src/proto:device_id_go_pb",
+        "//src/proto:registry_record_go_pb",
     ],
 )
 
@@ -31,10 +31,7 @@ go_library(
     name = "validators",
     srcs = ["validators.go"],
     importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/proto/validators",
-    deps = [
-        ":proxy_buffer_go_pb",
-        "//src/proto:validators",
-    ],
+    deps = [":proxy_buffer_go_pb"],
 )
 
 go_test(
@@ -42,7 +39,7 @@ go_test(
     srcs = ["validators_test.go"],
     embed = [":validators"],
     deps = [
-        "//src/proto:device_id_go_pb",
+        "//src/proto:device_id_utils",
         "//src/proto:device_testdata",
         "//src/proto:validators",
     ],

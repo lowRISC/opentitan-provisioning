@@ -9,18 +9,25 @@ package validators
 import (
 	"fmt"
 
-	common_validators "github.com/lowRISC/opentitan-provisioning/src/proto/validators"
 	pb "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/proto/proxy_buffer_go_pb"
 )
 
 // ValidateDeviceRegistrationRequest performs invariant checks for a
 // DeviceRegistrationRequest that protobuf syntax cannot capture.
 func ValidateDeviceRegistrationRequest(request *pb.DeviceRegistrationRequest) error {
-	if err := common_validators.ValidateDeviceId(request.DeviceRecord.Id); err != nil {
-		return err
+	// Device IDs will be validated by the PA, only check if device ID string is empty.
+	if request.Record.DeviceId == "" {
+		return fmt.Errorf("Invalid DeviceRegistrationRequest; DeviceId empty")
 	}
-
-	return common_validators.ValidateDeviceData(request.DeviceRecord.Data)
+	// SKU strings will be validated by the PA, only check if SKU string is empty.
+	if request.Record.Sku == "" {
+		return fmt.Errorf("Invalid DeviceRegistrationRequest; SKU empty")
+	}
+	// Data fields will be validated by the PA, only check if field is empty.
+	if len(request.Record.Data) == 0 {
+		return fmt.Errorf("Invalid DeviceRegistrationRequest; Data empty")
+	}
+	return nil
 }
 
 func validateDeviceRegistrationStatus(status pb.DeviceRegistrationStatus) error {
@@ -41,6 +48,9 @@ func ValidateDeviceRegistrationResponse(response *pb.DeviceRegistrationResponse)
 	if err := validateDeviceRegistrationStatus(response.Status); err != nil {
 		return err
 	}
+	if response.DeviceId == "" {
+		return fmt.Errorf("Invalid DeviceRegistrationResponse; DeviceId empty")
+	}
 
-	return common_validators.ValidateDeviceId(response.DeviceId)
+	return nil
 }

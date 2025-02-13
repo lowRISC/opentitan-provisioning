@@ -179,7 +179,7 @@ message CloseSessionResponse {
 // Device Registration request.
 message RegistrationRequest {
   // Device record. Required.
-  ot_device_id.DeviceRecord device_record = 1;
+  ot_device_id.DeviceData device_data = 1;
 }
 
 // Device Registration reponse.

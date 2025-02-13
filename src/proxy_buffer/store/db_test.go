@@ -12,32 +12,20 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	dpb "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_go_pb"
+	dtd "github.com/lowRISC/opentitan-provisioning/src/proto/device_testdata"
 	"github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/db"
 	"github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/db_fake"
 )
 
 func TestInsert(t *testing.T) {
 	database := db.New(db_fake.New())
-
-	record := &dpb.DeviceRecord{
-		Id: &dpb.DeviceId{
-			HardwareOrigin: &dpb.HardwareOrigin{
-				SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
-				ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_Z1,
-				DeviceIdentificationNumber: 0x0123456701234567,
-			},
-		},
-		Data: &dpb.DeviceData{
-			DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
-		},
-	}
+	record := &dtd.RegistryRecordOk
 
 	if err := database.InsertDevice(context.Background(), record); err != nil {
 		t.Fatalf("failed to insert record: %v", err)
 	}
 
-	got, err := database.GetDevice(context.Background(), record.Id)
+	got, err := database.GetDevice(context.Background(), record.DeviceId)
 	if err != nil {
 		t.Fatalf("failed to get record: %v", err)
 	}

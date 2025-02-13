@@ -147,39 +147,19 @@ enum DeviceLifeCycle {
 }
 
 // OpenTitan Device Provisioning Data.
-//
-// This contains information pertaining to the provisioning of a device,
-// including:
-// - device life cycle state,
-// - a generic blob of certificates or assets provisioned into the device,
-// - metadata with information on device creation time and registration state.
 message DeviceData {
+  // SKU string.
+  string sku = 1;
+  // DeviceId.
+  DeviceId device_id = 2;
   // Device life cycle of this device.
-  DeviceLifeCycle device_life_cycle = 1;
-  // Up to 8192 (8k) bytes of SKU specific device provisioning data.
+  DeviceLifeCycle device_life_cycle = 3;
+  // Additional metadata contain device creation time and registration state.
+  Metadata metadata = 4;
+  // Encrypted RMA unlock token.
+  bytes wrapped_rma_unlock_token = 5;
+  // Up to (8k) bytes of SKU specific personalization TLV data.
   //
   // (Size is enforced at a higher level, not by protobuf).
-  //
-  // While the format of this is to be determined by SKU owners, this may
-  // contain a LTV data structure of DICE, TPM, and other certificates, as well
-  // as any additional metadata relevant for a SKU. For example, this may be
-  // structured in the same format as `perso_blob_t` LTV struct defined here:
-  // protolint:disable:next MAX_LINE_LENGTH
-  // https://github.com/lowRISC/opentitan/blob/25b1acbf687e5535e8742c2aacb5b224ee77c80d/sw/device/lib/testing/json/provisioning_data.h#L94
-  bytes payload = 2;
-  // Additional metadata contain device creation time and registration state.
-  Metadata metadata = 3;
-}
-
-
-// OpenTitan Device Record.
-//
-// This will get sent to one (or many) registry service(s).
-message DeviceRecord {
-  // SKU name.
-  string sku = 1;
-  // Device ID.
-  DeviceId id = 2;
-  // Device data.
-  DeviceData data = 3;
+  bytes perso_tlv_data = 6;
 }

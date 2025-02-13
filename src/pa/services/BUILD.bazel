@@ -13,6 +13,7 @@ go_library(
     deps = [
         "//src/pa/proto:pa_go_pb",
         "//src/proto:device_id_go_pb",
+        "//src/proto:device_id_utils",
         "//src/registry_buffer/proto:registry_buffer_go_pb",
         "//src/spm/proto:spm_go_pb",
         "//src/transport/auth_service",
