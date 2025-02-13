@@ -125,7 +125,7 @@ message CreateKeyAndCertRequest {
   // SKU identifier. Required.
   string sku = 1;
   // Device identifier. Optional.
-  ot_device_id.DeviceId device_id = 2;
+  ot.DeviceId device_id = 2;
   // Serial Number per sku. Required.
   bytes serial_number = 3;
 }
@@ -179,7 +179,7 @@ message CloseSessionResponse {
 // Device Registration request.
 message RegistrationRequest {
   // Device record. Required.
-  ot_device_id.DeviceData device_data = 1;
+  ot.DeviceData device_data = 1;
 }
 
 // Device Registration reponse.
