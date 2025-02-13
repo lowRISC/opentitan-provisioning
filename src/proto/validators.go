@@ -85,15 +85,6 @@ func ValidateDeviceId(di *dpb.DeviceId) error {
 	return nil
 }
 
-// DeviceIdToString injectively converts a (valid!) DeviceId into a deterministic string.
-func DeviceIdToString(di *dpb.DeviceId) string {
-	return fmt.Sprintf("DeviceId:%x:%x:%x:%x",
-		di.HardwareOrigin.SiliconCreatorId,
-		di.HardwareOrigin.ProductId,
-		di.HardwareOrigin.DeviceIdentificationNumber,
-		di.SkuSpecific)
-}
-
 // Checks the length of the payload object ([]byte).  Since a payload is optional,
 // 0-length is considered valid.
 func validatePayload(payload []byte) error {

@@ -31,6 +31,15 @@ go_library(
 )
 
 go_library(
+    name = "device_id_utils",
+    srcs = ["device_id_utils.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_utils",
+    deps = [
+        ":device_id_go_pb",
+    ],
+)
+
+go_library(
     name = "device_testdata",
     testonly = True,
     srcs = ["device_testdata.go"],
