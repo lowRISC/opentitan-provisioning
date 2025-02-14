@@ -29,7 +29,7 @@ enum DeviceRegistrationStatus {
 }
 
 message DeviceRegistrationRequest {
-  ot_registry_record.RegistryRecord record = 1;
+  ot.RegistryRecord record = 1;
 }
 
 message DeviceRegistrationResponse {

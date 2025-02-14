@@ -4,7 +4,7 @@
 
 syntax = "proto3";
 
-package ot_registry_record;
+package ot;
 
 option go_package = "registry_record_go_pb";
 

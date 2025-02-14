@@ -26,7 +26,7 @@ container_push(
 PA_SERVER_DEPS = [
     "//src/pa/proto:pa_go_pb",
     "//src/spm/proto:spm_go_pb",
-    "//src/registry_buffer/proto:registry_buffer_go_pb",
+    "//src/proxy_buffer/proto:proxy_buffer_go_pb",
     "//src/pa/services:pa",
     "//src/transport:grpconn",
     "//src/transport/auth_service",

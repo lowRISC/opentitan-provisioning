@@ -11,13 +11,15 @@ import (
 	"log"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	pbp "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
 	diu "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_utils"
-	pbr "github.com/lowRISC/opentitan-provisioning/src/registry_buffer/proto/registry_buffer_go_pb"
+	rpb "github.com/lowRISC/opentitan-provisioning/src/proto/registry_record_go_pb"
+	pbr "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/proto/proxy_buffer_go_pb"
 	pbs "github.com/lowRISC/opentitan-provisioning/src/spm/proto/spm_go_pb"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/auth_service"
 )
@@ -27,12 +29,12 @@ type server struct {
 	// SPM gRPC client.
 	spmClient pbs.SpmServiceClient
 
-	// RegistryBuffer gRPC client.
-	rbClient pbr.RegistryBufferServiceClient
+	// ProxyBuffer gRPC client.
+	pbClient pbr.ProxyBufferServiceClient
 
-	// Set to true to enable registry buffer. When set to false, the PA
-	// will not nonnect to the registry buffer.
-	enableRegBuff bool
+	// Set to true to enable proxy buffer. When set to false, the PA will not
+	// connect to the proxy buffer.
+	enableProxyBuffer bool
 
 	// muSKU is a mutex use to arbitrate SKU initialization access.
 	muSKU sync.RWMutex
@@ -40,11 +42,11 @@ type server struct {
 
 // NewProvisioningApplianceServer returns an implementation of the
 // ProvisioningAppliance gRPC server.
-func NewProvisioningApplianceServer(spmClient pbs.SpmServiceClient, rbClient pbr.RegistryBufferServiceClient, enableRegBuff bool) pbp.ProvisioningApplianceServiceServer {
+func NewProvisioningApplianceServer(spmClient pbs.SpmServiceClient, pbClient pbr.ProxyBufferServiceClient, enableProxyBuffer bool) pbp.ProvisioningApplianceServiceServer {
 	return &server{
-		spmClient:     spmClient,
-		rbClient:      rbClient,
-		enableRegBuff: enableRegBuff,
+		spmClient:         spmClient,
+		pbClient:          pbClient,
+		enableProxyBuffer: enableProxyBuffer,
 	}
 }
 
@@ -152,14 +154,33 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 func (s *server) SendDeviceRegistrationPayload(ctx context.Context, request *pbp.RegistrationRequest) (*pbp.RegistrationResponse, error) {
 	log.Printf("In PA - Received SendDeviceRegistrationPayload request with DeviceID: %v", diu.DeviceIdToHexString(request.DeviceData.DeviceId))
 
-	if !s.enableRegBuff {
-		return nil, status.Errorf(codes.Internal, "RegisterDevice ended with error, PA started without registry buffer")
+	if !s.enableProxyBuffer {
+		return nil, status.Errorf(codes.Internal, "RegisterDevice ended with error, PA started without proxy buffer")
 	}
 
-	// Call the service method, wait for server response.
-	r, err := s.rbClient.RegisterDevice(ctx, request)
+	// TODO(timothytrippel): modularize this proto translation step
+	// Translate/embed ot.DeviceData to the registry request.
+	device_data_bytes, err := proto.Marshal(request.DeviceData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal device data: %v", err)
+	}
+	pb_request := &pbr.DeviceRegistrationRequest{
+		Record: &rpb.RegistryRecord{
+			DeviceId: diu.DeviceIdToHexString(request.DeviceData.DeviceId),
+			Sku:      request.DeviceData.Sku,
+			Version:  0,
+			Data:     device_data_bytes,
+		},
+	}
+
+	// Send record to the ProxyBuffer.
+	pb_response, err := s.pbClient.RegisterDevice(ctx, pb_request)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "RegisterDevice returned error: %v", err)
 	}
-	return r, nil
+	log.Printf("In PA - device record (DeviceID: %v) accepted by ProxyBuffer: %v",
+		pb_response.DeviceId,
+		pb_response.Status)
+
+	return &pbp.RegistrationResponse{}, nil
 }

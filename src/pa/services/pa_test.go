@@ -19,7 +19,7 @@ import (
 
 	pbp "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
 	"github.com/lowRISC/opentitan-provisioning/src/pa/services/pa"
-	pbr "github.com/lowRISC/opentitan-provisioning/src/registry_buffer/proto/registry_buffer_go_pb"
+	pbr "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/proto/proxy_buffer_go_pb"
 	pbs "github.com/lowRISC/opentitan-provisioning/src/spm/proto/spm_go_pb"
 )
 
@@ -31,10 +31,10 @@ const (
 // bufferDialer creates a gRPC buffer connection to an initialized PA service.
 // It returns a connection which can then be used to initialize the client
 // interface by calling `pbp.NewProvisioningApplianceClient`.
-func bufferDialer(t *testing.T, spmClient pbs.SpmServiceClient, rbClient pbr.RegistryBufferServiceClient) func(context.Context, string) (net.Conn, error) {
+func bufferDialer(t *testing.T, spmClient pbs.SpmServiceClient, pbClient pbr.ProxyBufferServiceClient) func(context.Context, string) (net.Conn, error) {
 	listener := bufconn.Listen(bufferConnectionSize)
 	server := grpc.NewServer()
-	pbp.RegisterProvisioningApplianceServiceServer(server, pa.NewProvisioningApplianceServer(spmClient, rbClient, false))
+	pbp.RegisterProvisioningApplianceServiceServer(server, pa.NewProvisioningApplianceServer(spmClient, pbClient, false))
 	go func(t *testing.T) {
 		if err := server.Serve(listener); err != nil {
 			t.Fatal(err)
@@ -45,16 +45,16 @@ func bufferDialer(t *testing.T, spmClient pbs.SpmServiceClient, rbClient pbr.Reg
 	}
 }
 
-type fakeRbClient struct {
+type fakePbClient struct {
 	registerDevice registerDeviceResponse
 }
 
 type registerDeviceResponse struct {
-	response *pbp.RegistrationResponse
+	response *pbr.DeviceRegistrationResponse
 	err      error
 }
 
-func (c *fakeRbClient) RegisterDevice(ctx context.Context, request *pbp.RegistrationRequest, opts ...grpc.CallOption) (*pbp.RegistrationResponse, error) {
+func (c *fakePbClient) RegisterDevice(ctx context.Context, request *pbr.DeviceRegistrationRequest, opts ...grpc.CallOption) (*pbr.DeviceRegistrationResponse, error) {
 	return c.registerDevice.response, c.registerDevice.err
 }
 
@@ -106,8 +106,8 @@ func (c *fakeSpmClient) EndorseCerts(ctx context.Context, request *pbp.EndorseCe
 func TestCreateKeyAndCert(t *testing.T) {
 	ctx := context.Background()
 	spmClient := &fakeSpmClient{}
-	rbClient := &fakeRbClient{}
-	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(bufferDialer(t, spmClient, rbClient)))
+	pbClient := &fakePbClient{}
+	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(bufferDialer(t, spmClient, pbClient)))
 	if err != nil {
 		t.Fatalf("failed to connect to test server: %v", err)
 	}
@@ -167,8 +167,8 @@ func TestCreateKeyAndCert(t *testing.T) {
 func TestDeriveSymmetricKey(t *testing.T) {
 	ctx := context.Background()
 	spmClient := &fakeSpmClient{}
-	rbClient := &fakeRbClient{}
-	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(bufferDialer(t, spmClient, rbClient)))
+	pbClient := &fakePbClient{}
+	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(bufferDialer(t, spmClient, pbClient)))
 	if err != nil {
 		t.Fatalf("failed to connect to test server: %v", err)
 	}
@@ -228,8 +228,8 @@ func TestDeriveSymmetricKey(t *testing.T) {
 func TestEndorseCerts(t *testing.T) {
 	ctx := context.Background()
 	spmClient := &fakeSpmClient{}
-	rbClient := &fakeRbClient{}
-	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(bufferDialer(t, spmClient, rbClient)))
+	pbClient := &fakePbClient{}
+	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(bufferDialer(t, spmClient, pbClient)))
 	if err != nil {
 		t.Fatalf("failed to connect to test server: %v", err)
 	}
