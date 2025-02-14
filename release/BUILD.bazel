@@ -30,6 +30,12 @@ container_bundle(
     },
 )
 
+filegroup(
+    name = "proxybuffer_containers_tar",
+    srcs = [":proxybuffer_containers"],
+    output_group = "tar",
+)
+
 pkg_tar(
     name = "provisioning_appliance_binaries",
     srcs = [
@@ -38,6 +44,12 @@ pkg_tar(
         "//src/spm:spm_server",
         "//src/spm:spmutil",
     ],
+    extension = "tar.xz",
+)
+
+pkg_tar(
+    name = "proxybuffer_binaries",
+    srcs = ["//src/proxy_buffer:pb_server"],
     extension = "tar.xz",
 )
 
@@ -71,6 +83,7 @@ release(
     artifacts = {
         ":deploy_dev": "Development deployment scripts",
         ":provisioning_appliance_binaries": "Provisioning Appliance binaries",
+        ":proxybuffer_binaries": "ProxyBuffer binaries",
         ":softhsm_dev": "SoftHSM2 development binaries",
         "//src/ate:windows": "ATE Win32 binaries",
         ":hsmtool": "hsmtool binaries",

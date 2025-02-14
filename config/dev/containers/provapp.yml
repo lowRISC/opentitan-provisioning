@@ -64,6 +64,48 @@ spec:
         - CAP_MKNOD
         - CAP_NET_RAW
         - CAP_AUDIT_WRITE
+  # Configuration for the `pbserver` container.
+  - name: pbserver
+    args:
+    - --port=5002
+    - --etcd_endpoints="http://localhost:5003"
+    # TODO: Update label to point to specific release version.
+    image: localhost/pb_server:latest
+    resources: {}
+    ports:
+      - containerPort: 5002
+        hostPort: 5002
+    securityContext:
+      capabilities:
+        drop:
+        - CAP_MKNOD
+        - CAP_NET_RAW
+        - CAP_AUDIT_WRITE
+  # Configuration for the `etcd` container.
+  - name: etcd
+    command:
+    - etcd
+    args:
+    - --name
+    - 'pb'
+    - --data-dir
+    - '/pb-data'
+    - --listen-client-urls
+    - 'http://localhost:5003'
+    - --advertise-client-urls
+    - 'http://localhost:5003'
+    # TODO: Update label to point to specific release version.
+    image: localhost/pb_etcd:latest
+    resources: {}
+    ports:
+      - containerPort: 5003
+        hostPort: 5003
+    securityContext:
+      capabilities:
+        drop:
+        - CAP_MKNOD
+        - CAP_NET_RAW
+        - CAP_AUDIT_WRITE
   restartPolicy: Always
   volumes:
   - hostPath:

@@ -2,6 +2,7 @@
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
+
 set -e
 
 ################################################################################
@@ -69,15 +70,19 @@ fi
 tar -xvf "${RELEASE_DIR}/hsmtool.tar.xz" --directory "${OPENTITAN_VAR_DIR}/bin"
 
 ################################################################################
-# Unpack the infrastructure release binaries (PA, SPM, etc.).
+# Unpack the infrastructure release binaries (PA, SPM, ProxyBuffer, etc.).
 ################################################################################
 echo "Unpacking release binaries and container images ..."
 mkdir -p "${OPENTITAN_VAR_DIR}/release"
 if [ -z "${CONTAINERS_ONLY}" ]; then
     tar -xvf "${RELEASE_DIR}/provisioning_appliance_binaries.tar.xz" \
         --directory "${OPENTITAN_VAR_DIR}/release"
+    tar -xvf "${RELEASE_DIR}/proxybuffer_binaries.tar.xz" \
+        --directory "${OPENTITAN_VAR_DIR}/release"
 else
     sudo cp "${RELEASE_DIR}/provisioning_appliance_containers.tar" \
+        "${OPENTITAN_VAR_DIR}/release/"
+    sudo cp "${RELEASE_DIR}/proxybuffer_containers.tar" \
         "${OPENTITAN_VAR_DIR}/release/"
     echo "Skipping unpacking raw binaries; deploying containers only ..."
 fi
@@ -98,6 +103,8 @@ infra_image = "podman_pause:latest"
 EOF
 podman load \
     -i "${OPENTITAN_VAR_DIR}/release/provisioning_appliance_containers.tar"
+podman load \
+    -i "${OPENTITAN_VAR_DIR}/release/proxybuffer_containers.tar"
 echo "Done."
 
 ################################################################################
