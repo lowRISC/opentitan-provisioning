@@ -132,17 +132,17 @@ Status AteClient::CreateKeyAndCert(const std::string& sku,
   return stub_->CreateKeyAndCert(&context, request, reply);
 }
 
-Status AteClient::SendDeviceRegistrationPayload(RegistrationRequest& request,
-                                                RegistrationResponse* reply) {
-  LOG(INFO) << "debug info: In AteClient::SendDeviceRegistrationPayload";
+Status AteClient::RegisterDevice(RegistrationRequest& request,
+                                 RegistrationResponse* reply) {
+  LOG(INFO) << "debug info: In AteClient::RegisterDevice";
 
   // Context for the client (It could be used to convey extra information to
   // the server and/or tweak certain RPC behaviors).
   ClientContext context;
   context.AddMetadata("authorization", sku_session_token_);
 
-  // The actual RPC - call the server's SendDeviceRegistrationPayload method.
-  return stub_->SendDeviceRegistrationPayload(&context, request, reply);
+  // The actual RPC - call the server's RegisterDevice method.
+  return stub_->RegisterDevice(&context, request, reply);
 }
 
 // overloads operator<< for AteClient::Options objects printouts

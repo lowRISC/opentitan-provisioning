@@ -25,7 +25,7 @@ service ProvisioningApplianceService {
     returns (EndorseCertsResponse) {}
   rpc DeriveSymmetricKeys(DeriveSymmetricKeysRequest)
     returns (DeriveSymmetricKeysResponse) {}
-  rpc SendDeviceRegistrationPayload(RegistrationRequest)
+  rpc RegisterDevice(RegistrationRequest)
     returns (RegistrationResponse) {}
 }
 

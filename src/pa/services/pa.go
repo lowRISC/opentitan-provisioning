@@ -150,9 +150,9 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 	return r, nil
 }
 
-// SendDeviceRegistrationPayload registers a new device record to the local MySql DB.
-func (s *server) SendDeviceRegistrationPayload(ctx context.Context, request *pbp.RegistrationRequest) (*pbp.RegistrationResponse, error) {
-	log.Printf("In PA - Received SendDeviceRegistrationPayload request with DeviceID: %v", diu.DeviceIdToHexString(request.DeviceData.DeviceId))
+// RegisterDevice registers a new device record to the local MySql DB.
+func (s *server) RegisterDevice(ctx context.Context, request *pbp.RegistrationRequest) (*pbp.RegistrationResponse, error) {
+	log.Printf("In PA - Received RegisterDevice request with DeviceID: %v", diu.DeviceIdToHexString(request.DeviceData.DeviceId))
 
 	if !s.enableProxyBuffer {
 		return nil, status.Errorf(codes.Internal, "RegisterDevice ended with error, PA started without proxy buffer")

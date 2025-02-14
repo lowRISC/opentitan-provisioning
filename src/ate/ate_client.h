@@ -68,9 +68,9 @@ class AteClient {
                                 const size_t serial_number_size,
                                 pa::CreateKeyAndCertResponse* reply);
 
-  // Calls the server's CreateKeyAndCert method and returns its reply.
-  grpc::Status SendDeviceRegistrationPayload(pa::RegistrationRequest& request,
-                                             pa::RegistrationResponse* reply);
+  // Calls the server's RegisterDevice method and returns its reply.
+  grpc::Status RegisterDevice(pa::RegistrationRequest& request,
+                              pa::RegistrationResponse* reply);
 
   // SKU name
   std::string Sku;
