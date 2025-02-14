@@ -9,6 +9,7 @@ readonly REPO_TOP=$(git rev-parse --show-toplevel)
 
 # Build release containers.
 bazelisk build --stamp //release:provisioning_appliance_containers_tar
+bazelisk build --stamp //release:proxybuffer_containers_tar
 bazelisk build --stamp //release:softhsm_dev
 bazelisk build --stamp //release:hsmtool
 
