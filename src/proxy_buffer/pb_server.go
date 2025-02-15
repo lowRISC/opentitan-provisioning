@@ -25,22 +25,18 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strings"
-	"time"
 
-	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
 
 	pbp "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/proto/proxy_buffer_go_pb"
 	"github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/services/proxybuffer"
 	"github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/db"
-	"github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/etcd"
+	"github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/filedb"
 )
 
 var (
-	port            = flag.Int("port", 0, "the port to bind the server on; required")
-	etcdDialTimeout = flag.Duration("etcd_dial_timeout", time.Second*30, "etcd backend dial timeout")
-	etcdEndpoints   = flag.String("etcd_endpoints", "", "comma separated list of etcd endpoints; required")
+	port   = flag.Int("port", 0, "the port to bind the server on; required")
+	dbPath = flag.String("db_path", "", "the path to the database file")
 )
 
 func main() {
@@ -49,29 +45,17 @@ func main() {
 		log.Fatalf("`port` parameter missing")
 	}
 
-	if *etcdEndpoints == "" {
-		log.Fatalf("`etcd_endpoints` missing")
-	}
-	endpoints := strings.Split(*etcdEndpoints, ",")
-
-	client, err := clientv3.New(clientv3.Config{
-		Endpoints:   endpoints,
-		DialTimeout: *etcdDialTimeout,
-	})
-	if err != nil {
-		log.Fatalf("Failed to connect to etcd servers: %v", err)
-	}
-	defer client.Close()
-
 	// Initialize the datastore layer.
-	conn := etcd.New(client.KV)
+	conn, err := filedb.New(*dbPath)
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
 	database := db.New(conn)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
 		log.Fatalf("Server failed to listen: %v", err)
 	}
-
 	log.Printf("Server is now listening on port: %d", *port)
 
 	// TODO: Add secure connection via TLS credentials.

@@ -28,8 +28,7 @@ PB_SERVER_DEPS = [
     "//src/proxy_buffer/proto:proxy_buffer_go_pb",
     "//src/proxy_buffer/services:proxybuffer",
     "//src/proxy_buffer/store:db",
-    "//src/proxy_buffer/store:etcd",
-    "@io_etcd_go_etcd_client_v3//:go_default_library",
+    "//src/proxy_buffer/store:filedb",
     "@org_golang_google_grpc//:go_default_library",
 ]
 

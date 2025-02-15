@@ -68,3 +68,23 @@ go_test(
         "@org_golang_google_protobuf//testing/protocmp",
     ],
 )
+
+go_library(
+    name = "filedb",
+    srcs = ["filedb.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/filedb",
+    deps = [
+        ":connector",
+        "@io_gorm_driver_sqlite//:go_default_library",
+        "@io_gorm_gorm//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "filedb_test",
+    srcs = ["filedb_test.go"],
+    deps = [
+        ":connector",
+        ":filedb",
+    ],
+)
