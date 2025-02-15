@@ -21,20 +21,6 @@ def go_deps():
 def go_packages_():
     """Automatically generated macro."""
     go_repository(
-        name = "com_github_coreos_go_semver",
-        build_file_proto_mode = "disable_global",
-        importpath = "github.com/coreos/go-semver",
-        sum = "h1:wkHLiw0WNATZnSG7epLsujiMCgPAc9xhjJ4tgnAxmfM=",
-        version = "v0.3.0",
-    )
-    go_repository(
-        name = "com_github_coreos_go_systemd_v22",
-        build_file_proto_mode = "disable_global",
-        importpath = "github.com/coreos/go-systemd/v22",
-        sum = "h1:D9/bQk5vlXQFZ6Kwuu6zaiXJ9oTPe68++AzAJc1DzSI=",
-        version = "v22.3.2",
-    )
-    go_repository(
         name = "com_github_golang_protobuf",
         build_file_proto_mode = "disable_global",
         importpath = "github.com/golang/protobuf",
@@ -82,34 +68,6 @@ def go_packages_():
         importpath = "github.com/miekg/pkcs11",
         sum = "h1:iMwmD7I5225wv84WxIG/bmxz9AXjWvTWIbM/TYHvWtw=",
         version = "v1.0.3",
-    )
-    go_repository(
-        name = "io_etcd_go_etcd",
-        build_file_proto_mode = "disable_global",
-        importpath = "go.etcd.io/etcd",
-        sum = "h1:5hMrpf6REqTHV2LW2OclNpRtxI0k9ZplMemJsMSWju0=",
-        version = "v3.3.27+incompatible",
-    )
-    go_repository(
-        name = "io_etcd_go_etcd_api_v3",
-        build_file_proto_mode = "disable_global",
-        importpath = "go.etcd.io/etcd/api/v3",
-        sum = "h1:v28cktvBq+7vGyJXF8G+rWJmj+1XUmMtqcLnH8hDocM=",
-        version = "v3.5.1",
-    )
-    go_repository(
-        name = "io_etcd_go_etcd_client_pkg_v3",
-        build_file_proto_mode = "disable_global",
-        importpath = "go.etcd.io/etcd/client/pkg/v3",
-        sum = "h1:XIQcHCFSG53bJETYeRJtIxdLv2EWRGxcfzR8lSnTH4E=",
-        version = "v3.5.1",
-    )
-    go_repository(
-        name = "io_etcd_go_etcd_client_v3",
-        build_file_proto_mode = "disable_global",
-        importpath = "go.etcd.io/etcd/client/v3",
-        sum = "h1:oImGuV5LGKjCqXdjkMHCyWa5OO1gYKCnC/1sgdfj1Uk=",
-        version = "v3.5.1",
     )
     go_repository(
         name = "io_gorm_driver_sqlite",
@@ -173,25 +131,4 @@ def go_packages_():
         importpath = "golang.org/x/tools",
         sum = "h1:tvDr/iQoUqNdohiYm0LmmKcBk+q86lb9EprIUFhHHGg=",
         version = "v0.10.0",
-    )
-    go_repository(
-        name = "org_uber_go_atomic",
-        build_file_proto_mode = "disable_global",
-        importpath = "go.uber.org/atomic",
-        sum = "h1:ADUqmZGgLDDfbSL9ZmPxKTybcoEYHgpYfELNoN+7hsw=",
-        version = "v1.7.0",
-    )
-    go_repository(
-        name = "org_uber_go_multierr",
-        build_file_proto_mode = "disable_global",
-        importpath = "go.uber.org/multierr",
-        sum = "h1:y6IPFStTAIT5Ytl7/XYmHvzXQ7S3g/IeZW9hyZ5thw4=",
-        version = "v1.6.0",
-    )
-    go_repository(
-        name = "org_uber_go_zap",
-        build_file_proto_mode = "disable_global",
-        importpath = "go.uber.org/zap",
-        sum = "h1:MTjgFu6ZLKvY6Pvaqk97GlxNBuMpV4Hy/3P6tRGlI2U=",
-        version = "v1.17.0",
     )

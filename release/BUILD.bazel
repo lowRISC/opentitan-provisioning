@@ -25,8 +25,6 @@ container_bundle(
     name = "proxybuffer_containers",
     images = {
         "pb_server:latest": "//src/proxy_buffer:pb_server_image",
-        "pb_nginx:latest": "@container_nginx//image",
-        "pb_etcd:latest": "@container_etcd//image",
     },
 )
 

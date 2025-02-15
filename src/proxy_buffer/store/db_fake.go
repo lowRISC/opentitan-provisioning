@@ -41,7 +41,7 @@ func New() connector.Connector {
 }
 
 // Insert adds a `key` `value` pair to the database. Multiple calls with the
-// same key will succeed, emulating the behavior of an etcd database.
+// same key will succeed, emulating the behavior of an real database.
 func (c *fakeDB) Insert(ctx context.Context, key string, value []byte) error {
 	verK := versionedKey{key: key, version: 0}
 	if ver, found := c.keyVersions[key]; found {

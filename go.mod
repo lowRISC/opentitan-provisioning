@@ -31,18 +31,7 @@ require (
 	google.golang.org/grpc v1.41.0
 
 	// Proxy buffer backends.
-	go.etcd.io/etcd v3.3.27+incompatible
-	go.etcd.io/etcd/api/v3 v3.5.1
-	go.etcd.io/etcd/client/v3 v3.5.1
 	gorm.io/gorm v1.25.12
-
-	// Required by etcd.
-	github.com/coreos/go-semver v0.3.0
-	github.com/coreos/go-systemd/v22 v22.3.2
-	go.etcd.io/etcd/client/pkg/v3 v3.5.1
-	go.uber.org/atomic v1.7.0
-	go.uber.org/multierr v1.6.0
-	go.uber.org/zap v1.17.0
 
 	// Required by gorm.
 	github.com/mattn/go-sqlite3 v1.14.22

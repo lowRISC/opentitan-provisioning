@@ -22,22 +22,6 @@ def docker_deps():
     _go_image_repos()
 
     container_pull(
-        name = "container_etcd",
-        registry = "gcr.io/etcd-development",
-        digest = "sha256:9344cfb9cbe4df0635478b6a2b62765330128fbdf3ca8fc9f2edac262552f700",
-        repository = "etcd",
-        tag = "v3.5.5",
-    )
-
-    container_pull(
-        name = "container_nginx",
-        registry = "index.docker.io",
-        digest = "sha256:baa881b012a49e3c2cd6ab9d80f9fcd2962a98af8ede947d0ef930a427b28afc",
-        repository = "nginx",
-        tag = "latest",
-    )
-
-    container_pull(
         name = "container_k8s_pause",
         registry = "k8s.gcr.io",
         repository = "pause",

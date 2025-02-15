@@ -47,29 +47,6 @@ go_test(
 )
 
 go_library(
-    name = "etcd",
-    srcs = ["etcd.go"],
-    importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/etcd",
-    deps = [
-        ":connector",
-        "@io_etcd_go_etcd_client_v3//:go_default_library",
-    ],
-)
-
-go_test(
-    name = "etcd_test",
-    srcs = ["etcd_test.go"],
-    deps = [
-        ":etcd",
-        "//src/proto:device_id_go_pb",
-        "@com_github_google_go_cmp//cmp",
-        "@io_etcd_go_etcd_api_v3//mvccpb:go_default_library",
-        "@io_etcd_go_etcd_client_v3//:go_default_library",
-        "@org_golang_google_protobuf//testing/protocmp",
-    ],
-)
-
-go_library(
     name = "filedb",
     srcs = ["filedb.go"],
     importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/filedb",
