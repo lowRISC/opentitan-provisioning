@@ -19,15 +19,45 @@
     private_attrs: {
         CKA_CLASS: "CKO_PRIVATE_KEY",
         CKA_DECRYPT: false,
-        CKA_DESTROYABLE: false,
+        CKA_DESTROYABLE: true,
         CKA_EXTRACTABLE: false,
         CKA_KEY_TYPE: "CKK_EC",
         CKA_MODIFIABLE: true,
         CKA_PRIVATE: true,
-        CKA_SENSITIVE: false,
+        CKA_SENSITIVE: true,
         CKA_SIGN: true
         CKA_TOKEN: true,
         CKA_UNWRAP: false,
+    }
+  },
+  {
+    command: "kdf-import",
+    label: "HighSecKdfSeed",
+    filename: "/var/lib/opentitan/spm/config/sku/sival/secret_kdf_seed_hisec_0.0.bin"
+    attributes: {
+      CKA_CLASS: "CKO_SECRET_KEY",
+      CKA_KEY_TYPE: "CKK_GENERIC_SECRET",
+      CKA_DERIVE: true,
+      // This key is marked as not sensitive for test purposes only.
+      CKA_SENSITIVE: false,
+      // This key is extractable for testing purposes only.
+      CKA_EXTRACTABLE: true,
+      CKA_TOKEN: true,
+    }
+  },
+  {
+    command: "kdf-import",
+    label: "LowSecKdfSeed",
+    filename: "/var/lib/opentitan/spm/config/sku/sival/secret_kdf_seed_losec_0.0.bin"
+    attributes: {
+      CKA_CLASS: "CKO_SECRET_KEY",
+      CKA_KEY_TYPE: "CKK_GENERIC_SECRET",
+      CKA_DERIVE: true,
+      // This key is marked as not sensitive for test purposes only.
+      CKA_SENSITIVE: false,
+      // This key is extractable for testing purposes only.
+      CKA_EXTRACTABLE: true,
+      CKA_TOKEN: true,
     }
   }
 ]
