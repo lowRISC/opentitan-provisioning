@@ -1,6 +1,6 @@
 module github.com/lowRISC/opentitan-provisioning
 
-go 1.18
+go 1.19
 
 replace github.com/lowRISC/opentitan-provisioning => ./
 
@@ -12,10 +12,10 @@ require (
 	go.etcd.io/etcd v3.3.27+incompatible
 	go.etcd.io/etcd/api/v3 v3.5.1
 	go.etcd.io/etcd/client/v3 v3.5.1
-	golang.org/x/crypto v0.0.0-20220307211146-efcb8507fb70
+	golang.org/x/crypto v0.23.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.0.0-20211019181941-9d821ace8654
-	golang.org/x/tools v0.1.10
+	golang.org/x/tools v0.10.0
 	google.golang.org/api v0.32.0
 	google.golang.org/grpc v1.41.0
 

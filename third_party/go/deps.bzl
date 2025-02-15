@@ -10,7 +10,7 @@ def go_deps():
     go_rules_dependencies()
     go_register_toolchains(
         nogo = "@//:vet",
-        version = "1.18",
+        version = "1.19",
     )
     gazelle_dependencies()
 
@@ -27,7 +27,6 @@ def go_packages_():
         sum = "h1:wkHLiw0WNATZnSG7epLsujiMCgPAc9xhjJ4tgnAxmfM=",
         version = "v0.3.0",
     )
-
     go_repository(
         name = "com_github_coreos_go_systemd_v22",
         build_file_proto_mode = "disable_global",
@@ -35,7 +34,6 @@ def go_packages_():
         sum = "h1:D9/bQk5vlXQFZ6Kwuu6zaiXJ9oTPe68++AzAJc1DzSI=",
         version = "v22.3.2",
     )
-
     go_repository(
         name = "com_github_golang_protobuf",
         build_file_proto_mode = "disable_global",
@@ -85,7 +83,6 @@ def go_packages_():
         sum = "h1:XIQcHCFSG53bJETYeRJtIxdLv2EWRGxcfzR8lSnTH4E=",
         version = "v3.5.1",
     )
-
     go_repository(
         name = "io_etcd_go_etcd_client_v3",
         build_file_proto_mode = "disable_global",
@@ -107,7 +104,6 @@ def go_packages_():
         sum = "h1:wtujag7C+4D6KMoulW9YauvK2lgdvCMS260jsqqBXr0=",
         version = "v0.0.0-20210602131652-f16073e35f0c",
     )
-
     go_repository(
         name = "org_golang_google_grpc",
         build_file_proto_mode = "disable_global",
@@ -115,13 +111,12 @@ def go_packages_():
         sum = "h1:f+PlOh7QV4iIJkPrx5NQ7qaNGFQ3OTse67yaDHfju4E=",
         version = "v1.41.0",
     )
-
     go_repository(
         name = "org_golang_x_crypto",
         build_file_proto_mode = "disable_global",
         importpath = "golang.org/x/crypto",
-        sum = "h1:syTAU9FwmvzEoIYMqcPHOcVm4H3U5u90WsvuYgwpETU=",
-        version = "v0.0.0-20220307211146-efcb8507fb70",
+        sum = "h1:dIJU/v2J8Mdglj/8rJ6UUOM3Zc9zLZxVZwwxMooUSAI=",
+        version = "v0.23.0",
     )
     go_repository(
         name = "org_golang_x_sync",
@@ -137,13 +132,12 @@ def go_packages_():
         sum = "h1:id054HUawV2/6IGm2IV8KZQjqtwAOo2CYlOToYqa0d0=",
         version = "v0.0.0-20211019181941-9d821ace8654",
     )
-
     go_repository(
         name = "org_golang_x_tools",
         build_file_proto_mode = "disable_global",
         importpath = "golang.org/x/tools",
-        sum = "h1:QjFRCZxdOhBJ/UNgnBZLbNV13DlbnK0quyivTnXJM20=",
-        version = "v0.1.10",
+        sum = "h1:tvDr/iQoUqNdohiYm0LmmKcBk+q86lb9EprIUFhHHGg=",
+        version = "v0.10.0",
     )
     go_repository(
         name = "org_uber_go_atomic",
@@ -152,7 +146,6 @@ def go_packages_():
         sum = "h1:ADUqmZGgLDDfbSL9ZmPxKTybcoEYHgpYfELNoN+7hsw=",
         version = "v1.7.0",
     )
-
     go_repository(
         name = "org_uber_go_multierr",
         build_file_proto_mode = "disable_global",
@@ -160,7 +153,6 @@ def go_packages_():
         sum = "h1:y6IPFStTAIT5Ytl7/XYmHvzXQ7S3g/IeZW9hyZ5thw4=",
         version = "v1.6.0",
     )
-
     go_repository(
         name = "org_uber_go_zap",
         build_file_proto_mode = "disable_global",
