@@ -33,6 +33,7 @@ gazelle(
         "-from_file=go.mod",
         "-to_macro=third_party/go/deps.bzl%go_packages_",
         "--build_file_proto_mode=disable_global",
+        "-prune",
     ],
     command = "update-repos",
 )
