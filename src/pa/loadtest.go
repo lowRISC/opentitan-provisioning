@@ -23,6 +23,8 @@ import (
 	pbc "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/cert_go_pb"
 	pbcommon "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/common_go_pb"
 	pbe "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/ecdsa_go_pb"
+	dpb "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_go_pb"
+	dtd "github.com/lowRISC/opentitan-provisioning/src/proto/device_testdata"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/grpconn"
 )
 
@@ -97,7 +99,7 @@ func (c *clientTask) setup(ctx context.Context, skuName string) error {
 		return err
 	}
 
-	// Create new client contect with distinct user ID.
+	// Create new client contact with distinct user ID.
 	md := metadata.Pairs("user_id", strconv.Itoa(c.id))
 	client_ctx := metadata.NewOutgoingContext(ctx, md)
 	c.client = pbp.NewProvisioningApplianceServiceClient(conn)
@@ -234,6 +236,41 @@ func NewEndorseCertTest() callFunc {
 	})
 }
 
+// Executes the RegisterDevice call for a `numCalls` total and
+// produces a `callResult` which is sent to the `clientTask.results` channel.
+func testOTRegisterDevice(ctx context.Context, numCalls int, skuName string, c *clientTask) {
+	// Prepare request and auth token.
+	md := metadata.Pairs("user_id", strconv.Itoa(c.id), "authorization", c.auth_token)
+	client_ctx := metadata.NewOutgoingContext(ctx, md)
+
+	request := &pbp.RegistrationRequest{
+		DeviceData: &dpb.DeviceData{
+			Sku: skuName,
+			DeviceId: &dpb.DeviceId{
+				HardwareOrigin: &dpb.HardwareOrigin{
+					SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
+					ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_Z1,
+					DeviceIdentificationNumber: uint64(c.id), // Each device ID must be unique.
+				},
+				SkuSpecific: make([]byte, dtd.DeviceIdSkuSpecificLenInBytes),
+			},
+			DeviceLifeCycle:       dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
+			WrappedRmaUnlockToken: make([]byte, dtd.WrappedRmaTokenLenInBytes),
+			PersoTlvData:          make([]byte, dtd.MaxPersoTlvDataLenInBytes),
+		},
+	}
+
+	// Send request to PA.
+	for i := 0; i < numCalls; i++ {
+		_, err := c.client.RegisterDevice(client_ctx, request)
+		if err != nil {
+			log.Printf("error: client id: %d, error: %v", c.id, err)
+		}
+		c.results <- &callResult{id: c.id, err: err}
+		time.Sleep(c.delayPerCall)
+	}
+}
+
 func newClientGroup(ctx context.Context, numClients, numCalls int, delayPerCall time.Duration, skuName string) (*clientGroup, error) {
 	if numClients <= 0 {
 		return nil, fmt.Errorf("number of clients must be at least 1, got %d", numClients)
@@ -329,6 +366,11 @@ func main() {
 			skuName:  "sival",
 			testName: "OT:EndorseCerts",
 			testFunc: NewEndorseCertTest(),
+		},
+		{
+			skuName:  "sival",
+			testName: "OT:RegisterDevice",
+			testFunc: testOTRegisterDevice,
 		},
 	} {
 		log.Printf("sku: %q", t.skuName)

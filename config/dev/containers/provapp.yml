@@ -52,6 +52,8 @@ spec:
     args:
     - --port=5001
     - --spm_address=localhost:5000
+    - --enable_pb
+    - --pb_address=localhost:5002
     # TODO: Update label to point to specific release version.
     image: localhost/pa_server:latest
     resources: {}
@@ -68,7 +70,7 @@ spec:
   - name: pbserver
     args:
     - --port=5002
-    - --etcd_endpoints="http://localhost:5003"
+    - --etcd_endpoints=localhost:5003
     # TODO: Update label to point to specific release version.
     image: localhost/pb_server:latest
     resources: {}

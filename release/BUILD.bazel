@@ -39,7 +39,6 @@ filegroup(
 pkg_tar(
     name = "provisioning_appliance_binaries",
     srcs = [
-        "//src/pa:loadtest",
         "//src/pa:pa_server",
         "//src/spm:spm_server",
         "//src/spm:spmutil",

@@ -36,6 +36,7 @@ PA_SERVER_DEPS = [
 
 go_binary(
     name = "loadtest",
+    testonly = True,
     srcs = ["loadtest.go"],
     data = [
         "//src/spm/services:testdata",
@@ -43,6 +44,8 @@ go_binary(
     deps = [
         "//src/pa/proto:pa_go_pb",
         "//src/pa/services:pa",
+        "//src/proto:device_id_go_pb",
+        "//src/proto:device_testdata",
         "//src/proto/crypto:cert_go_pb",
         "//src/proto/crypto:common_go_pb",
         "//src/proto/crypto:ecdsa_go_pb",
