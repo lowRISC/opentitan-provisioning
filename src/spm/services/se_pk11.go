@@ -427,7 +427,8 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([][]byte, 
 //   us(840) ansi-X9-62(10045) signatures(4) ecdsa-with-SHA2(3) 3 }
 
 // ecdsa-with-SHA512 OBJECT IDENTIFIER ::= { iso(1) member-body(2)
-//   us(840) ansi-X9-62(10045) signatures(4) ecdsa-with-SHA2(3) 4 }
+//
+//	us(840) ansi-X9-62(10045) signatures(4) ecdsa-with-SHA2(3) 4 }
 var (
 	oidECDSAWithSHA256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 2}
 	oidECDSAWithSHA384 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 3}

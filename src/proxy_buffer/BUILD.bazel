@@ -29,6 +29,7 @@ PB_SERVER_DEPS = [
     "//src/proxy_buffer/services:proxybuffer",
     "//src/proxy_buffer/store:db",
     "//src/proxy_buffer/store:filedb",
+    "//src/transport:grpconn",
     "@org_golang_google_grpc//:go_default_library",
 ]
 

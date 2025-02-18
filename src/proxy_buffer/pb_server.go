@@ -5,18 +5,6 @@
 // Package main is a gRPC server that buffers
 // device-registration requests and streams them up to the device
 // registry service.
-//
-// See "Provisioning Appliance Proxy/Buffer: Design Notes"[1] for
-// details.
-//
-// [1] https://docs.google.com/document/d/1vQKMhrAVsqoC2sn4HJ5D7kj-wx3QovFWWRA3F3jTPSI
-//     FIXME: Replace above with a pointer to markdown TBD.
-//
-// TODO: Stream requests up to the cloud RoT-Registry service.
-//
-// FIXME: Document idempotence/atomicity/durability/etc. details here
-// (copied from design doc) once we settle on them (still unsettled at
-// the time of this writing).
 
 package main
 
@@ -32,11 +20,16 @@ import (
 	"github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/services/proxybuffer"
 	"github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/db"
 	"github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/filedb"
+	"github.com/lowRISC/opentitan-provisioning/src/transport/grpconn"
 )
 
 var (
-	port   = flag.Int("port", 0, "the port to bind the server on; required")
-	dbPath = flag.String("db_path", "", "the path to the database file")
+	port        = flag.Int("port", 0, "the port to bind the server on; required")
+	dbPath      = flag.String("db_path", "", "the path to the database file")
+	enableTLS   = flag.Bool("enable_tls", false, "Enable mTLS secure channel; optional")
+	serviceKey  = flag.String("service_key", "", "File path to the PEM encoding of the server's private key")
+	serviceCert = flag.String("service_cert", "", "File path to the PEM encoding of the server's certificate chain")
+	caRootCerts = flag.String("ca_root_certs", "", "File path to the PEM encoding of the CA root certificates")
 )
 
 func main() {
@@ -58,8 +51,16 @@ func main() {
 	}
 	log.Printf("Server is now listening on port: %d", *port)
 
-	// TODO: Add secure connection via TLS credentials.
-	server := grpc.NewServer()
+	opts := []grpc.ServerOption{}
+	if *enableTLS {
+		credentials, err := grpconn.LoadServerCredentials(*caRootCerts, *serviceCert, *serviceKey)
+		if err != nil {
+			log.Fatalf("Failed to load server credentials: %v", err)
+		}
+		opts = append(opts, grpc.Creds(credentials))
+		opts = append(opts, grpc.UnaryInterceptor(grpconn.CheckEndpointInterceptor))
+	}
+	server := grpc.NewServer(opts...)
 
 	// Register server
 	pbp.RegisterProxyBufferServiceServer(server, proxybuffer.NewProxyBufferServer(database))
