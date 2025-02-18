@@ -57,9 +57,6 @@ type Options struct {
 
 	// File contains the full file path of the HSM's password
 	HsmPWFile string
-
-	// MSConfigFile contains the path to MSClient JSON configuration file.
-	MSConfigFile string
 }
 
 // server is the server object.

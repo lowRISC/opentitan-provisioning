@@ -29,7 +29,6 @@ var (
 	serviceCert  = flag.String("service_cert", "", "File path to the PEM encoding of the server's certificate chain")
 	caRootCerts  = flag.String("ca_root_certs", "", "File path to the PEM encoding of the CA root certificates")
 	spmConfigDir = flag.String("spm_config_dir", "", "Path to the configuration directory.")
-	msConfigFile = flag.String("ms_config_file", "", "File path to the message service client configuration")
 	version      = flag.Bool("version", false, "Print version information and exit")
 )
 
@@ -49,7 +48,6 @@ func startSPMServer() (*grpc.Server, error) {
 		SPMConfigDir: *spmConfigDir,
 		HsmType:      *hsmType,
 		HsmPWFile:    *hsmPWFile,
-		MSConfigFile: *msConfigFile,
 	})
 	if err != nil {
 		return nil, err
