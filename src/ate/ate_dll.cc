@@ -339,50 +339,22 @@ DLLEXPORT int CreateKeyAndCertificate(
   return ConvertResponse(response, data, max_data_size);
 }
 
-DLLEXPORT derive_symmetric_key_response_t *AllocateDeriveSymmetricKeyResponse(
-    size_t key_count) {
-  if (key_count == 0) {
-    return nullptr;
-  }
-  size_t header_size = sizeof(derive_symmetric_key_response_t);
-  size_t keys_array_size = key_count * sizeof(symmetric_key_t);
-  size_t total_size = header_size + keys_array_size;
-  auto *response = (derive_symmetric_key_response_t *)malloc(total_size);
-  if (response == nullptr) {
-    return nullptr;
-  }
-  response->symmetric_key_count = key_count;
-
-  // Set the symmetric_keys pointer to the start of the keys array.
-  response->symmetric_keys =
-      (symmetric_key_t *)((uint8_t *)response + header_size);
-
-  return response;
-}
-
-DLLEXPORT void FreeDeriveSymmetricKeyResponse(
-    derive_symmetric_key_response_t *response) {
-  if (response != NULL) {
-    free(response);
-  }
-}
-
-DLLEXPORT int DeriveSymmetricKeys(ate_client_ptr client,
-                                  const derive_symmetric_key_request_t *request,
-                                  derive_symmetric_key_response_t *response) {
+DLLEXPORT int DeriveSymmetricKeys(
+    ate_client_ptr client, const char *sku, size_t keys_count,
+    const derive_symmetric_key_params_t *key_params, symmetric_key_t *keys) {
   DLOG(INFO) << "DeriveSymmetricKeys";
 
-  if (request == nullptr || response == nullptr) {
+  if (key_params == nullptr || keys == nullptr) {
     return static_cast<int>(absl::StatusCode::kInvalidArgument);
   }
 
   AteClient *ate = reinterpret_cast<AteClient *>(client);
 
   pa::DeriveSymmetricKeysRequest req;
-  req.set_sku(request->sku);
-  for (size_t i = 0; i < request->params_count; ++i) {
+  req.set_sku(sku);
+  for (size_t i = 0; i < keys_count; ++i) {
     auto param = req.add_params();
-    auto &req_params = request->params[i];
+    auto &req_params = key_params[i];
 
     switch (req_params.seed) {
       case kSymmetricKeySeedSecurityLow:
@@ -435,16 +407,16 @@ DLLEXPORT int DeriveSymmetricKeys(ate_client_ptr client,
     return static_cast<int>(absl::StatusCode::kInternal);
   }
 
-  if (response->symmetric_key_count < resp.keys_size()) {
+  if (keys_count < resp.keys_size()) {
     LOG(ERROR) << "DeriveSymmetricKeys failed- user allocaed buffer is too "
                   "small. allocated: "
-               << response->symmetric_key_count;
+               << keys_count << " , required: " << resp.keys_size();
     return static_cast<int>(absl::StatusCode::kInvalidArgument);
   }
 
   for (int i = 0; i < resp.keys_size(); i++) {
     auto &key = resp.keys(i);
-    auto &resp_key = response->symmetric_keys[i];
+    auto &resp_key = keys[i];
 
     if (key.size() > sizeof(resp_key.key)) {
       LOG(ERROR) << "DeriveSymmetricKeys failed- key size is too big: "

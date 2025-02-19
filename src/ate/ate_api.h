@@ -119,20 +119,6 @@ typedef struct derive_symmetric_key_params {
 } derive_symmetric_key_params_t;
 
 /**
- * Derive symmetric key request.
- */
-typedef struct derive_symmetric_key_request {
-  /** SKU identifier. */
-  const char* sku;
-  /**
-   * Number of keys requested. Equivalent to the size of the `params` array.
-   */
-  size_t params_count;
-  /** Derive symmetric key parameters. */
-  derive_symmetric_key_params_t* params;
-} derive_symmetric_key_request_t;
-
-/**
  * Symmetric key.
  */
 typedef struct symmetric_key {
@@ -141,16 +127,6 @@ typedef struct symmetric_key {
   /** Key data. */
   uint8_t key[kSymmetricKeyMaxSize];
 } symmetric_key_t;
-
-/**
- * Derive symmetric key response.
- */
-typedef struct derive_symmetric_key_response {
-  /** Number of symmetric keys. */
-  size_t symmetric_key_count;
-  /** Symmetric keys. */
-  symmetric_key_t* symmetric_keys;
-} derive_symmetric_key_response_t;
 
 /**
  * blobType is tag indicating the blob content.
@@ -265,40 +241,21 @@ DLLEXPORT int CreateKeyAndCertificate(ate_client_ptr client, const char* sku,
                                       const size_t serial_number_size);
 
 /**
- * Allocates a `derive_symmetric_key_request_t` structure.
- *
- * The allocated structure should be freed using
- * `FreeDeriveSymmetricKeyRequest`.
- *
- * @param key_count The number of keys to allocate space for.
- * @return The allocated structure. Returns NULL on failure.
- */
-DLLEXPORT derive_symmetric_key_response_t* AllocateDeriveSymmetricKeyResponse(
-    size_t key_count);
-
-/**
- * Frees a `derive_symmetric_key_response_t` structure.
- *
- * @param response The structure to free.
- */
-DLLEXPORT void FreeDeriveSymmetricKeyResponse(
-    derive_symmetric_key_response_t* response);
-
-/**
  * Derive symmetric keys.
  *
  * The function derives symmetric keys based on the request parameters.
- * Allocate a `derive_symmetric_key_response_t` structure to store the response
- * by calling `AllocateDeriveSymmetricKeyResponse`.
+ * The caller should allocate enough memory to store the derived keys.
  *
  * @param client A client instance.
- * @param request The request parameters.
- * @param response The response parameters.
+ * @param sku The SKU of the product to derive the keys for.
+ * @param keys_count The number of keys to derive.
+ * @param key_params The parameters for the key derivation.
+ * @param[out] keys The derived keys.
  * @return The result of the operation.
  */
-DLLEXPORT int DeriveSymmetricKeys(ate_client_ptr client,
-                                  const derive_symmetric_key_request_t* request,
-                                  derive_symmetric_key_response_t* response);
+DLLEXPORT int DeriveSymmetricKeys(
+    ate_client_ptr client, const char* sku, size_t keys_count,
+    const derive_symmetric_key_params_t* key_params, symmetric_key_t* keys);
 
 #ifdef __cplusplus
 }
