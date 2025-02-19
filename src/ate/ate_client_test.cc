@@ -22,6 +22,10 @@ namespace {
 
 using pa::CreateKeyAndCertRequest;
 using pa::CreateKeyAndCertResponse;
+using pa::DeriveSymmetricKeysRequest;
+using pa::DeriveSymmetricKeysResponse;
+using pa::EndorseCertsRequest;
+using pa::EndorseCertsResponse;
 using pa::MockProvisioningApplianceServiceStub;
 using testing::_;
 using testing::DoAll;
@@ -66,6 +70,52 @@ TEST_F(AteTest, CreateKeyAndCertCallsServer) {
   EXPECT_THAT(
       ate_->CreateKeyAndCert("abc123", serial, sizeof(serial), &result).ok(),
       IsTrue());
+  EXPECT_THAT(result, EqualsProto(response));
+}
+
+TEST_F(AteTest, EndorseCerts) {
+  // Response that will be sent back for EndorseCerts.
+  auto response = ParseTextProto<EndorseCertsResponse>(R"pb(
+    certs: { blob: "fake-cert-blob" })pb");
+
+  // Expect EndorseCerts to be called.
+  // The 2nd arg is expected to be a protobuf with the `sku` field.
+  // We'll return the `response` struct and a status of `OK`.
+  EXPECT_CALL(*pa_service_, EndorseCerts(_, EqualsProto(R"pb(
+                                           sku: "abc123"
+                                         )pb"),
+                                         _))
+      .WillOnce(DoAll(SetArgPointee<2>(response), Return(grpc::Status::OK)));
+
+  EndorseCertsRequest request;
+  request.set_sku("abc123");
+
+  // Call the AteClient and verify it returns OK with the expected response.
+  EndorseCertsResponse result;
+  EXPECT_THAT(ate_->EndorseCerts(request, &result).ok(), IsTrue());
+  EXPECT_THAT(result, EqualsProto(response));
+}
+
+TEST_F(AteTest, DeriveSymmetricKeys) {
+  // Response that will be sent back for DeriveSymmetricKeys.
+  auto response = ParseTextProto<DeriveSymmetricKeysResponse>(R"pb(
+    keys: "fake-key-blob")pb");
+
+  // Expect DeriveSymmetricKeys to be called.
+  // The 2nd arg is expected to be a protobuf with the `sku` field.
+  // We'll return the `response` struct and a status of `OK`.
+  EXPECT_CALL(*pa_service_, DeriveSymmetricKeys(_, EqualsProto(R"pb(
+                                                  sku: "abc123"
+                                                )pb"),
+                                                _))
+      .WillOnce(DoAll(SetArgPointee<2>(response), Return(grpc::Status::OK)));
+
+  DeriveSymmetricKeysRequest request;
+  request.set_sku("abc123");
+
+  // Call the AteClient and verify it returns OK with the expected response.
+  pa::DeriveSymmetricKeysResponse result;
+  EXPECT_THAT(ate_->DeriveSymmetricKeys(request, &result).ok(), IsTrue());
   EXPECT_THAT(result, EqualsProto(response));
 }
 

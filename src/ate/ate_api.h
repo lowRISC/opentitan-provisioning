@@ -19,7 +19,138 @@ extern "C" {
 #endif  // _WIN32
 #endif  // DLLEXPORT
 
-#define SKU_SPECIFIC_SIZE 128
+enum {
+  kSkuSpecificSize = 128,
+  kSymmetricKeyMaxSize = 32,
+};
+
+/**
+ * ate_client_ptr is an opaque pointer to an AteClient instance.
+ */
+typedef struct {
+} * ate_client_ptr;
+
+typedef struct {
+  // Endpoint address in IP or DNS format including port number. For example:
+  // "localhost:5000".
+  const char* pa_socket;
+
+  // File containing the Client certificate in PEM format. Required when
+  // `enable_mtls` set to true.
+  const char* pem_cert_chain;
+
+  // File containing the Client secret key in PEM format. Required when
+  // `enable_mtls` set to true.
+  const char* pem_private_key;
+
+  // File containing the Server root certificates in PEM format. Required when
+  // `enable_mtls` set to true.
+  const char* pem_root_certs;
+
+  // SKU authentication tokens. These tokens are considered secrets and are
+  // used to perform authentication at the client gRPC call level.
+  const char* sku_tokens;
+
+  // Set to true to enable mTLS connection. When set to false, the connection
+  // is established with insecure credentials.
+  bool enable_mtls;
+} client_options_t;
+
+/**
+ * The device_id_t is a struct of data passed from secigen to ATE.
+ * keep fields 4-bytes aligned.
+ */
+#pragma pack(push, 1)
+typedef struct HardwareOrigin {
+  uint16_t silicon_creator_id;
+  uint16_t product_id;
+  uint64_t device_identification_number;
+} hardware_origin_t;
+
+typedef struct DeviceId {
+  hardware_origin_t hardware_origin;
+  uint8_t sku_specific[kSkuSpecificSize];
+  uint32_t crc32;
+} device_id_t;
+#pragma pack(pop)
+
+/**
+ * Symmetric key seed type. The seed is provisioned by the manufacturer.
+ */
+typedef enum symmetric_key_seed {
+  /** Low security seed. This seed is rotated infrequently. */
+  kSymmetricKeySeedSecurityLow = 1,
+  /** High security seed. This seed is rotated frequently. */
+  kSymmetricKeySeedSecurityHigh = 2,
+} symmetric_key_seed_t;
+
+/**
+ * Symmetric key type.
+ */
+typedef enum symmetric_key_type {
+  /** Raw plaintext key. */
+  kSymmetricKeyTypeRaw = 1,
+  /** cSHAKE128 with the "LC_CTRL" customization string. */
+  kSymmetricKeyTypHashedLcToken = 2,
+} symmetric_key_type_t;
+
+/**
+ * Symmetric key size.
+ */
+typedef enum symmmetric_key_size {
+  /** 128bit key size. */
+  kSymmetricKeySize128 = 16,
+  /** 256bit key size. */
+  kSymmetricKeySize256 = 32,
+} symmetric_key_size_t;
+
+/**
+ * Derive symmetric key parameters.
+ */
+typedef struct derive_symmetric_key_params {
+  /** Symmetric key seed. */
+  symmetric_key_seed_t seed;
+  /** Symmetric key type. */
+  symmetric_key_type_t type;
+  /** Symmetric key size. */
+  symmetric_key_size_t size;
+  /** Symmetric key diversifier to use in KDF operation. */
+  uint8_t diversifier[32];
+} derive_symmetric_key_params_t;
+
+/**
+ * Derive symmetric key request.
+ */
+typedef struct derive_symmetric_key_request {
+  /** SKU identifier. */
+  const char* sku;
+  /**
+   * Number of keys requested. Equivalent to the size of the `params` array.
+   */
+  size_t params_count;
+  /** Derive symmetric key parameters. */
+  derive_symmetric_key_params_t* params;
+} derive_symmetric_key_request_t;
+
+/**
+ * Symmetric key.
+ */
+typedef struct symmetric_key {
+  /** Key size in bytes. */
+  size_t size;
+  /** Key data. */
+  uint8_t key[kSymmetricKeyMaxSize];
+} symmetric_key_t;
+
+/**
+ * Derive symmetric key response.
+ */
+typedef struct derive_symmetric_key_response {
+  /** Number of symmetric keys. */
+  size_t symmetric_key_count;
+  /** Symmetric keys. */
+  symmetric_key_t* symmetric_keys;
+} derive_symmetric_key_response_t;
 
 /**
  * blobType is tag indicating the blob content.
@@ -83,55 +214,6 @@ typedef struct Blob {
 } blob_t;
 
 /**
- * ate_client_ptr is an opaque pointer to an AteClient instance.
- */
-typedef struct {
-} * ate_client_ptr;
-
-typedef struct {
-  // Endpoint address in IP or DNS format including port number. For example:
-  // "localhost:5000".
-  const char* pa_socket;
-
-  // File containing the Client certificate in PEM format. Required when
-  // `enable_mtls` set to true.
-  const char* pem_cert_chain;
-
-  // File containing the Client secret key in PEM format. Required when
-  // `enable_mtls` set to true.
-  const char* pem_private_key;
-
-  // File containing the Server root certificates in PEM format. Required when
-  // `enable_mtls` set to true.
-  const char* pem_root_certs;
-
-  // SKU authentication tokens. These tokens are considered secrets and are
-  // used to perform authentication at the client gRPC call level.
-  const char* sku_tokens;
-
-  // Set to true to enable mTLS connection. When set to false, the connection
-  // is established with insecure credentials.
-  bool enable_mtls;
-} client_options_t;
-
-/**
- * The device_id_t is a struct of data passed from secigen to ATE.
- * keep fields 4-bytes aligned.
- */
-#pragma pack(push, 1)
-typedef struct HardwareOrigin {
-  uint16_t silicon_creator_id;
-  uint16_t product_id;
-  uint64_t device_identification_number;
-} hardware_origin_t;
-
-typedef struct DeviceId {
-  hardware_origin_t hardware_origin;
-  uint8_t sku_specific[SKU_SPECIFIC_SIZE];
-  uint32_t crc32;
-} device_id_t;
-#pragma pack(pop)
-/**
  * Creates an AteClient instance.
  *
  * The client instance should be created once and reused many times over a
@@ -183,11 +265,40 @@ DLLEXPORT int CreateKeyAndCertificate(ate_client_ptr client, const char* sku,
                                       const size_t serial_number_size);
 
 /**
- * Registers an OpenTitan device record.
+ * Allocates a `derive_symmetric_key_request_t` structure.
  *
- * TODO(#16): implement device registration function.
+ * The allocated structure should be freed using
+ * `FreeDeriveSymmetricKeyRequest`.
+ *
+ * @param key_count The number of keys to allocate space for.
+ * @return The allocated structure. Returns NULL on failure.
  */
-// DLLEXPORT int RegisterDevice(...);
+DLLEXPORT derive_symmetric_key_response_t* AllocateDeriveSymmetricKeyResponse(
+    size_t key_count);
+
+/**
+ * Frees a `derive_symmetric_key_response_t` structure.
+ *
+ * @param response The structure to free.
+ */
+DLLEXPORT void FreeDeriveSymmetricKeyResponse(
+    derive_symmetric_key_response_t* response);
+
+/**
+ * Derive symmetric keys.
+ *
+ * The function derives symmetric keys based on the request parameters.
+ * Allocate a `derive_symmetric_key_response_t` structure to store the response
+ * by calling `AllocateDeriveSymmetricKeyResponse`.
+ *
+ * @param client A client instance.
+ * @param request The request parameters.
+ * @param response The response parameters.
+ * @return The result of the operation.
+ */
+DLLEXPORT int DeriveSymmetricKeys(ate_client_ptr client,
+                                  const derive_symmetric_key_request_t* request,
+                                  derive_symmetric_key_response_t* response);
 
 #ifdef __cplusplus
 }

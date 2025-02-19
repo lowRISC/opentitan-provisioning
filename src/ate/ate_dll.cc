@@ -338,3 +338,122 @@ DLLEXPORT int CreateKeyAndCertificate(
 
   return ConvertResponse(response, data, max_data_size);
 }
+
+DLLEXPORT derive_symmetric_key_response_t *AllocateDeriveSymmetricKeyResponse(
+    size_t key_count) {
+  if (key_count == 0) {
+    return nullptr;
+  }
+  size_t header_size = sizeof(derive_symmetric_key_response_t);
+  size_t keys_array_size = key_count * sizeof(symmetric_key_t);
+  size_t total_size = header_size + keys_array_size;
+  auto *response = (derive_symmetric_key_response_t *)malloc(total_size);
+  if (response == nullptr) {
+    return nullptr;
+  }
+  response->symmetric_key_count = key_count;
+
+  // Set the symmetric_keys pointer to the start of the keys array.
+  response->symmetric_keys =
+      (symmetric_key_t *)((uint8_t *)response + header_size);
+
+  return response;
+}
+
+DLLEXPORT void FreeDeriveSymmetricKeyResponse(
+    derive_symmetric_key_response_t *response) {
+  if (response != NULL) {
+    free(response);
+  }
+}
+
+DLLEXPORT int DeriveSymmetricKeys(ate_client_ptr client,
+                                  const derive_symmetric_key_request_t *request,
+                                  derive_symmetric_key_response_t *response) {
+  DLOG(INFO) << "DeriveSymmetricKeys";
+
+  if (request == nullptr || response == nullptr) {
+    return static_cast<int>(absl::StatusCode::kInvalidArgument);
+  }
+
+  AteClient *ate = reinterpret_cast<AteClient *>(client);
+
+  pa::DeriveSymmetricKeysRequest req;
+  req.set_sku(request->sku);
+  for (size_t i = 0; i < request->params_count; ++i) {
+    auto param = req.add_params();
+    auto &req_params = request->params[i];
+
+    switch (req_params.seed) {
+      case kSymmetricKeySeedSecurityLow:
+        param->set_seed(pa::SymmetricKeySeed::SYMMETRIC_KEY_SEED_LOW_SECURITY);
+        break;
+      case kSymmetricKeySeedSecurityHigh:
+        param->set_seed(pa::SymmetricKeySeed::SYMMETRIC_KEY_SEED_HIGH_SECURITY);
+        break;
+      default:
+        return static_cast<int>(absl::StatusCode::kInvalidArgument);
+    }
+
+    switch (req_params.type) {
+      case kSymmetricKeyTypeRaw:
+        param->set_type(pa::SymmetricKeyType::SYMMETRIC_KEY_TYPE_RAW);
+        break;
+      case kSymmetricKeyTypHashedLcToken:
+        param->set_type(
+            pa::SymmetricKeyType::SYMMETRIC_KEY_TYPE_HASHED_OT_LC_TOKEN);
+        break;
+      default:
+        return static_cast<int>(absl::StatusCode::kInvalidArgument);
+    }
+
+    switch (req_params.size) {
+      case kSymmetricKeySize128:
+        param->set_size(pa::SymmetricKeySize::SYMMETRIC_KEY_SIZE_128_BITS);
+        break;
+      case kSymmetricKeySize256:
+        param->set_size(pa::SymmetricKeySize::SYMMETRIC_KEY_SIZE_256_BITS);
+        break;
+      default:
+        return static_cast<int>(absl::StatusCode::kInvalidArgument);
+    }
+
+    param->set_diversifier(
+        std::string(req_params.diversifier,
+                    req_params.diversifier + sizeof(req_params.diversifier)));
+  }
+
+  pa::DeriveSymmetricKeysResponse resp;
+  auto status = ate->DeriveSymmetricKeys(req, &resp);
+  if (!status.ok()) {
+    LOG(ERROR) << "DeriveSymmetricKeys failed with " << status.error_code()
+               << ": " << status.error_message();
+    return static_cast<int>(status.error_code());
+  }
+
+  if (resp.keys_size() == 0) {
+    return static_cast<int>(absl::StatusCode::kInternal);
+  }
+
+  if (response->symmetric_key_count < resp.keys_size()) {
+    LOG(ERROR) << "DeriveSymmetricKeys failed- user allocaed buffer is too "
+                  "small. allocated: "
+               << response->symmetric_key_count;
+    return static_cast<int>(absl::StatusCode::kInvalidArgument);
+  }
+
+  for (int i = 0; i < resp.keys_size(); i++) {
+    auto &key = resp.keys(i);
+    auto &resp_key = response->symmetric_keys[i];
+
+    if (key.size() > sizeof(resp_key.key)) {
+      LOG(ERROR) << "DeriveSymmetricKeys failed- key size is too big: "
+                 << key.size << " bytes. Key index: " << i;
+      return static_cast<int>(absl::StatusCode::kInternal);
+    }
+
+    resp_key.size = key.size();
+    memcpy(resp_key.key, key.c_str(), sizeof(resp_key.key));
+  }
+  return 0;
+}

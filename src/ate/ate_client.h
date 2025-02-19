@@ -68,6 +68,14 @@ class AteClient {
                                 const size_t serial_number_size,
                                 pa::CreateKeyAndCertResponse* reply);
 
+  // Calls the server's EndorseCerts method and returns its reply.
+  grpc::Status EndorseCerts(pa::EndorseCertsRequest& request,
+                            pa::EndorseCertsResponse* reply);
+
+  // Calls the server's DeriveSymmetricKeys method and returns its reply.
+  grpc::Status DeriveSymmetricKeys(pa::DeriveSymmetricKeysRequest& request,
+                                   pa::DeriveSymmetricKeysResponse* reply);
+
   // Calls the server's RegisterDevice method and returns its reply.
   grpc::Status RegisterDevice(pa::RegistrationRequest& request,
                               pa::RegistrationResponse* reply);

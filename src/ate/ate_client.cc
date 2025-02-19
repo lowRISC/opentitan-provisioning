@@ -13,6 +13,7 @@
 
 #include "absl/log/log.h"
 #include "absl/memory/memory.h"
+#include "absl/status/statusor.h"
 #include "src/pa/proto/pa.grpc.pb.h"
 #include "src/transport/service_credentials.h"
 
@@ -26,6 +27,10 @@ using pa::CloseSessionRequest;
 using pa::CloseSessionResponse;
 using pa::CreateKeyAndCertRequest;
 using pa::CreateKeyAndCertResponse;
+using pa::DeriveSymmetricKeysRequest;
+using pa::DeriveSymmetricKeysResponse;
+using pa::EndorseCertsRequest;
+using pa::EndorseCertsResponse;
 using pa::InitSessionRequest;
 using pa::InitSessionResponse;
 using pa::ProvisioningApplianceService;
@@ -128,6 +133,32 @@ Status AteClient::CreateKeyAndCert(const std::string& sku,
 
   // The actual RPC - call the server's CreateKeyAndCert method.
   return stub_->CreateKeyAndCert(&context, request, reply);
+}
+
+Status AteClient::EndorseCerts(EndorseCertsRequest& request,
+                               EndorseCertsResponse* reply) {
+  LOG(INFO) << "AteClient::EndorseCerts";
+
+  // Context for the client (It could be used to convey extra information to
+  // the server and/or tweak certain RPC behaviors).
+  ClientContext context;
+  context.AddMetadata("authorization", sku_session_token_);
+
+  // The actual RPC - call the server's EndorseCerts method.
+  return stub_->EndorseCerts(&context, request, reply);
+}
+
+Status AteClient::DeriveSymmetricKeys(DeriveSymmetricKeysRequest& request,
+                                      DeriveSymmetricKeysResponse* reply) {
+  LOG(INFO) << "AteClient::DeriveSymmetricKeys";
+
+  // Context for the client (It could be used to convey extra information to
+  // the server and/or tweak certain RPC behaviors).
+  ClientContext context;
+  context.AddMetadata("authorization", sku_session_token_);
+
+  // The actual RPC - call the server's DeriveSymmetricKeys method.
+  return stub_->DeriveSymmetricKeys(&context, request, reply);
 }
 
 Status AteClient::RegisterDevice(RegistrationRequest& request,
