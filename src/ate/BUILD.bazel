@@ -64,26 +64,10 @@ cc_binary(
     ],
 )
 
-cc_binary(
-    name = "ate_main",
-    srcs = ["ate_main.cc"],
-    defines = ["BAZEL_BUILD"],
-    deps = [
-        ":ate_client",
-        "//src/version",
-        "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/flags:parse",
-        "@com_google_absl//absl/log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-    ],
-)
-
 pkg_win(
     name = "windows",
     srcs = [
         ":ate",
-        ":ate_main",
     ],
     platform = "@crt//platforms/x86_32:win32",
 )

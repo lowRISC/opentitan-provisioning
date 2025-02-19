@@ -23,7 +23,7 @@ using namespace provisioning::ate;
 }  // namespace
 
 std::string extractDNSNameFromCert(const char *certPath) {
-  LOG(INFO) << "debug info: In call extractDNSNameFromCert";
+  DLOG(INFO) << "extractDNSNameFromCert";
   FILE *certFile = fopen(certPath, "r");
   if (!certFile) {
     LOG(ERROR) << "Failed to open certificate file";
@@ -76,7 +76,7 @@ int ConvertResponse(
     void *data,                             // Out: converted response
     size_t *max_data_size  // In/Out: maximal/returned buffer size
 ) {
-  LOG(INFO) << "debug info: In dll ConvertResponse";
+  DLOG(INFO) << "ConvertResponse";
   int num_of_keys = response.keys_size();
   size_t data_size = 0;  // the accumulated buffer size
   size_t iv_size;        // the iv size (AES_GCM iv)
@@ -143,8 +143,8 @@ int ConvertResponse(
     // copy the key
     memcpy(&blob->value + iv_size, key.wrapped_key().payload().c_str(),
            (blob->len - iv_size));
-    LOG(INFO) << "debug info: blob addrs is " << blob << " ,blob len is "
-              << blob->len << " ,blob type is " << blob->type;
+    DLOG(INFO) << "blob addrs is " << blob << " ,blob len is " << blob->len
+               << " ,blob type is " << blob->type;
     // set the next blob address (and round it up to be alignof(blob_t) bytes)
     blob = reinterpret_cast<blob_t *>(blob->value + blob->len + alignment_size);
     // fill odd blob's with the key's certificate
@@ -162,16 +162,16 @@ int ConvertResponse(
       return static_cast<int>(absl::StatusCode::kInvalidArgument);
     }
     memcpy(&blob->value, key.cert().blob().c_str(), blob->len);
-    LOG(INFO) << "debug info: blob addrs is " << blob << " ,blob len is "
-              << blob->len << " ,blob type is " << blob->type;
+    DLOG(INFO) << "blob addrs is " << blob << " ,blob len is " << blob->len
+               << " ,blob type is " << blob->type;
     // set the next blob address (and round it up to be alignof(blob_t) bytes)
     blob = reinterpret_cast<blob_t *>(blob->value + blob->len + alignment_size);
   }
 
   *max_data_size = data_size;
-  LOG(INFO) << "debug info: CreateKeyAndCertificate ended successfully. "
-               "required buffer size is "
-            << data_size;
+  DLOG(INFO)
+      << "CreateKeyAndCertificate ended successfully. required buffer size is "
+      << data_size;
   return 0;
 }
 
@@ -222,32 +222,6 @@ absl::Status LoadPEMResources(AteClient::Options *options,
     return data.status();
   }
   options->pem_root_certs = data.value();
-
-  // TODO: why I fail on the next syntax? on "error: could not convert...from
-  // '<brace-enclosed initializer list>' to 'std::unordered_map<const
-  // std::__cxx11::basic_string<char>&, std::__cxx11::basic_string<char>*>"
-  /*
-    // create pairs of pem files names and pem files data
-    std::unordered_map<const std::string&, std::string*> pem_options = {
-        {pem_private_key_file, options->pem_private_key},
-        {pem_cert_chain_file, options->pem_cert_chain},
-        {pem_root_certs_file, options->pem_root_certs},
-    };
-
-    // for each pair, read the 'filename' content (a PEM data)
-    for (auto opt : pem_options) {
-      // get the pem file name
-      std::string filename = *opt.first;
-      // get the pem file data
-      auto data = ReadFile(filename);
-      if (!data.ok()) {
-        LOG(ERROR) << "Error: reading from pem file " << *opt.first
-                    << " failed on the following error:" << data.status();
-      }
-      *opt.second = data.value();
-    }
-  */
-
   return absl::OkStatus();
 }
 
@@ -257,7 +231,7 @@ DLLEXPORT void CreateClient(
     ate_client_ptr *client,    // Out: the created client instance
     client_options_t *options  // In: secure channel attributes
 ) {
-  LOG(INFO) << "debug info: In dll CreateClient";
+  DLOG(INFO) << "CreateClient";
   AteClient::Options o;
 
   // convert from ate_client_ptr to AteClient::Options
@@ -299,7 +273,7 @@ DLLEXPORT void CreateClient(
 }
 
 DLLEXPORT void DestroyClient(ate_client_ptr client) {
-  LOG(INFO) << "debug info: In dll DestroyClient";
+  DLOG(INFO) << "DestroyClient";
   if (ate_client != nullptr) {
     AteClient *ate = reinterpret_cast<AteClient *>(client);
     delete ate;
@@ -309,7 +283,7 @@ DLLEXPORT void DestroyClient(ate_client_ptr client) {
 
 DLLEXPORT int InitSession(ate_client_ptr client, const char *sku,
                           const char *sku_auth) {
-  LOG(INFO) << "debug info: In dll InitSession";
+  DLOG(INFO) << "InitSession";
   AteClient *ate = reinterpret_cast<AteClient *>(client);
 
   // run the service
@@ -323,7 +297,7 @@ DLLEXPORT int InitSession(ate_client_ptr client, const char *sku,
 }
 
 DLLEXPORT int CloseSession(ate_client_ptr client) {
-  LOG(INFO) << "debug info: In dll CloseSession";
+  DLOG(INFO) << "CloseSession";
   AteClient *ate = reinterpret_cast<AteClient *>(client);
 
   // run the service
@@ -344,7 +318,7 @@ DLLEXPORT int CreateKeyAndCertificate(
     const void *pSN = NULL,  // In:      serial number
     const size_t snSize = 0  // In:      serial number size
 ) {
-  LOG(INFO) << "debug info: In dll CreateKeyAndCertificate";
+  DLOG(INFO) << "CreateKeyAndCertificate";
   AteClient *ate = reinterpret_cast<AteClient *>(client);
   pa::CreateKeyAndCertResponse response;
 

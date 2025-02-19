@@ -53,8 +53,7 @@ std::shared_ptr<grpc::ChannelCredentials> BuildCredentials(
 
 // Instantiates a client
 std::unique_ptr<AteClient> AteClient::Create(AteClient::Options options) {
-  LOG(INFO) << "debug info: In AteClient::Create"
-            << " AteClient.options: " << options;
+  LOG(INFO) << "AteClient::Create, options: " << options;
 
   // establish a grpc channel between the client (test program) and the targeted
   // provisioning appliance server:
@@ -73,8 +72,7 @@ std::unique_ptr<AteClient> AteClient::Create(AteClient::Options options) {
 
 Status AteClient::InitSession(const std::string& sku,
                               const std::string& sku_auth) {
-  LOG(INFO) << "debug info: In AteClient::InitSession"
-            << " sku is " << sku;
+  LOG(INFO) << "AteClient::InitSession, sku: " << sku;
   Status result;
   Sku = sku;
 
@@ -94,7 +92,7 @@ Status AteClient::InitSession(const std::string& sku,
 }
 
 Status AteClient::CloseSession() {
-  LOG(INFO) << "debug info: In AteClient::CloseSession";
+  LOG(INFO) << "AteClient::CloseSession";
   Status result;
   CloseSessionRequest request;
   CloseSessionResponse response;
@@ -111,7 +109,7 @@ Status AteClient::CreateKeyAndCert(const std::string& sku,
                                    const void* serial_number,
                                    const size_t serial_number_size,
                                    CreateKeyAndCertResponse* reply) {
-  LOG(INFO) << "debug info: In AteClient::CreateKeyAndCert";
+  LOG(INFO) << "AteClient::CreateKeyAndCert";
 
   // Data we are sending to the server.
   CreateKeyAndCertRequest request;
@@ -134,7 +132,7 @@ Status AteClient::CreateKeyAndCert(const std::string& sku,
 
 Status AteClient::RegisterDevice(RegistrationRequest& request,
                                  RegistrationResponse* reply) {
-  LOG(INFO) << "debug info: In AteClient::RegisterDevice";
+  LOG(INFO) << "AteClient::RegisterDevice";
 
   // Context for the client (It could be used to convey extra information to
   // the server and/or tweak certain RPC behaviors).
