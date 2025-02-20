@@ -16,6 +16,8 @@
 #include "src/ate/ate_api.h"
 #include "src/ate/ate_client.h"
 #include "src/pa/proto/pa.grpc.pb.h"
+#include "src/proto/crypto/common.pb.h"
+#include "src/proto/crypto/ecdsa.pb.h"
 
 namespace {
 using provisioning::ate::AteClient;
@@ -348,8 +350,6 @@ DLLEXPORT int DeriveSymmetricKeys(
     return static_cast<int>(absl::StatusCode::kInvalidArgument);
   }
 
-  AteClient *ate = reinterpret_cast<AteClient *>(client);
-
   pa::DeriveSymmetricKeysRequest req;
   req.set_sku(sku);
   for (size_t i = 0; i < keys_count; ++i) {
@@ -395,6 +395,8 @@ DLLEXPORT int DeriveSymmetricKeys(
                     req_params.diversifier + sizeof(req_params.diversifier)));
   }
 
+  AteClient *ate = reinterpret_cast<AteClient *>(client);
+
   pa::DeriveSymmetricKeysResponse resp;
   auto status = ate->DeriveSymmetricKeys(req, &resp);
   if (!status.ok()) {
@@ -426,6 +428,99 @@ DLLEXPORT int DeriveSymmetricKeys(
 
     resp_key.size = key.size();
     memcpy(resp_key.key, key.c_str(), sizeof(resp_key.key));
+  }
+  return 0;
+}
+
+DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
+                           const size_t cert_count,
+                           const endorse_cert_request_t *request,
+                           endorse_cert_response_t *certs) {
+  DLOG(INFO) << "EndorseCerts";
+
+  if (request == nullptr || certs == nullptr) {
+    return static_cast<int>(absl::StatusCode::kInvalidArgument);
+  }
+
+  pa::EndorseCertsRequest req;
+  req.set_sku(sku);
+  for (size_t i = 0; i < cert_count; ++i) {
+    auto bundle = req.add_bundles();
+    auto &req_params = request[i];
+
+    // TBS certificate buffer.
+    bundle->set_tbs(std::string(req_params.tbs,
+                                req_params.tbs + sizeof(req_params.tbs_size)));
+
+    auto signing_params = bundle->mutable_key_params();
+
+    // Signing key label.
+    signing_params->set_key_label(req_params.key_label);
+
+    // Only ECDSA keys are supported at this time.
+    auto key = signing_params->mutable_ecdsa_params();
+
+    switch (req_params.hash_type) {
+      case kHashTypeSha256:
+        key->set_hash_type(crypto::common::HashType::HASH_TYPE_SHA256);
+        break;
+      default:
+        return static_cast<int>(absl::StatusCode::kInvalidArgument);
+    }
+
+    switch (req_params.curve_type) {
+      case kCurveTypeP256:
+        key->set_curve(
+            crypto::common::EllipticCurveType::ELLIPTIC_CURVE_TYPE_NIST_P256);
+        break;
+      default:
+        return static_cast<int>(absl::StatusCode::kInvalidArgument);
+    }
+
+    switch (req_params.signature_encoding) {
+      case kSignatureEncodingDer:
+        key->set_encoding(crypto::ecdsa::EcdsaSignatureEncoding::
+                              ECDSA_SIGNATURE_ENCODING_DER);
+        break;
+      default:
+        return static_cast<int>(absl::StatusCode::kInvalidArgument);
+    }
+  }
+
+  AteClient *ate = reinterpret_cast<AteClient *>(client);
+  pa::EndorseCertsResponse resp;
+  auto status = ate->EndorseCerts(req, &resp);
+  if (!status.ok()) {
+    LOG(ERROR) << "EndorseCerts failed with " << status.error_code() << ": "
+               << status.error_message();
+    return static_cast<int>(status.error_code());
+  }
+
+  if (resp.certs_size() == 0) {
+    LOG(ERROR) << "EndorseCerts failed- no certificates were returned";
+    return static_cast<int>(absl::StatusCode::kInternal);
+  }
+
+  if (cert_count < resp.certs_size()) {
+    LOG(ERROR) << "EndorseCerts failed- user allocaed buffer is too small. "
+                  "allocated: "
+               << cert_count << " , required: " << resp.certs_size();
+    return static_cast<int>(absl::StatusCode::kInvalidArgument);
+  }
+
+  for (int i = 0; i < resp.certs_size(); i++) {
+    auto &c = resp.certs(i);
+    auto &resp_cert = certs[i];
+
+    if (c.blob().size() > resp_cert.size) {
+      LOG(ERROR) << "EndorseCerts failed- certificate size is too big: "
+                 << c.blob().size() << " bytes. Certificate index: " << i
+                 << ", expected max size: " << resp_cert.size;
+      return static_cast<int>(absl::StatusCode::kInternal);
+    }
+
+    resp_cert.size = c.blob().size();
+    memcpy(resp_cert.cert, c.blob().c_str(), c.blob().size());
   }
   return 0;
 }

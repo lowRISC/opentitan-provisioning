@@ -5,6 +5,7 @@
 # OT Provisioning Protobuf Definitions for Cryptographic Primitives
 
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_cc//cc:defs.bzl", "cc_proto_library")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 
 package(default_visibility = ["//visibility:public"])
@@ -31,6 +32,11 @@ proto_library(
     srcs = ["common.proto"],
 )
 
+cc_proto_library(
+    name = "common_cc_proto",
+    deps = [":common_proto"],
+)
+
 go_proto_library(
     name = "common_go_pb",
     importpath = "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/common_go_pb",
@@ -43,6 +49,11 @@ proto_library(
     deps = [
         ":common_proto",
     ],
+)
+
+cc_proto_library(
+    name = "ecdsa_cc_proto",
+    deps = [":ecdsa_proto"],
 )
 
 go_proto_library(

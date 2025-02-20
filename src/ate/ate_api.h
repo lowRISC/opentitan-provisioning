@@ -75,6 +75,68 @@ typedef struct DeviceId {
 #pragma pack(pop)
 
 /**
+ * Hash types supported by the provisioning service.
+ */
+typedef enum hash_type {
+  /** Hash type SHA256. */
+  kHashTypeSha256 = 1,
+} hash_type_t;
+
+/**
+ * Curve types supported by the provisioning service.
+ */
+typedef enum curve_type {
+  /** Curve type P256. */
+  kCurveTypeP256 = 1,
+} curve_type_t;
+
+/**
+ * Signature encoding types supported by the provisioning service.
+ */
+typedef enum signature_encoding {
+  /** Signature encoding DER. */
+  kSignatureEncodingDer = 1,
+} signature_encoding_t;
+
+/**
+ * Request parameters for endorsing certificates.
+ */
+typedef struct endorse_cert_request {
+  /** Hash mechanism. */
+  hash_type_t hash_type;
+  /** ECC Curve type. */
+  curve_type_t curve_type;
+  /** Signature encoding type. */
+  signature_encoding_t signature_encoding;
+  /** Signing key label. */
+  const char* key_label;
+  /** Size of the TBS data. */
+  size_t tbs_size;
+  /**
+   * TBS data to sign.
+   *
+   * This field should be allocated by the caller to store the TBS data.
+   */
+  const char* tbs;
+} endorse_cert_request_t;
+
+/**
+ * Response parameters for endorsing certificates.
+ */
+typedef struct endorse_cert_response {
+  /**
+   * The size of the buffer pointed by `cert`. The user should set the size
+   * allocated before calling the `EndorseCerts()` function. The funtion will
+   * update the value with the actual certificate size.
+   */
+  size_t size;
+  /**
+   * The endorsed certificate.
+   */
+  char* cert;
+} endorse_cert_response_t;
+
+/**
  * Symmetric key seed type. The seed is provisioned by the manufacturer.
  */
 typedef enum symmetric_key_seed {
@@ -256,6 +318,27 @@ DLLEXPORT int CreateKeyAndCertificate(ate_client_ptr client, const char* sku,
 DLLEXPORT int DeriveSymmetricKeys(
     ate_client_ptr client, const char* sku, size_t keys_count,
     const derive_symmetric_key_params_t* key_params, symmetric_key_t* keys);
+
+/**
+ * Endorse certificates.
+ *
+ * The function endorses certificates based on the request parameters.
+ *
+ * The `certs` parameter should be allocated by the caller to store the
+ * endorsed certificates, and each `cert.size` field should represent the
+ * allocated size of the `cert.cert` buffer.
+ *
+ * @param client A client instance.
+ * @param sku The SKU of the product to endorse the certificates for.
+ * @param cert_count The number of certificates to endorse.
+ * @param request The request parameters for the certificate endorsement.
+ * @param[out] certs The endorsed certificates.
+ * @return The result of the operation.
+ */
+DLLEXPORT int EndorseCerts(ate_client_ptr client, const char* sku,
+                           size_t cert_count,
+                           const endorse_cert_request_t* request,
+                           endorse_cert_response_t* certs);
 
 #ifdef __cplusplus
 }
