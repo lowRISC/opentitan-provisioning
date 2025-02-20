@@ -33,8 +33,8 @@ service ProvisioningApplianceService {
 message EndorseCertBundle {
   // Certificate signing key parameters. Required.
   crypto.cert.SigningKeyParams key_params = 1;
-  // Array of TBS certificates to be endorsed. Required.
-  repeated crypto.cert.Certificate certs = 2;
+  // TBS certificate to be endorsed. Required.
+  bytes tbs = 2;
 }
 
 // Endorse certs request.

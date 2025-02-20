@@ -204,11 +204,7 @@ func testOTEndorseCerts(ctx context.Context, numCalls int, skuName string, c *cl
 						},
 					},
 				},
-				Certs: []*pbc.Certificate{
-					{
-						Blob: tbs,
-					},
-				},
+				Tbs: tbs,
 			},
 		},
 	}

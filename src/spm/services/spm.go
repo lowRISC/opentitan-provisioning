@@ -368,13 +368,11 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 				KeyLabel:           bundle.KeyParams.KeyLabel,
 				SignatureAlgorithm: ecdsaSignatureAlgorithmFromHashType(key.EcdsaParams.HashType),
 			}
-			for _, tbs := range bundle.Certs {
-				cert, err := sku.seHandle.EndorseCert(tbs.Blob, params)
-				if err != nil {
-					return nil, status.Errorf(codes.Internal, "could not endorse cert: %v", err)
-				}
-				certs = append(certs, &pbc.Certificate{Blob: cert})
+			cert, err := sku.seHandle.EndorseCert(bundle.Tbs, params)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "could not endorse cert: %v", err)
 			}
+			certs = append(certs, &pbc.Certificate{Blob: cert})
 		default:
 			return nil, status.Errorf(codes.Unimplemented, "unsupported key format")
 		}
