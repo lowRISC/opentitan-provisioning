@@ -27,6 +27,51 @@ const (
 	_CKF_HKDF_SALT_KEY  = 1 << 2
 )
 
+// Generates a generic secret key of the given length. The key can be used for
+// key derivation.
+//
+// This operation can be quite slow, so it is recommended to call it from another
+// goroutine.
+func (s *Session) GenerateGenericSecret(keyBitLen uint, opts *KeyOptions) (SecretKey, error) {
+	if opts == nil {
+		opts = &KeyOptions{}
+	}
+
+	if keyBitLen%8 != 0 || keyBitLen < 128 {
+		return SecretKey{}, fmt.Errorf("keyBitLen must be a multiple of 8 >= 128; got %d", keyBitLen)
+	}
+	mech := pkcs11.NewMechanism(pkcs11.CKM_GENERIC_SECRET_KEY_GEN, nil)
+
+	sensitive := !opts.Extractable
+	if s.tok.m.hsmType == HSMTypeHW {
+		sensitive = true
+	}
+
+	tpl := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_VALUE_LEN, keyBitLen/8),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_GENERIC_SECRET),
+		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, sensitive),
+		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, opts.Extractable),
+		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, opts.Token),
+		pkcs11.NewAttribute(pkcs11.CKA_WRAP, true),
+		pkcs11.NewAttribute(pkcs11.CKA_ENCRYPT, true),
+		pkcs11.NewAttribute(pkcs11.CKA_DECRYPT, true),
+		pkcs11.NewAttribute(pkcs11.CKA_DERIVE, true),
+	}
+	s.tok.m.appendAttrKeyID(&tpl)
+
+	k, err := s.tok.m.Raw().GenerateKey(
+		s.raw,
+		[]*pkcs11.Mechanism{mech},
+		tpl,
+	)
+	if err != nil {
+		return SecretKey{}, newError(err, "could not generate keys")
+	}
+
+	return SecretKey{object{s, k}}, nil
+}
+
 // HKDFExtract computes `hmac(salt, s)` and uses the result to produce a new
 // key, which can be used with HKDFExtract.
 //
@@ -204,6 +249,100 @@ func (k *SecretKey) HKDFDeriveAES(hash crypto.Hash, salt any, info []byte, keyBi
 	}
 
 	return SecretKey{object{k.sess, obj}}, nil
+}
+
+// KdfWrapMechanism specifies the key wrapping mechanism to use.
+type KdfWrapMechanism int
+
+const (
+	// KdfWrapMechanismRsaOaep uses RSA-OAEP for key wrapping.
+	KdfWrapMechanismRsaOaep KdfWrapMechanism = iota
+	// KdfWrapMechanismRsaPcks uses RSA-PKCS for key wrapping.
+	KdfWrapMechanismRsaPcks
+)
+
+// WrapKey wraps the key with the given public key using the specified mechanism.
+//
+// This operation can be quite slow, so it is recommended to call it from another
+// goroutine.
+func (k *SecretKey) WrapKey(wk PublicKey, m KdfWrapMechanism) ([]byte, error) {
+	o := k.object
+	var mech []*pkcs11.Mechanism
+	switch m {
+	case KdfWrapMechanismRsaPcks:
+		mech = []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_RSA_PKCS, nil)}
+	case KdfWrapMechanismRsaOaep:
+		mech = []*pkcs11.Mechanism{
+			pkcs11.NewMechanism(pkcs11.CKM_RSA_PKCS_OAEP,
+				pkcs11.NewOAEPParams(
+					pkcs11.CKM_SHA256,
+					pkcs11.CKG_MGF1_SHA256,
+					pkcs11.CKZ_DATA_SPECIFIED,
+					nil,
+				),
+			),
+		}
+	default:
+		return nil, fmt.Errorf("unsupported mechanism: %d", m)
+	}
+	ciph, err := k.sess.tok.m.Raw().WrapKey(k.sess.raw, mech, wk.raw, o.raw)
+	if err != nil {
+		return nil, fmt.Errorf("could not perform wrapping operation: %w", err)
+	}
+	return ciph, nil
+}
+
+// UnwrapKDFKey unwraps the key using the given private key and mechanism.
+//
+// This operation can be quite slow, so it is recommended to call it from another
+// goroutine.
+func (s *Session) UnwrapKDFKey(key []byte, pko PrivateKey, m KdfWrapMechanism, opts *KeyOptions) (SecretKey, error) {
+	if opts == nil {
+		opts = &KeyOptions{}
+	}
+
+	sensitive := !opts.Extractable
+	if s.tok.m.hsmType == HSMTypeHW {
+		sensitive = true
+	}
+
+	tpl := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_SECRET_KEY),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_GENERIC_SECRET),
+		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, sensitive),
+		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, opts.Extractable),
+		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, opts.Token),
+		pkcs11.NewAttribute(pkcs11.CKA_WRAP, true),
+		pkcs11.NewAttribute(pkcs11.CKA_ENCRYPT, true),
+		pkcs11.NewAttribute(pkcs11.CKA_DECRYPT, true),
+		pkcs11.NewAttribute(pkcs11.CKA_DERIVE, true),
+	}
+	s.tok.m.appendAttrKeyID(&tpl)
+
+	var mech []*pkcs11.Mechanism
+	switch m {
+	case KdfWrapMechanismRsaPcks:
+		mech = []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_RSA_PKCS, nil)}
+	case KdfWrapMechanismRsaOaep:
+		mech = []*pkcs11.Mechanism{
+			pkcs11.NewMechanism(pkcs11.CKM_RSA_PKCS_OAEP,
+				pkcs11.NewOAEPParams(
+					pkcs11.CKM_SHA256,
+					pkcs11.CKG_MGF1_SHA256,
+					pkcs11.CKZ_DATA_SPECIFIED,
+					nil,
+				),
+			),
+		}
+	default:
+		return SecretKey{}, fmt.Errorf("unsupported mechanism: %d", m)
+	}
+
+	sk, err := s.tok.m.Raw().UnwrapKey(s.raw, mech, pko.object.raw, key, tpl)
+	if err != nil {
+		return SecretKey{}, fmt.Errorf("could not perform wrapping operation: %w", err)
+	}
+	return SecretKey{object{s, sk}}, nil
 }
 
 // ImportKeyMaterial imports key material that can be used as a precursor for derivation.

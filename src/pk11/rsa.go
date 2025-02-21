@@ -40,6 +40,7 @@ func (s *Session) GenerateRSA(modBits uint, pubExp uint, opts *KeyOptions) (KeyP
 		pkcs11.NewAttribute(pkcs11.CKA_LABEL, "pubRSA"),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, opts.Token),
 	}
+
 	privTpl := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_RSA),
 		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
@@ -47,6 +48,16 @@ func (s *Session) GenerateRSA(modBits uint, pubExp uint, opts *KeyOptions) (KeyP
 		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, opts.Extractable),
 		pkcs11.NewAttribute(pkcs11.CKA_LABEL, "privRSA"),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, opts.Token),
+	}
+
+	if opts.Wrapping {
+		pubTpl = append(pubTpl, pkcs11.NewAttribute(pkcs11.CKA_WRAP, true))
+		privTpl = append(privTpl, pkcs11.NewAttribute(pkcs11.CKA_UNWRAP, true))
+	}
+
+	if opts.Encryption {
+		pubTpl = append(pubTpl, pkcs11.NewAttribute(pkcs11.CKA_ENCRYPT, true))
+		privTpl = append(privTpl, pkcs11.NewAttribute(pkcs11.CKA_DECRYPT, true))
 	}
 
 	s.tok.m.appendAttrKeyID(&pubTpl, &privTpl)
@@ -88,6 +99,15 @@ func (s *Session) importRSAPrivate(key *rsa.PrivateKey, opts *KeyOptions) (Priva
 		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, opts.Extractable),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, opts.Token),
 	}
+
+	if opts.Wrapping {
+		tpl = append(tpl, pkcs11.NewAttribute(pkcs11.CKA_UNWRAP, true))
+	}
+
+	if opts.Encryption {
+		tpl = append(tpl, pkcs11.NewAttribute(pkcs11.CKA_DECRYPT, true))
+	}
+
 	s.tok.m.appendAttrKeyID(&tpl)
 
 	k, err := s.tok.m.Raw().CreateObject(s.raw, tpl)

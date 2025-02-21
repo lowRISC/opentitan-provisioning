@@ -43,6 +43,12 @@ type KeyOptions struct {
 	// Set to true to make key a token object or false to make a session
 	// object.
 	Token bool
+
+	// Set to true to allow the key to be used for encryption/decryption.
+	Encryption bool
+
+	// Set to true to allow the key to be used for wrapping/unwrapping other keys.
+	Wrapping bool
 }
 
 // KeyPair is the result of a key generation operation.
