@@ -37,18 +37,60 @@ type CertInfo struct {
 	WrappedKey, Iv, Cert []byte
 }
 
+// SymmetricKeyOp specifies the operation to perform on the key.
+type SymmetricKeyOp int
+
 const (
-	SymmetricKeyTypeRaw = iota
-	SymmetricKeyTypeHashedOtLcToken
+	// SymmetricKeyOpRaw indicates that the key should be generated as a raw
+	// key.
+	SymmetricKeyOpRaw SymmetricKeyOp = iota
+	// SymmetricKeyOpHashedOtLcToken indicates that the key should be generated
+	// as a hashed OT/LC token.
+	SymmetricKeyOpHashedOtLcToken
+)
+
+// SymmetricKeyType specifies the type of the key to generate.
+type SymmetricKeyType int
+
+const (
+	// SymmetricKeyTypeSecurityHi indicates that the key should be a high
+	// security key.
+	SymmetricKeyTypeSecurityHi SymmetricKeyType = iota
+	// SymmetricKeyTypeSecurityLo indicates that the key should be a low
+	// security key.
+	SymmetricKeyTypeSecurityLo
+	// SymmetricKeyTypeRandom indicates that the key should be a random key.
+	SymmetricKeyTypeRandom
+)
+
+// SymmetricKeyWrap specifies the wrapping mechanism for the key.
+type SymmetricKeyWrap int
+
+const (
+	// SymmetricKeyWrapNone indicates that the key should not be wrapped.
+	SymmetricKeyWrapNone SymmetricKeyWrap = iota
+	// SymmetricKeyWrapRsaPcks indicates that the key should be wrapped using
+	// RSA PKCS#1.5.
+	SymmetricKeyWrapRsaPcks
+	// SymmetricKeyWrapRsaOaep indicates that the key should be wrapped using
+	// RSA OAEP.
+	SymmetricKeyWrapRsaOaep
 )
 
 // Parameters for GenerateSymmetricKeys().
 type SymmetricKeygenParams struct {
-	UseHighSecuritySeed bool
-	KeyType             uint
-	SizeInBits          uint
-	Sku                 string
-	Diversifier         string
+	KeyType     SymmetricKeyType
+	KeyOp       SymmetricKeyOp
+	SizeInBits  uint
+	Sku         string
+	Diversifier string
+	Wrap        SymmetricKeyWrap
+}
+
+type SymmetricKeyResult struct {
+	Key         []byte
+	WrappedKey  []byte
+	Diversifier string
 }
 
 // SE is an interface representing a secure element, which may be implemented
@@ -78,8 +120,8 @@ type SE interface {
 	//   - Wafer Authentication Secrets, or
 	//   - Lifecycle Tokens.
 	//
-	// Returns: slice of AESKey objects.
-	GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([][]byte, error)
+	// Returns: slice of `SymmetricKeyResult` objects.
+	GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]SymmetricKeyResult, error)
 
 	// Endorses a certificate.
 	//

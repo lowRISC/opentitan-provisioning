@@ -289,12 +289,11 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 
 		// Retrieve seed configuration.
 		if p.Seed == pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_HIGH_SECURITY {
-			params.UseHighSecuritySeed = true
+			params.KeyType = se.SymmetricKeyTypeSecurityHi
 		} else if p.Seed == pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_LOW_SECURITY {
-			params.UseHighSecuritySeed = false
+			params.KeyType = se.SymmetricKeyTypeSecurityLo
 		} else {
-			return nil, status.Errorf(codes.InvalidArgument,
-				"invalid key seed requested: %d", p.Seed)
+			return nil, status.Errorf(codes.InvalidArgument, "invalid key seed requested: %d", p.Seed)
 		}
 
 		// Retrieve key size.
@@ -309,25 +308,30 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 
 		// Retrieve key type.
 		if p.Type == pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW {
-			params.KeyType = se.SymmetricKeyTypeRaw
+			params.KeyOp = se.SymmetricKeyOpRaw
 		} else if p.Type == pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_HASHED_OT_LC_TOKEN {
-			params.KeyType = se.SymmetricKeyTypeHashedOtLcToken
+			params.KeyOp = se.SymmetricKeyOpHashedOtLcToken
 		} else {
-			return nil, status.Errorf(codes.InvalidArgument,
-				"invalid key type requested: %d", p.Type)
+			return nil, status.Errorf(codes.InvalidArgument, "invalid key type requested: %d", p.Type)
 		}
 
 		// Set sku and diversifier strings.
 		params.Sku = request.Sku
 		params.Diversifier = p.Diversifier
+		params.Wrap = se.SymmetricKeyWrapNone
 
 		keygenParams = append(keygenParams, params)
 	}
 
 	// Generate the symmetric keys.
-	keys, err := sku.seHandle.GenerateSymmetricKeys(keygenParams)
+	res, err := sku.seHandle.GenerateSymmetricKeys(keygenParams)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not generate symmetric key: %s", err)
+	}
+
+	keys := make([][]byte, len(res))
+	for i, r := range res {
+		keys[i] = r.Key
 	}
 
 	return &pbp.DeriveSymmetricKeysResponse{

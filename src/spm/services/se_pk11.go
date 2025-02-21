@@ -93,6 +93,10 @@ type HSMConfig struct {
 	// retrieving long-lived private keys on the HSM.
 	PrivateKeys []string
 
+	// PublicKeys contains the list of public key labels to use for
+	// retrieving long-lived public keys on the HSM.
+	PublicKeys []string
+
 	// hsmType contains the type of the HSM (SoftHSM or NetworkHSM)
 	HSMType pk11.HSMType
 }
@@ -106,6 +110,10 @@ type HSM struct {
 	// UIDs of key objects to use for retrieving long-lived private keys on
 	// the HSM.
 	PrivateKeys map[string][]byte
+
+	// UIDs of key objects to use for retrieving long-lived public keys on
+	// the HSM.
+	PublicKeys map[string][]byte
 
 	// The PKCS#11 session we're working with.
 	sessions *sessionQueue
@@ -194,6 +202,15 @@ func NewHSM(cfg HSMConfig) (*HSM, error) {
 			return nil, status.Errorf(codes.Internal, "fail to find private key ID: %q, error: %v", key, err)
 		}
 		hsm.PrivateKeys[key] = id
+	}
+
+	hsm.PublicKeys = make(map[string][]byte)
+	for _, key := range cfg.PublicKeys {
+		id, err := getKeyIDByLabel(session, pk11.ClassPublicKey, key)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "fail to find public key ID: %q, error: %v", key, err)
+		}
+		hsm.PublicKeys[key] = id
 	}
 
 	return hsm, nil
@@ -350,16 +367,22 @@ func (h *HSM) GenerateKeyPairAndCert(caCert *x509.Certificate, params []SigningP
 }
 
 // GenerateSymmetricKeys generates a symmetric key.
-func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([][]byte, error) {
+func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]SymmetricKeyResult, error) {
 	session, release := h.sessions.getHandle()
 	defer release()
-	var symmetricKeys [][]byte
 
+	symmetricKeys := []SymmetricKeyResult{}
 	for _, p := range params {
+		// Only support extracting random keys using a wrapping key.
+		if p.KeyType != SymmetricKeyTypeRandom && p.Wrap != SymmetricKeyWrapNone {
+			return nil, status.Errorf(codes.Internal, "unsupported key type %v and wrap %v", p.KeyType, p.Wrap)
+		}
+
 		// Select the seed asset to use (High or Low security seed).
 		var seed pk11.SecretKey
 		var err error
-		if p.UseHighSecuritySeed {
+		switch p.KeyType {
+		case SymmetricKeyTypeSecurityHi:
 			khs, ok := h.SymmetricKeys["HighSecKdfSeed"]
 			if !ok {
 				return nil, status.Errorf(codes.Internal, "failed to find HighSecKdfSeed key UID")
@@ -368,7 +391,7 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([][]byte, 
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "failed to get KHsks key object: %v", err)
 			}
-		} else {
+		case SymmetricKeyTypeSecurityLo:
 			kls, ok := h.SymmetricKeys["LowSecKdfSeed"]
 			if !ok {
 				return nil, status.Errorf(codes.Internal, "failed to find LowSecKdfSeed key UID")
@@ -377,6 +400,18 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([][]byte, 
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "failed to get KLsks key object: %v", err)
 			}
+		case SymmetricKeyTypeRandom:
+			seed, err = session.GenerateGenericSecret(
+				p.SizeInBits,
+				&pk11.KeyOptions{
+					Extractable: true,
+					Token:       false,
+				})
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to generate random key: %v", err)
+			}
+		default:
+			return nil, status.Errorf(codes.Internal, "unsupported key type: %v", p.KeyType)
 		}
 
 		// Generate key from seed and extract.
@@ -400,7 +435,7 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([][]byte, 
 				"failed to parse extracted symmetric key: %v", ok)
 		}
 		keyBytes := []byte(aesKey)
-		if p.KeyType == SymmetricKeyTypeHashedOtLcToken {
+		if p.KeyOp == SymmetricKeyOpHashedOtLcToken {
 			// OpenTitan lifecycle tokens are stored in OTP in hashed form using the
 			// cSHAKE128 algorithm with the "LC_CTRL" customization string.
 			hasher := sha3.NewCShake128([]byte(""), []byte("LC_CTRL"))
@@ -408,7 +443,38 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([][]byte, 
 			hasher.Read(keyBytes)
 		}
 
-		symmetricKeys = append(symmetricKeys, keyBytes)
+		wkey := []byte{}
+		if p.Wrap == SymmetricKeyWrapRsaPcks || p.Wrap == SymmetricKeyWrapRsaOaep {
+			// Wrap the key with RSA PKCS1v1.5.
+			wk, ok := h.PublicKeys["TokenWrappingKey"]
+			if !ok {
+				return nil, status.Errorf(codes.Internal, "failed to find TokenWrappingKey key UID")
+			}
+			wkObj, err := session.FindPublicKey(wk)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to find TokenWrappingKey key object: %v", err)
+			}
+
+			var m pk11.KdfWrapMechanism
+			switch p.Wrap {
+			case SymmetricKeyWrapRsaPcks:
+				m = pk11.KdfWrapMechanismRsaPcks
+			case SymmetricKeyWrapRsaOaep:
+				m = pk11.KdfWrapMechanismRsaOaep
+			default:
+				return nil, status.Errorf(codes.Internal, "unsupported wrap mechanism: %v", p.Wrap)
+			}
+			wkey, err = seed.WrapKey(wkObj, m)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to wrap key: %v", err)
+			}
+		}
+
+		symmetricKeys = append(symmetricKeys, SymmetricKeyResult{
+			Key:         keyBytes,
+			WrappedKey:  wkey,
+			Diversifier: p.Diversifier,
+		})
 	}
 
 	return symmetricKeys, nil
