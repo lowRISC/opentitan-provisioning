@@ -59,8 +59,8 @@ const (
 	// SymmetricKeyTypeSecurityLo indicates that the key should be a low
 	// security key.
 	SymmetricKeyTypeSecurityLo
-	// SymmetricKeyTypeRandom indicates that the key should be a random key.
-	SymmetricKeyTypeRandom
+	// SymmetricKeyTypeKeyGen indicates that the key should be a new key.
+	SymmetricKeyTypeKeyGen
 )
 
 // SymmetricKeyWrap specifies the wrapping mechanism for the key.

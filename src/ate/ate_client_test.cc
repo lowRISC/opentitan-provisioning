@@ -98,8 +98,10 @@ TEST_F(AteTest, EndorseCerts) {
 
 TEST_F(AteTest, DeriveSymmetricKeys) {
   // Response that will be sent back for DeriveSymmetricKeys.
-  auto response = ParseTextProto<DeriveSymmetricKeysResponse>(R"pb(
-    keys: "fake-key-blob")pb");
+  auto response = ParseTextProto<DeriveSymmetricKeysResponse>(
+      R"pb(
+        keys: { key: "foobar" }
+      )pb");
 
   // Expect DeriveSymmetricKeys to be called.
   // The 2nd arg is expected to be a protobuf with the `sku` field.

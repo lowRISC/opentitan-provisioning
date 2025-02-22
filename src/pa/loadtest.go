@@ -152,24 +152,28 @@ func testOTDeriveSymmetricKeys(ctx context.Context, numCalls int, skuName string
 				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW,
 				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS,
 				Diversifier: "test_unlock",
+				WrapSeed:    false,
 			},
 			{
 				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_LOW_SECURITY,
 				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW,
 				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS,
 				Diversifier: "test_exit",
+				WrapSeed:    false,
 			},
 			{
 				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_HIGH_SECURITY,
 				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_HASHED_OT_LC_TOKEN,
 				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS,
 				Diversifier: "rma,device_id",
+				WrapSeed:    false,
 			},
 			{
 				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_HIGH_SECURITY,
 				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW,
 				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_256_BITS,
 				Diversifier: "was,device_id",
+				WrapSeed:    false,
 			},
 		},
 	}

@@ -417,8 +417,9 @@ DLLEXPORT int DeriveSymmetricKeys(
   }
 
   for (int i = 0; i < resp.keys_size(); i++) {
-    auto &key = resp.keys(i);
+    auto &sk = resp.keys(i);
     auto &resp_key = keys[i];
+    auto key = sk.key();
 
     if (key.size() > sizeof(resp_key.key)) {
       LOG(ERROR) << "DeriveSymmetricKeys failed- key size is too big: "

@@ -374,7 +374,7 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 	symmetricKeys := []SymmetricKeyResult{}
 	for _, p := range params {
 		// Only support extracting random keys using a wrapping key.
-		if p.KeyType != SymmetricKeyTypeRandom && p.Wrap != SymmetricKeyWrapNone {
+		if p.KeyType != SymmetricKeyTypeKeyGen && p.Wrap != SymmetricKeyWrapNone {
 			return nil, status.Errorf(codes.Internal, "unsupported key type %v and wrap %v", p.KeyType, p.Wrap)
 		}
 
@@ -400,7 +400,7 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "failed to get KLsks key object: %v", err)
 			}
-		case SymmetricKeyTypeRandom:
+		case SymmetricKeyTypeKeyGen:
 			seed, err = session.GenerateGenericSecret(
 				p.SizeInBits,
 				&pk11.KeyOptions{

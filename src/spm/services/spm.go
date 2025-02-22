@@ -258,8 +258,7 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 	defer s.muSKU.RUnlock()
 	sku, ok := s.skus[request.Sku]
 	if !ok {
-		return nil, status.Errorf(codes.NotFound,
-			"unable to find sku %q. Try calling InitSession first", request.Sku)
+		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.Sku)
 	}
 
 	// Build parameter list for all keygens requested.
@@ -268,12 +267,32 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 		params := new(se.SymmetricKeygenParams)
 
 		// Retrieve seed configuration.
-		if p.Seed == pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_HIGH_SECURITY {
+		switch p.Seed {
+		case pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_HIGH_SECURITY:
 			params.KeyType = se.SymmetricKeyTypeSecurityHi
-		} else if p.Seed == pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_LOW_SECURITY {
+		case pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_LOW_SECURITY:
 			params.KeyType = se.SymmetricKeyTypeSecurityLo
-		} else {
+		case pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_KEYGEN:
+			params.KeyType = se.SymmetricKeyTypeKeyGen
+		default:
 			return nil, status.Errorf(codes.InvalidArgument, "invalid key seed requested: %d", p.Seed)
+		}
+
+		if p.WrapSeed {
+			wmech, err := sku.config.GetAttribute(skucfg.AttrNameSymmetricWrappingMethod)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "could not get wrapping method: %s", err)
+			}
+			switch wmech {
+			case skucfg.WrappingMethodRSAOAEP:
+				params.Wrap = se.SymmetricKeyWrapRsaOaep
+			case skucfg.WrappingMethodRSAPKCS1:
+				params.Wrap = se.SymmetricKeyWrapRsaPcks
+			default:
+				return nil, status.Errorf(codes.Internal, "invalid wrapping method: %s", wmech)
+			}
+		} else {
+			params.Wrap = se.SymmetricKeyWrapNone
 		}
 
 		// Retrieve key size.
@@ -298,7 +317,6 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 		// Set sku and diversifier strings.
 		params.Sku = request.Sku
 		params.Diversifier = p.Diversifier
-		params.Wrap = se.SymmetricKeyWrapNone
 
 		keygenParams = append(keygenParams, params)
 	}
@@ -309,9 +327,12 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 		return nil, status.Errorf(codes.Internal, "could not generate symmetric key: %s", err)
 	}
 
-	keys := make([][]byte, len(res))
+	keys := make([]*pbp.SymmetricKey, len(res))
 	for i, r := range res {
-		keys[i] = r.Key
+		keys[i] = &pbp.SymmetricKey{
+			Key:         r.Key,
+			WrappedSeed: r.WrappedKey,
+		}
 	}
 
 	return &pbp.DeriveSymmetricKeysResponse{

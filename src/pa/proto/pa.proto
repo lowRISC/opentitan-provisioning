@@ -59,6 +59,9 @@ enum SymmetricKeySeed {
   SYMMETRIC_KEY_SEED_LOW_SECURITY = 1;
   // High Security: seed is rotated frequently.
   SYMMETRIC_KEY_SEED_HIGH_SECURITY = 2;
+  // Keygen: seed is a new generic key seed. The SPM does not store the seed in
+  // non-volatile memory.
+  SYMMETRIC_KEY_SEED_KEYGEN = 3;
 }
 
 // Symmetric key type.
@@ -101,6 +104,11 @@ message SymmetricKeygenParams{
   SymmetricKeySize size = 3;
   // Diversifier string to use in KDF operation. Required.
   string diversifier = 4;
+  // Returned wrapped seed in the response. Required.
+  // The seed is wrapped with a public key associated with the SKU. The client
+  // can use this seed to derive symmetric keys in the future. Set to true if
+  // using `SYMMETRIC_KEY_SEED_KEYGEN`.
+  bool wrap_seed = 5;
 }
 
 // Derive symmetric keys request.
@@ -111,10 +119,18 @@ message DeriveSymmetricKeysRequest{
   repeated SymmetricKeygenParams params = 2;
 }
 
+// Symmetric key.
+message SymmetricKey {
+  // Key. Size is provided in the request.
+  bytes key = 1;
+  // Wrapped seed. Required if `wrap_seed` is set in the request.
+  bytes wrapped_seed = 2;
+}
+
 // Derive symmetric keys response.
 message DeriveSymmetricKeysResponse{
-  // Key bytes. Size is provided in the request.
-  repeated bytes keys = 1;
+  // Key. Size is provided in the request.
+  repeated SymmetricKey keys = 1;
 }
 
 // Create key and endorsement certificates request.

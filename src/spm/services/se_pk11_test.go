@@ -214,7 +214,7 @@ func TestGenerateSymmKeysWrap(t *testing.T) {
 
 	// RMA token
 	rmaParams := SymmetricKeygenParams{
-		KeyType:     SymmetricKeyTypeRandom,
+		KeyType:     SymmetricKeyTypeKeyGen,
 		KeyOp:       SymmetricKeyOpHashedOtLcToken,
 		SizeInBits:  128,
 		Sku:         "test sku",
