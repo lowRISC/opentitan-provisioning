@@ -54,10 +54,6 @@ func (s *Session) GenerateECDSA(curve elliptic.Curve, opts *KeyOptions) (KeyPair
 		return KeyPair{}, err
 	}
 
-	sensitive := !opts.Extractable
-	if s.tok.m.hsmType == HSMTypeHW {
-		sensitive = true
-	}
 	mech := pkcs11.NewMechanism(pkcs11.CKM_EC_KEY_PAIR_GEN, nil)
 	pubTpl := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, oid),
@@ -68,7 +64,7 @@ func (s *Session) GenerateECDSA(curve elliptic.Curve, opts *KeyOptions) (KeyPair
 	privTpl := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
 		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
-		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, sensitive),
+		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, opts.Sensitive),
 		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, opts.Extractable),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, opts.Token),
 	}

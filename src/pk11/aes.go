@@ -6,7 +6,6 @@ package pk11
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/miekg/pkcs11"
 )
@@ -34,15 +33,10 @@ func (s *Session) GenerateAES(keyBitLen uint, opts *KeyOptions) (SecretKey, erro
 	}
 	mech := pkcs11.NewMechanism(pkcs11.CKM_AES_KEY_GEN, nil)
 
-	sensitive := !opts.Extractable
-	if s.tok.m.hsmType == HSMTypeHW {
-		sensitive = true
-	}
-
 	tpl := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_VALUE_LEN, keyBitLen/8),
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_AES),
-		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, sensitive),
+		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, opts.Sensitive),
 		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, opts.Extractable),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, opts.Token),
 		pkcs11.NewAttribute(pkcs11.CKA_WRAP, true),
@@ -72,11 +66,6 @@ func (s *Session) importAESRaw(key AESKey, opts *KeyOptions) (SecretKey, error) 
 		return SecretKey{}, fmt.Errorf("key must be at least 128 bits long, got %d", len(key)*8)
 	}
 
-	sensitive := !opts.Extractable
-	if s.tok.m.hsmType == HSMTypeHW {
-		sensitive = true
-	}
-
 	tpl := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_VALUE, []byte(key)),
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_SECRET_KEY),
@@ -85,7 +74,7 @@ func (s *Session) importAESRaw(key AESKey, opts *KeyOptions) (SecretKey, error) 
 		pkcs11.NewAttribute(pkcs11.CKA_DECRYPT, true),
 		pkcs11.NewAttribute(pkcs11.CKA_WRAP, true),
 		pkcs11.NewAttribute(pkcs11.CKA_UNWRAP, true),
-		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, sensitive),
+		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, opts.Sensitive),
 		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, opts.Extractable),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, opts.Token),
 	}
@@ -156,11 +145,20 @@ func (k SecretKey) UnsealAESGCM(iv, aad []byte, tagBits int, ciphertext []byte) 
 	return plain, nil
 }
 
-// WrapAESKWP wraps a key using AES-KWP, using this object as the wrapping key.
+// WrapAESKWP wraps a key using AES-KWP.
 //
 // This operation can be quite slow, so it is recommended to call it from another
 // goroutine.
-func (k SecretKey) WrapAESKWP(o object) ([]byte, error) {
+func (k SecretKey) WrapAESKWP(key Key) ([]byte, error) {
+	var o object
+	switch key := key.(type) {
+	case SecretKey:
+		o = key.object
+	case PrivateKey:
+		o = key.object
+	default:
+		return nil, fmt.Errorf("unsupported key type %T", key)
+	}
 	mech := []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_AES_KEY_WRAP_PAD, nil)}
 	ciph, err := k.sess.tok.m.Raw().WrapKey(k.sess.raw, mech, k.raw, o.raw)
 	if err != nil {
@@ -170,11 +168,20 @@ func (k SecretKey) WrapAESKWP(o object) ([]byte, error) {
 	return ciph, nil
 }
 
-// WrapAESGCM wraps a key using AES-GCM, using this object as the wrapping key.
+// WrapAESGCM wraps a key using AES-GCM.
 //
 // This operation can be quite slow, so it is recommended to call it from another
 // goroutine.
-func (k SecretKey) WrapAESGCM(o object) (ciphertext, actualIV []byte, err error) {
+func (k SecretKey) WrapAESGCM(key Key) (ciphertext, actualIV []byte, err error) {
+	var o object
+	switch key := key.(type) {
+	case SecretKey:
+		o = key.object
+	case PrivateKey:
+		o = key.object
+	default:
+		return nil, nil, fmt.Errorf("unsupported key type %T", key)
+	}
 	tagBits := 128 // The value must be a multiple of 8 between 96 and 128
 	params := pkcs11.NewGCMParams(nil, nil, tagBits)
 	defer params.Free()
@@ -190,28 +197,4 @@ func (k SecretKey) WrapAESGCM(o object) (ciphertext, actualIV []byte, err error)
 	cipher := ciph[:len(ciph)-16]
 
 	return cipher, iv, nil
-}
-
-// WrapAES wraps a key using AES-KWP and GCM for SoftHSM and Token HSM respectively, using this object as the wrapping key.
-//
-// This operation can be quite slow, so it is recommended to call it from another
-// goroutine.
-func (k SecretKey) WrapAES(wrap Key) (ciphertext, actualIV []byte, err error) {
-	var o object
-	switch wrap := wrap.(type) {
-	case PrivateKey:
-		o = wrap.object
-	case SecretKey:
-		o = wrap.object
-	default:
-		return nil, nil, fmt.Errorf("unsupported key type: %s", reflect.TypeOf(wrap))
-	}
-	switch k.sess.tok.m.hsmType {
-	case HSMTypeSoft:
-		ciphertext, err = k.WrapAESKWP(o)
-		return ciphertext, nil, err
-	case HSMTypeHW:
-		return k.WrapAESGCM(o)
-	}
-	return nil, nil, fmt.Errorf("unsupported hsm type: %s", reflect.TypeOf(k.sess.tok.m.hsmType))
 }

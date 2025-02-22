@@ -41,7 +41,7 @@ func TestAESKWPWrapPrivate(t *testing.T) {
 			pubi, err := kp.PublicKey.ExportKey()
 			ts.Check(t, err)
 			pub := pubi.(*ecdsa.PublicKey)
-			wrap, _, err := ko.WrapAES(kp.PrivateKey)
+			wrap, err := ko.WrapAESKWP(kp.PrivateKey)
 			ts.Check(t, err)
 
 			kwp, err := kwp.NewKWP(key)
@@ -83,7 +83,7 @@ func TestAESKWPWrapSecret(t *testing.T) {
 			ts.Check(t, err)
 			wrapped := wi.(pk11.AESKey)
 
-			wrap, _, err := ko.WrapAES(wo)
+			wrap, err := ko.WrapAESKWP(wo)
 			ts.Check(t, err)
 
 			kwp, err := kwp.NewKWP(key)

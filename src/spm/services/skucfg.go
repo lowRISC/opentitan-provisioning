@@ -15,16 +15,18 @@ import (
 type AttrName string
 
 const (
-	AttrNameSymmetricWrappingMethod AttrName = "symmetricWrappingMethod"
+	AttrNameWrappingMechanism AttrName = "WrappingMechanism"
 )
 
-// WrappingMethod provides the wrapping method for symmetric keys.
-type WrappingMethod string
+// WrappingMechanism provides the wrapping method for symmetric keys.
+type WrappingMechanism string
 
 const (
-	WrappingMethodNone     WrappingMethod = "none"
-	WrappingMethodRSAPKCS1                = "rsa-pkcs"
-	WrappingMethodRSAOAEP                 = "rsa-oaep"
+	WrappingMechanismNone     WrappingMechanism = "none"
+	WrappingMechanismRSAPKCS1                   = "RsaPkcs"
+	WrappingMechanismRSAOAEP                    = "RsaOaep"
+	WrappingMechanismAESGCM                     = "AesGcm"
+	WrappingMechanismAESKWP                     = "AesKwp"
 )
 
 type Config struct {
