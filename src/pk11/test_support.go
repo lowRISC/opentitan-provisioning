@@ -125,7 +125,7 @@ func loadSoftHSM() *pk11.Mod {
 		return nil
 	}
 
-	m, err := pk11.Load(pk11.HSMTypeSoft, Plugin())
+	m, err := pk11.Load(Plugin())
 	if err != nil {
 		panic(err)
 	}

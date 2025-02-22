@@ -8,12 +8,12 @@ filegroup(
     name = "deploy_config",
     srcs = [
         ":deploy.sh",
+        ":token_init.sh",
     ] + glob(
         [
             "env/**",
             "certs/**",
             "containers/**",
-            "sku/**",
             "softhsm/**",
             "spm/**",
         ],

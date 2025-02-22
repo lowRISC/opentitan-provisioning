@@ -40,13 +40,13 @@ type KeyOptions struct {
 	//
 	// Not all HSMs may permit this on some key types.
 	Extractable bool
+	// Sensitive keys cannot be exported in plaintext on the HSM.
+	Sensitive bool
 	// Set to true to make key a token object or false to make a session
 	// object.
 	Token bool
-
 	// Set to true to allow the key to be used for encryption/decryption.
 	Encryption bool
-
 	// Set to true to allow the key to be used for wrapping/unwrapping other keys.
 	Wrapping bool
 }

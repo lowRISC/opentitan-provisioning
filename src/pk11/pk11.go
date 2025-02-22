@@ -20,17 +20,6 @@ import (
 	"github.com/miekg/pkcs11"
 )
 
-// HSMType is used to distinguish between SoftHSM versus Hardware specific
-// HSM features.
-type HSMType int64
-
-const (
-	// HSMTypeSoft is use to qualify SoftHSM specific functionality.
-	HSMTypeSoft HSMType = iota
-	// HSMTypeHW is use to qualify hardware HSM specific functionality.
-	HSMTypeHW
-)
-
 // Error represents a wrapped pkcs11.Error
 type Error struct {
 	// The raw error code returned by the library.
@@ -63,14 +52,13 @@ func (e Error) Error() string {
 type Mod struct {
 	ctx     *pkcs11.Ctx
 	version pkcs11.Version
-	hsmType HSMType
 }
 
 // Load loads a PKCS#11 plugin located at soPath.
 //
 // This operation can be quite slow, so it is recommended to call it from another
 // goroutine.
-func Load(hsmType HSMType, soPath string) (*Mod, error) {
+func Load(soPath string) (*Mod, error) {
 	ctx := pkcs11.New(soPath)
 	if ctx == nil {
 		return nil, fmt.Errorf("could not load module %q", soPath)
@@ -85,7 +73,7 @@ func Load(hsmType HSMType, soPath string) (*Mod, error) {
 		return nil, newError(err, "could not retrieve module information")
 	}
 
-	return &Mod{ctx, info.CryptokiVersion, hsmType}, nil
+	return &Mod{ctx, info.CryptokiVersion}, nil
 }
 
 // Raw returns the wrapped PKCS#11 context for performing operations on directly.

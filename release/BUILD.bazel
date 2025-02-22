@@ -39,7 +39,7 @@ pkg_tar(
     srcs = [
         "//src/pa:pa_server",
         "//src/spm:spm_server",
-        "//src/spm:spmutil",
+        "//src/spm/util:certgen",
     ],
     extension = "tar.xz",
 )
@@ -68,8 +68,9 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "hsmtool",
+    name = "hsmutils",
     srcs = [
+        "//src/spm/util:certgen",
         "@lowrisc_opentitan//sw/host/hsmtool",
     ],
     extension = "tar.xz",
@@ -83,6 +84,6 @@ release(
         ":proxybuffer_binaries": "ProxyBuffer binaries",
         ":softhsm_dev": "SoftHSM2 development binaries",
         "//src/ate:windows": "ATE Win32 binaries",
-        ":hsmtool": "hsmtool binaries",
+        ":hsmutils": "HSM configuration binaries",
     },
 )

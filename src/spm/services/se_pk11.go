@@ -96,9 +96,6 @@ type HSMConfig struct {
 	// PublicKeys contains the list of public key labels to use for
 	// retrieving long-lived public keys on the HSM.
 	PublicKeys []string
-
-	// hsmType contains the type of the HSM (SoftHSM or NetworkHSM)
-	HSMType pk11.HSMType
 }
 
 // HSM is a wrapper over a pk11 session that conforms to the SPM interface.
@@ -122,8 +119,8 @@ type HSM struct {
 // openSessions opens `numSessions` sessions on the HSM `tokSlot` slot number.
 // Logs in as crypto user with `hsmPW` password. Connects via PKCS#11 shared
 // library in `soPath`.
-func openSessions(hsmType pk11.HSMType, soPath, hsmPW string, tokSlot, numSessions int) (*sessionQueue, error) {
-	mod, err := pk11.Load(hsmType, soPath)
+func openSessions(soPath, hsmPW string, tokSlot, numSessions int) (*sessionQueue, error) {
+	mod, err := pk11.Load(soPath)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "fail to load pk11: %v", err)
 	}
@@ -174,7 +171,7 @@ func getKeyIDByLabel(session *pk11.Session, classKeyType pk11.ClassAttribute, la
 
 // NewHSM creates a new instance of HSM, with dedicated session and keys.
 func NewHSM(cfg HSMConfig) (*HSM, error) {
-	sq, err := openSessions(cfg.HSMType, cfg.SOPath, cfg.HSMPassword, cfg.SlotID, cfg.NumSessions)
+	sq, err := openSessions(cfg.SOPath, cfg.HSMPassword, cfg.SlotID, cfg.NumSessions)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "fail to get session: %v", err)
 	}
@@ -223,50 +220,6 @@ func (h *HSM) ExecuteCmd(cmd CmdFunc) error {
 	session, release := h.sessions.getHandle()
 	defer release()
 	return cmd(session)
-}
-
-// The label used for expanding the transport secret.
-var transportKeyLabel = []byte("transport key")
-
-// deriveTransportSecret derives the transport secret for the device with the
-// given ID, and returns a handle to it.
-func (h *HSM) deriveTransportSecret(session *pk11.Session, deviceId []byte) (pk11.SecretKey, error) {
-	kt, ok := h.SymmetricKeys["KT"]
-	if !ok {
-		return pk11.SecretKey{}, status.Errorf(codes.Internal, "failed to find KT key UID")
-	}
-	transportStatic, err := session.FindSecretKey(kt)
-	if err != nil {
-		return pk11.SecretKey{}, err
-	}
-	return transportStatic.HKDFDeriveAES(crypto.SHA256, deviceId, transportKeyLabel, 128, &pk11.KeyOptions{Extractable: true})
-}
-
-// DeriveAndWrapTransportSecret generates a fresh secret for the device with the
-// given ID, wrapping it with the global secret.
-//
-// See SPM.
-func (h *HSM) DeriveAndWrapTransportSecret(deviceId []byte) ([]byte, error) {
-	session, release := h.sessions.getHandle()
-	defer release()
-
-	kg, ok := h.SymmetricKeys["KG"]
-	if !ok {
-		return nil, status.Errorf(codes.Internal, "failed to find KG key UID")
-	}
-
-	global, err := session.FindSecretKey(kg)
-	if err != nil {
-		return nil, err
-	}
-
-	transport, err := h.deriveTransportSecret(session, deviceId)
-	if err != nil {
-		return nil, err
-	}
-
-	ciphertext, _, err := global.WrapAES(transport)
-	return ciphertext, err
 }
 
 // VerifySession verifies that a session to the HSM for a given SKU is active
@@ -329,12 +282,12 @@ func (h *HSM) GenerateKeyPairAndCert(caCert *x509.Certificate, params []SigningP
 		var kp pk11.KeyPair
 		switch k := p.KeyParams.(type) {
 		case RSAParams:
-			kp, err = session.GenerateRSA(uint(k.ModBits), uint(k.Exp), &pk11.KeyOptions{Extractable: true})
+			kp, err = session.GenerateRSA(uint(k.ModBits), uint(k.Exp), &pk11.KeyOptions{Extractable: true, Sensitive: true})
 			if err != nil {
 				return nil, fmt.Errorf("failed GenerateRSA: %v", err)
 			}
 		case elliptic.Curve:
-			kp, err = session.GenerateECDSA(k, &pk11.KeyOptions{Extractable: true})
+			kp, err = session.GenerateECDSA(k, &pk11.KeyOptions{Extractable: true, Sensitive: true})
 			if err != nil {
 				return nil, fmt.Errorf("failed GenerateECDSA: %v", err)
 			}
@@ -349,7 +302,14 @@ func (h *HSM) GenerateKeyPairAndCert(caCert *x509.Certificate, params []SigningP
 		}
 
 		var cert CertInfo
-		cert.WrappedKey, cert.Iv, err = wi.WrapAES(kp.PrivateKey)
+		switch p.Wrap {
+		case WrappingMechanismAESGCM:
+			cert.WrappedKey, cert.Iv, err = wi.WrapAESGCM(kp.PrivateKey)
+		case WrappingMechanismAESKWP:
+			cert.WrappedKey, err = wi.WrapAESKWP(kp.PrivateKey)
+		default:
+			return nil, fmt.Errorf("unsupported wrapping mechanism: %v", p.Wrap)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to wrap kp with wi: %v", err)
 		}
@@ -374,7 +334,7 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 	symmetricKeys := []SymmetricKeyResult{}
 	for _, p := range params {
 		// Only support extracting random keys using a wrapping key.
-		if p.KeyType != SymmetricKeyTypeKeyGen && p.Wrap != SymmetricKeyWrapNone {
+		if p.KeyType != SymmetricKeyTypeKeyGen && p.Wrap != WrappingMechanismNone {
 			return nil, status.Errorf(codes.Internal, "unsupported key type %v and wrap %v", p.KeyType, p.Wrap)
 		}
 
@@ -405,6 +365,7 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 				p.SizeInBits,
 				&pk11.KeyOptions{
 					Extractable: true,
+					Sensitive:   false,
 					Token:       false,
 				})
 			if err != nil {
@@ -416,7 +377,7 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 
 		// Generate key from seed and extract.
 		seKey, err := seed.HKDFDeriveAES(crypto.SHA256, []byte(p.Sku),
-			[]byte(p.Diversifier), p.SizeInBits, &pk11.KeyOptions{Extractable: true})
+			[]byte(p.Diversifier), p.SizeInBits, &pk11.KeyOptions{Extractable: true, Sensitive: false})
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed HKDFDeriveAES: %v", err)
 		}
@@ -424,8 +385,7 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 		// Extract the key from the SE.
 		exportedKey, err := seKey.ExportKey()
 		if err != nil {
-			return nil, status.Errorf(codes.Internal,
-				"failed to extract symmetric key: %v", err)
+			return nil, status.Errorf(codes.Internal, "failed to extract symmetric key: %v", err)
 		}
 
 		// Parse and format the key bytes.
@@ -444,7 +404,7 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 		}
 
 		wkey := []byte{}
-		if p.Wrap == SymmetricKeyWrapRsaPcks || p.Wrap == SymmetricKeyWrapRsaOaep {
+		if p.Wrap == WrappingMechanismRSAPCKS || p.Wrap == WrappingMechanismRSAOAEP {
 			// Wrap the key with RSA PKCS1v1.5.
 			wk, ok := h.PublicKeys["TokenWrappingKey"]
 			if !ok {
@@ -457,9 +417,9 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 
 			var m pk11.KdfWrapMechanism
 			switch p.Wrap {
-			case SymmetricKeyWrapRsaPcks:
+			case WrappingMechanismRSAPCKS:
 				m = pk11.KdfWrapMechanismRsaPcks
-			case SymmetricKeyWrapRsaOaep:
+			case WrappingMechanismRSAOAEP:
 				m = pk11.KdfWrapMechanismRsaOaep
 			default:
 				return nil, status.Errorf(codes.Internal, "unsupported wrap mechanism: %v", p.Wrap)
