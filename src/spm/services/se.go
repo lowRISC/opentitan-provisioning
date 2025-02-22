@@ -10,6 +10,26 @@ import (
 	"crypto/x509"
 )
 
+// WrappingMechanism specifies the wrapping mechanism for the key.
+type WrappingMechanism int
+
+const (
+	// WrappingMechanismNone indicates that the key should not be wrapped.
+	WrappingMechanismNone WrappingMechanism = iota
+	// WrappingMechanismRSAPCKS indicates that the key should be wrapped using
+	// RSA PKCS#1.5.
+	WrappingMechanismRSAPCKS
+	// WrappingMechanismRSAOAEP indicates that the key should be wrapped using
+	// RSA OAEP.
+	WrappingMechanismRSAOAEP
+	// WrappingMechanismAESKWP indicates that the key should be wrapped using
+	// AES Key Wrap with Padding.
+	WrappingMechanismAESKWP
+	// WrappingMechanismAESGCM indicates that the key should be wrapped using
+	// AES GCM.
+	WrappingMechanismAESGCM
+)
+
 // Parameters for generating an RSA keypair.
 type RSAParams struct {
 	ModBits, Exp int
@@ -22,6 +42,8 @@ type SigningParams struct {
 	// Parameters for generating the associated key pair; must be one
 	// of RSAParams or elliptic.Curve.
 	KeyParams any
+	// Wrapping mechanism to use.
+	Wrap WrappingMechanism
 }
 
 // Parameters for EndorseCert().
@@ -63,20 +85,6 @@ const (
 	SymmetricKeyTypeKeyGen
 )
 
-// SymmetricKeyWrap specifies the wrapping mechanism for the key.
-type SymmetricKeyWrap int
-
-const (
-	// SymmetricKeyWrapNone indicates that the key should not be wrapped.
-	SymmetricKeyWrapNone SymmetricKeyWrap = iota
-	// SymmetricKeyWrapRsaPcks indicates that the key should be wrapped using
-	// RSA PKCS#1.5.
-	SymmetricKeyWrapRsaPcks
-	// SymmetricKeyWrapRsaOaep indicates that the key should be wrapped using
-	// RSA OAEP.
-	SymmetricKeyWrapRsaOaep
-)
-
 // Parameters for GenerateSymmetricKeys().
 type SymmetricKeygenParams struct {
 	KeyType     SymmetricKeyType
@@ -84,7 +92,7 @@ type SymmetricKeygenParams struct {
 	SizeInBits  uint
 	Sku         string
 	Diversifier string
-	Wrap        SymmetricKeyWrap
+	Wrap        WrappingMechanism
 }
 
 type SymmetricKeyResult struct {
@@ -99,10 +107,6 @@ type SymmetricKeyResult struct {
 // An SE provides privileged access to cryptographic operations using high-value
 // assets, such as long-lived root secrets.
 type SE interface {
-	// Derives the transport secret for a device with the given ID, and wraps
-	// it with the device class's global secret.
-	DeriveAndWrapTransportSecret(deviceId []byte) ([]byte, error)
-
 	// Generates and signs certificates with the given parent corresponding to the
 	// arguments in certs.
 	//

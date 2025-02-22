@@ -56,9 +56,8 @@ func readFile(t *testing.T, filename string) []byte {
 
 // Creates a new HSM for a test by reaching into the tests's SoftHSM token.
 //
-// Returns the hsm, the (host-side) bytes of the KG, and the (host-side) bytes
-// of the KT.
-func MakeHSM(t *testing.T) (*HSM, []byte, []byte, []byte, []byte) {
+// Returns the hsm, the (host-side) bytes of the KG.
+func MakeHSM(t *testing.T) (*HSM, []byte, []byte, []byte) {
 	t.Helper()
 	s := ts.GetSession(t)
 	ts.Check(t, s.Login(pk11.NormalUser, ts.UserPin))
@@ -69,13 +68,6 @@ func MakeHSM(t *testing.T) (*HSM, []byte, []byte, []byte, []byte) {
 	gUID, err := global.UID()
 	ts.Check(t, err)
 	globalKeyBytes, err := global.ExportKey()
-	ts.Check(t, err)
-
-	// Initialize HSM with KT.
-	transportKeySeed := []byte("this is secret data for generating keys from")
-	transport, err := s.ImportKeyMaterial(transportKeySeed, &pk11.KeyOptions{Extractable: true})
-	ts.Check(t, err)
-	tUID, err := transport.UID()
 	ts.Check(t, err)
 
 	// Initialize HSM with KHsks.
@@ -120,7 +112,6 @@ func MakeHSM(t *testing.T) (*HSM, []byte, []byte, []byte, []byte) {
 	return &HSM{
 			SymmetricKeys: map[string][]byte{
 				"KG":             gUID,
-				"KT":             tUID,
 				"HighSecKdfSeed": hsksUID,
 				"LowSecKdfSeed":  lsksUID,
 			},
@@ -133,13 +124,12 @@ func MakeHSM(t *testing.T) (*HSM, []byte, []byte, []byte, []byte) {
 			sessions: sessions,
 		},
 		[]byte(globalKeyBytes.(pk11.AESKey)),
-		transportKeySeed,
 		hsKeySeed,
 		lsKeySeed
 }
 
 func TestGenerateSymmKeys(t *testing.T) {
-	hsm, _, _, hsKeySeed, lsKeySeed := MakeHSM(t)
+	hsm, _, hsKeySeed, lsKeySeed := MakeHSM(t)
 
 	// Symmetric keygen parameters.
 	// test unlock token
@@ -149,7 +139,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 		SizeInBits:  128,
 		Sku:         "test sku",
 		Diversifier: "test_unlock",
-		Wrap:        SymmetricKeyWrapNone,
+		Wrap:        WrappingMechanismNone,
 	}
 	// test exit token
 	testExitTokenParams := SymmetricKeygenParams{
@@ -158,7 +148,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 		SizeInBits:  128,
 		Sku:         "test sku",
 		Diversifier: "test_exit",
-		Wrap:        SymmetricKeyWrapNone,
+		Wrap:        WrappingMechanismNone,
 	}
 	// wafer authentication secret
 	wasParams := SymmetricKeygenParams{
@@ -167,7 +157,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 		SizeInBits:  256,
 		Sku:         "test sku",
 		Diversifier: "was",
-		Wrap:        SymmetricKeyWrapNone,
+		Wrap:        WrappingMechanismNone,
 	}
 	params := []*SymmetricKeygenParams{
 		&testUnlockTokenParams,
@@ -210,7 +200,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 }
 
 func TestGenerateSymmKeysWrap(t *testing.T) {
-	hsm, _, _, _, _ := MakeHSM(t)
+	hsm, _, _, _ := MakeHSM(t)
 
 	// RMA token
 	rmaParams := SymmetricKeygenParams{
@@ -219,7 +209,7 @@ func TestGenerateSymmKeysWrap(t *testing.T) {
 		SizeInBits:  128,
 		Sku:         "test sku",
 		Diversifier: "rma: device_id",
-		Wrap:        SymmetricKeyWrapRsaPcks,
+		Wrap:        WrappingMechanismRSAPCKS,
 	}
 	params := []*SymmetricKeygenParams{
 		&rmaParams,
@@ -271,27 +261,6 @@ func TestGenerateSymmKeysWrap(t *testing.T) {
 	}
 }
 
-func TestTransport(t *testing.T) {
-	log.Printf("TestTransport")
-	hsm, kg, kt, _, _ := MakeHSM(t)
-
-	key, err := hsm.DeriveAndWrapTransportSecret([]byte("my device id"))
-	ts.Check(t, err)
-
-	kwp, err := kwp.NewKWP(kg)
-	ts.Check(t, err)
-	unwrap, err := kwp.Unwrap(key)
-	ts.Check(t, err)
-
-	hkdf := hkdf.New(crypto.SHA256.New, kt, []byte("my device id"), transportKeyLabel)
-	expected := make([]byte, len(unwrap))
-	hkdf.Read(expected)
-
-	if !bytes.Equal(unwrap, expected) {
-		t.Fatal("decryption failure")
-	}
-}
-
 // CreateCAKeys generates a Certificate Authority (CA) key pair which can be
 // used in any test case. It requires an initialized `hsm` instance.
 func CreateCAKeys(t *testing.T, hsm *HSM) (pk11.KeyPair, error) {
@@ -302,7 +271,7 @@ func CreateCAKeys(t *testing.T, hsm *HSM) (pk11.KeyPair, error) {
 
 func TestGenerateCert(t *testing.T) {
 	log.Printf("TestGenerateCert")
-	hsm, kg, _, _, _ := MakeHSM(t)
+	hsm, kg, _, _ := MakeHSM(t)
 
 	ca, err := CreateCAKeys(t, hsm)
 	ts.Check(t, err)
@@ -385,7 +354,7 @@ func TestGenerateCert(t *testing.T) {
 	ts.Check(t, err)
 
 	hsm.PrivateKeys["KCAPriv"] = caKeyHandle
-	certs, err := hsm.GenerateKeyPairAndCert(caCert, []SigningParams{{template, elliptic.P256()}})
+	certs, err := hsm.GenerateKeyPairAndCert(caCert, []SigningParams{{template, elliptic.P256(), WrappingMechanismAESKWP}})
 	ts.Check(t, err)
 
 	cert, err := x509.ParseCertificate(certs[0].Cert)
@@ -426,7 +395,7 @@ func TestGenerateCert(t *testing.T) {
 
 func TestEndorseCert(t *testing.T) {
 	log.Printf("TestEndorseCert")
-	hsm, _, _, _, _ := MakeHSM(t)
+	hsm, _, _, _ := MakeHSM(t)
 
 	const kcaPrivName = "kca_priv"
 

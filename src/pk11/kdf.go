@@ -42,15 +42,10 @@ func (s *Session) GenerateGenericSecret(keyBitLen uint, opts *KeyOptions) (Secre
 	}
 	mech := pkcs11.NewMechanism(pkcs11.CKM_GENERIC_SECRET_KEY_GEN, nil)
 
-	sensitive := !opts.Extractable
-	if s.tok.m.hsmType == HSMTypeHW {
-		sensitive = true
-	}
-
 	tpl := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_VALUE_LEN, keyBitLen/8),
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_GENERIC_SECRET),
-		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, sensitive),
+		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, opts.Sensitive),
 		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, opts.Extractable),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, opts.Token),
 		pkcs11.NewAttribute(pkcs11.CKA_WRAP, true),
@@ -301,15 +296,10 @@ func (s *Session) UnwrapKDFKey(key []byte, pko PrivateKey, m KdfWrapMechanism, o
 		opts = &KeyOptions{}
 	}
 
-	sensitive := !opts.Extractable
-	if s.tok.m.hsmType == HSMTypeHW {
-		sensitive = true
-	}
-
 	tpl := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_SECRET_KEY),
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_GENERIC_SECRET),
-		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, sensitive),
+		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, opts.Sensitive),
 		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, opts.Extractable),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, opts.Token),
 		pkcs11.NewAttribute(pkcs11.CKA_WRAP, true),

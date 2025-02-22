@@ -21,7 +21,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/lowRISC/opentitan-provisioning/src/pk11"
 	"github.com/lowRISC/opentitan-provisioning/src/spm/services/certloader"
 	"github.com/lowRISC/opentitan-provisioning/src/spm/services/se"
 	"github.com/lowRISC/opentitan-provisioning/src/spm/services/skucfg"
@@ -53,9 +52,6 @@ type Options struct {
 	// relative to this path.
 	SPMConfigDir string
 
-	// HsmType contains the type of the HSM (Soft or Hardware)
-	HsmType int64
-
 	// File contains the full file path of the HSM's password
 	HsmPWFile string
 }
@@ -74,9 +70,6 @@ type server struct {
 
 	// hsmPasswordFile holds the full file path of the HSM's password
 	hsmPasswordFile string
-
-	// hsmType contains the type of the HSM (SoftHSM or NetworkHSM)
-	hsmType pk11.HSMType
 
 	// skus contains SKU specific configuration only visible to the SPM
 	// server.
@@ -140,7 +133,6 @@ func NewSpmServer(opts Options) (pbs.SpmServiceServer, error) {
 		configDir:       opts.SPMConfigDir,
 		hsmSOLibPath:    opts.HSMSOLibPath,
 		hsmPasswordFile: opts.HsmPWFile,
-		hsmType:         pk11.HSMType(opts.HsmType),
 		skus:            make(map[string]*skuState),
 		authCfg: &skucfg.Auth{
 			SkuAuthCfgList: config.SkuAuthCfgList,
@@ -279,20 +271,20 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 		}
 
 		if p.WrapSeed {
-			wmech, err := sku.config.GetAttribute(skucfg.AttrNameSymmetricWrappingMethod)
+			wmech, err := sku.config.GetAttribute(skucfg.AttrNameWrappingMechanism)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "could not get wrapping method: %s", err)
 			}
 			switch wmech {
-			case skucfg.WrappingMethodRSAOAEP:
-				params.Wrap = se.SymmetricKeyWrapRsaOaep
-			case skucfg.WrappingMethodRSAPKCS1:
-				params.Wrap = se.SymmetricKeyWrapRsaPcks
+			case skucfg.WrappingMechanismRSAOAEP:
+				params.Wrap = se.WrappingMechanismRSAOAEP
+			case skucfg.WrappingMechanismRSAPKCS1:
+				params.Wrap = se.WrappingMechanismRSAPCKS
 			default:
 				return nil, status.Errorf(codes.Internal, "invalid wrapping method: %s", wmech)
 			}
 		} else {
-			params.Wrap = se.SymmetricKeyWrapNone
+			params.Wrap = se.WrappingMechanismNone
 		}
 
 		// Retrieve key size.
@@ -439,7 +431,7 @@ func (s *server) initializeSKU(skuName string) error {
 	}
 
 	log.Printf("Initializing HSM: %v", cfg)
-	// Create new instance of HSM (KT is empty since there no need for it in the TPM)
+	// Create new instance of HSM.
 	seHandle, err := se.NewHSM(se.HSMConfig{
 		SOPath:        s.hsmSOLibPath,
 		SlotID:        cfg.SlotID,
@@ -448,7 +440,6 @@ func (s *server) initializeSKU(skuName string) error {
 		SymmetricKeys: akeys,
 		PrivateKeys:   pkeys,
 		PublicKeys:    pubKeys,
-		HSMType:       s.hsmType,
 	})
 	if err != nil {
 		log.Printf("fail to create an instance of HSM: %v", err)
@@ -499,6 +490,22 @@ func (s *server) getSigningParams(sku *skuState, subjectSerialNumber string) ([]
 	var keyParams any
 	var signParams []se.SigningParams
 
+	wrap := se.WrappingMechanismNone
+
+	wstr, err := sku.config.GetAttribute(skucfg.AttrNameWrappingMechanism)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "could not get wrapping method: %s", err)
+	}
+	wmech := skucfg.WrappingMechanism(wstr)
+	switch wmech {
+	case skucfg.WrappingMechanismAESKWP:
+		wrap = se.WrappingMechanismAESKWP
+	case skucfg.WrappingMechanismAESGCM:
+		wrap = se.WrappingMechanismAESGCM
+	default:
+		return nil, status.Errorf(codes.Internal, "invalid wrapping method: %s", wmech)
+	}
+
 	// Cert serial number is 10 bytes length positive number
 	CertSerialNumbers := make([]*big.Int, 0)
 	for i, key := range sku.config.Keys {
@@ -517,7 +524,6 @@ func (s *server) getSigningParams(sku *skuState, subjectSerialNumber string) ([]
 		CertSerialNumber.SetBytes(serialNumber)
 		CertSerialNumbers = append(CertSerialNumbers, CertSerialNumber)
 
-		fmt.Println("getSigningParams key = ", key)
 		log.Printf("getSigningParams key =%q", key)
 		switch key.Name {
 		case skucfg.RSA2048:
@@ -581,7 +587,11 @@ func (s *server) getSigningParams(sku *skuState, subjectSerialNumber string) ([]
 		if err != nil {
 			return nil, err
 		}
-		signParam := se.SigningParams{cert, keyParams}
+		signParam := se.SigningParams{
+			Template:  cert,
+			KeyParams: keyParams,
+			Wrap:      wrap,
+		}
 		signParams = append(signParams, signParam)
 	}
 	return signParams, nil
@@ -607,11 +617,18 @@ func (s *server) makeEndorsedKeys(sku *skuState, certs []se.CertInfo) ([]*pbp.En
 
 	mode := pbw.WrappingMode(0)
 
-	switch s.hsmType {
-	case pk11.HSMTypeSoft:
+	wstr, err := sku.config.GetAttribute(skucfg.AttrNameWrappingMechanism)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "could not get wrapping method: %s", err)
+	}
+	wmech := skucfg.WrappingMechanism(wstr)
+	switch wmech {
+	case skucfg.WrappingMechanismAESKWP:
 		mode = pbw.WrappingMode_WRAPPING_MODE_AES_KWP
-	case pk11.HSMTypeHW:
+	case skucfg.WrappingMechanismAESGCM:
 		mode = pbw.WrappingMode_WRAPPING_MODE_AES_GCM
+	default:
+		return nil, status.Errorf(codes.Internal, "invalid wrapping method: %s", wmech)
 	}
 
 	for i, cert := range certs {

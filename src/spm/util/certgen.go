@@ -39,7 +39,6 @@ func initSession() (*se.HSM, error) {
 		SlotID:      *hsmSlot,
 		HSMPassword: *hsmPW,
 		NumSessions: 1,
-		HSMType:     pk11.HSMType(0),
 	})
 }
 

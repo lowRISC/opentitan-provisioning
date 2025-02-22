@@ -26,10 +26,6 @@ func (s *Session) GenerateRSA(modBits uint, pubExp uint, opts *KeyOptions) (KeyP
 	}
 
 	mech := pkcs11.NewMechanism(pkcs11.CKM_RSA_PKCS_KEY_PAIR_GEN, nil)
-	sensitive := !opts.Extractable
-	if s.tok.m.hsmType == HSMTypeHW {
-		sensitive = true
-	}
 
 	pubTpl := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_MODULUS_BITS, modBits),
@@ -44,7 +40,7 @@ func (s *Session) GenerateRSA(modBits uint, pubExp uint, opts *KeyOptions) (KeyP
 	privTpl := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_RSA),
 		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
-		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, sensitive),
+		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, opts.Sensitive),
 		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, opts.Extractable),
 		pkcs11.NewAttribute(pkcs11.CKA_LABEL, "privRSA"),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, opts.Token),

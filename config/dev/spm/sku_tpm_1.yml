@@ -34,3 +34,5 @@ keyWrapConfig:
 certs:
     - name: "RootCA"
       path: certs/NuvotonTPMRootCA0200.cer
+attributes:
+  WrappingMechanism: AesKwp

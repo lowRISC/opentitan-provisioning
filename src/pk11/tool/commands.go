@@ -84,7 +84,7 @@ type State struct {
 // PKCS#11 module.
 func New(modPath string) (*State, error) {
 	m, err := offload(fmt.Sprintf("loading PKCS#11 module %q", modPath), func() (any, error) {
-		return pk11.Load(pk11.HSMTypeSoft, modPath)
+		return pk11.Load(modPath)
 	})
 	if err != nil {
 		return nil, err

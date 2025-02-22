@@ -23,7 +23,6 @@ var (
 	port         = flag.Int("port", 0, "The port to bind the server on; required")
 	hsmPWFile    = flag.String("hsm_pw", "", "File path to the HSM's Password; required for TPM")
 	hsmSOPath    = flag.String("hsm_so", "", "File path to the PCKS#11 .so library used to interface to the HSM")
-	hsmType      = flag.Int64("hsm_type", 0, "The type of the hsm (SoftHSM or TokenHSM); required")
 	enableTLS    = flag.Bool("enable_tls", false, "Enable mTLS secure channel; optional")
 	serviceKey   = flag.String("service_key", "", "File path to the PEM encoding of the server's private key")
 	serviceCert  = flag.String("service_cert", "", "File path to the PEM encoding of the server's certificate chain")
@@ -46,7 +45,6 @@ func startSPMServer() (*grpc.Server, error) {
 	spmServer, err := spm.NewSpmServer(spm.Options{
 		HSMSOLibPath: *hsmSOPath,
 		SPMConfigDir: *spmConfigDir,
-		HsmType:      *hsmType,
 		HsmPWFile:    *hsmPWFile,
 	})
 	if err != nil {
