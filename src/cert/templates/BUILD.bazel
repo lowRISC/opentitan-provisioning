@@ -30,6 +30,7 @@ go_test(
         ":tpm",
         "//src/cert:signer",
         "//src/spm/services:certloader",
+        "//src/spm/services:skucfg",
         "//src/utils",
         "@io_bazel_rules_go//go/tools/bazel",
     ],

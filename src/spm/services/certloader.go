@@ -11,15 +11,12 @@ import (
 	"encoding/asn1"
 	"fmt"
 	"path/filepath"
-	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/lowRISC/opentitan-provisioning/src/cert/signer"
+	"github.com/lowRISC/opentitan-provisioning/src/spm/services/skucfg"
 	"github.com/lowRISC/opentitan-provisioning/src/utils"
-
-	pbcommon "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/common_go_pb"
 )
 
 var (
@@ -28,36 +25,6 @@ var (
 	TPMVersion      = []int{2, 23, 133, 2, 3}
 	SubjectAltName  = []int{2, 5, 29, 17}
 )
-
-// KeyType is a type of key to generate.
-type KeyType string
-
-// KeyName represents signature algorithm.
-type KeyName int
-
-const (
-	Secp256r1 KeyName = iota
-	Secp384r1
-	RSA2048
-	RSA3072
-	RSA4096
-)
-
-type Key struct {
-	Type KeyType           `yaml:"type"`
-	Size int               `yaml:"size"`
-	Name KeyName           `yaml:"name"`
-	Hash pbcommon.HashType `yaml:"hash"`
-	Exp  []byte            `yaml:"exp"`
-}
-
-type SymmetricKey struct {
-	Name string `yaml:"name"`
-}
-
-type PrivateKey struct {
-	Name string `yaml:"name"`
-}
 
 // A SKUKey tracks information necessary to identify a specific signer
 // template.
@@ -71,17 +38,6 @@ func (t SKUKey) String() string {
 }
 
 type Loader struct{}
-
-type CertificateSubjectAltName struct {
-	Manufacturer string `yaml:"tpmManufacturer"`
-	Model        string `yaml:"tpmModel"`
-	Version      string `yaml:"tpmVersion"`
-}
-
-type CertificateConfig struct {
-	Name string `yaml:"name"`
-	Path string `yaml:"path"`
-}
 
 // New creates a new instance of the tpm certificate template builder.
 func New() *Loader {
@@ -110,7 +66,7 @@ func UpdateIssuingCertificateURL(issuingCertificatePath, filenamePath string) (s
 // BuildSubjectAltName implements an object identifier and value pair extension which
 // can be used to build the TPM 2.0 Subject Alternative Extension as described
 // on the TCG EK Credential Profile specification version 2.1.
-func BuildSubjectAltName(certCfgSan CertificateSubjectAltName) (pkix.Extension, error) {
+func BuildSubjectAltName(certCfgSan skucfg.CertificateSubjectAltName) (pkix.Extension, error) {
 	type UTF8AttrVal struct {
 		Type  asn1.ObjectIdentifier
 		Value string `asn1:"utf8"`
@@ -154,58 +110,4 @@ func BuildSubjectAltName(certCfgSan CertificateSubjectAltName) (pkix.Extension, 
 		Critical: true,
 		Value:    val,
 	}, nil
-}
-
-// getTemplate returns Params struct from the certificate template.
-// TODO: Load cert from file.
-func getTemplate(repoKey SKUKey, key *Key) (*signer.Params, error) {
-	epoch, err := time.Parse(time.RFC3339, "2022-01-01T00:00:00.000Z")
-	if err != nil {
-		return nil, err
-	}
-
-	subjectAltName, err := BuildSubjectAltName(
-		CertificateSubjectAltName{
-			Manufacturer: "id:4E544300",
-			Model:        "NPCT75x",
-			Version:      "id:00070002",
-		})
-	if err != nil {
-		return nil, err
-	}
-
-	defaultCert := &signer.Params{
-		Version:               3,
-		SerialNumber:          []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
-		SignatureAlgorithm:    x509.ECDSAWithSHA384,
-		NotBefore:             epoch,
-		NotAfter:              epoch.AddDate(20, 0, 0),
-		Subject:               pkix.Name{},
-		Issuer:                pkix.Name{},
-		BasicConstraintsValid: true,
-		IsCA:                  false,
-		SubjectAltName:        subjectAltName,
-		IssuingCertificateURL: []string{
-			"https://www.nuvoton.com/security/NTC-TPM-EK-Cert/NuvotonTPMRootCA0200.cer",
-		},
-		ExtKeyUsage: []asn1.ObjectIdentifier{
-			{2, 23, 133, 8, 1},
-		},
-	}
-
-	switch key.Name {
-	case RSA2048:
-		defaultCert.KeyUsage = x509.KeyUsageKeyEncipherment
-	case RSA3072:
-		defaultCert.KeyUsage = x509.KeyUsageKeyEncipherment
-	case RSA4096:
-		defaultCert.KeyUsage = x509.KeyUsageKeyEncipherment
-	case Secp256r1:
-		defaultCert.KeyUsage = x509.KeyUsageKeyAgreement
-	case Secp384r1:
-		defaultCert.KeyUsage = x509.KeyUsageKeyAgreement
-	default:
-	}
-
-	return defaultCert, nil
 }

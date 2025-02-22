@@ -24,6 +24,7 @@ import (
 	"github.com/lowRISC/opentitan-provisioning/src/pk11"
 	"github.com/lowRISC/opentitan-provisioning/src/spm/services/certloader"
 	"github.com/lowRISC/opentitan-provisioning/src/spm/services/se"
+	"github.com/lowRISC/opentitan-provisioning/src/spm/services/skucfg"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/auth_service/session_token"
 	"github.com/lowRISC/opentitan-provisioning/src/utils"
 
@@ -82,36 +83,15 @@ type server struct {
 	skus map[string]*skuState
 
 	// authCfg contains the configuration of the authentication token
-	authCfg *AuthConfig
+	authCfg *skucfg.Auth
 
 	// muSKU is a mutex use to arbitrate SKU initialization access.
 	muSKU sync.RWMutex
 }
 
-type SkuAuthConfig struct {
-	SkuAuth string   `yaml:"skuAuth"`
-	Methods []string `yaml:"methods"`
-}
-
-type AuthConfig struct {
-	SkuAuthCfgList map[string]SkuAuthConfig `yaml:"skuAuthCfgList"`
-}
-
-type Config struct {
-	Sku             string                               `yaml:"sku"`
-	SlotID          int                                  `yaml:"slotId"`
-	NumSessions     int                                  `yaml:"numSessions"`
-	SymmetricKeys   []certloader.SymmetricKey            `yaml:"symmetricKeys"`
-	PrivateKeys     []certloader.PrivateKey              `yaml:"privateKeys"`
-	Keys            []certloader.Key                     `yaml:"keyWrapConfig"`
-	CertTemplates   []certloader.CertificateConfig       `yaml:"certTemplates"`
-	CertTemplateSan certloader.CertificateSubjectAltName `yaml:"certTemplateSAN"`
-	Certs           []certloader.CertificateConfig       `yaml:"certs"`
-}
-
 type skuState struct {
 	// config contains the SKU configuration data loaded by `InitSession()`.
-	config *Config
+	config *skucfg.Config
 
 	// certs contains a map of certificates loaded at SKU init configuration.
 	// time. They key is the certificate name which can be referenced by SPM
@@ -146,7 +126,7 @@ func NewSpmServer(opts Options) (pbs.SpmServiceServer, error) {
 
 	// TODO: make this runtime configurable
 	filename := "sku_auth.yml"
-	var config AuthConfig
+	var config skucfg.Auth
 	err := utils.LoadConfig(opts.SPMConfigDir, filename, &config)
 	if err != nil {
 		log.Printf("could not load config: %v", err)
@@ -162,7 +142,7 @@ func NewSpmServer(opts Options) (pbs.SpmServiceServer, error) {
 		hsmPasswordFile: opts.HsmPWFile,
 		hsmType:         pk11.HSMType(opts.HsmType),
 		skus:            make(map[string]*skuState),
-		authCfg: &AuthConfig{
+		authCfg: &skucfg.Auth{
 			SkuAuthCfgList: config.SkuAuthCfgList,
 		},
 	}, nil
@@ -184,34 +164,34 @@ func (s *server) initSku(sku string) (string, error) {
 
 // findSkuAuth returns an empty sku auth config, if nor sku or a family sku can be found
 // in the map config, otherwise the relavent sku auth config will be return.
-func (s *server) findSkuAuth(sku string) (SkuAuthConfig, bool) {
-	skuAuthConfig := SkuAuthConfig{}
-	if skuAuthConfig, found := s.authCfg.SkuAuthCfgList[sku]; found {
-		return skuAuthConfig, true
+func (s *server) findSkuAuth(sku string) (skucfg.SkuAuth, bool) {
+	auth := skucfg.SkuAuth{}
+	if auth, found := s.authCfg.SkuAuthCfgList[sku]; found {
+		return auth, true
 	}
 
 	// Iterate over the skus in the map and search for the family sku
 	for familySku := range s.authCfg.SkuAuthCfgList {
 		if strings.HasPrefix(sku, familySku) {
-			skuAuthConfig = s.authCfg.SkuAuthCfgList[familySku]
-			return skuAuthConfig, true
+			auth = s.authCfg.SkuAuthCfgList[familySku]
+			return auth, true
 		}
 	}
 
-	return SkuAuthConfig{}, false
+	return skucfg.SkuAuth{}, false
 }
 
 func (s *server) InitSession(ctx context.Context, request *pbp.InitSessionRequest) (*pbp.InitSessionResponse, error) {
 	log.Printf("SPM.InitSessionRequest - Sku:%q", request.Sku)
 
 	// search sku & products
-	var skuAuthConfig SkuAuthConfig
+	var auth skucfg.SkuAuth
 	var found bool
 	if s.authCfg != nil {
-		if skuAuthConfig, found = s.findSkuAuth(request.Sku); !found {
+		if auth, found = s.findSkuAuth(request.Sku); !found {
 			return nil, status.Errorf(codes.Internal, "unknown sku: %q", request.Sku)
 		}
-		err := utils.CompareHashAndPassword(skuAuthConfig.SkuAuth, request.SkuAuth)
+		err := utils.CompareHashAndPassword(auth.SkuAuth, request.SkuAuth)
 		if err != nil {
 			log.Printf("incorrect sku hash authentication: %q", request.SkuAuth)
 			return nil, status.Errorf(codes.Internal, "incorrect sku authentication %q", request.SkuAuth)
@@ -228,7 +208,7 @@ func (s *server) InitSession(ctx context.Context, request *pbp.InitSessionReques
 
 	return &pbp.InitSessionResponse{
 		SkuSessionToken: token,
-		AuthMethods:     skuAuthConfig.Methods,
+		AuthMethods:     auth.Methods,
 	}, nil
 }
 
@@ -395,7 +375,7 @@ func (s *server) initializeSKU(skuName string) error {
 
 	configFilename := "sku_" + skuName + ".yml"
 
-	var cfg Config
+	var cfg skucfg.Config
 	err := utils.LoadConfig(s.configDir, configFilename, &cfg)
 	if err != nil {
 		log.Printf("could not load config: %v", err)
@@ -431,6 +411,12 @@ func (s *server) initializeSKU(skuName string) error {
 		pkeys[i] = key.Name
 	}
 
+	log.Printf("Initializing public keys: %v", cfg.PublicKeys)
+	pubKeys := make([]string, len(cfg.PublicKeys))
+	for i, key := range cfg.PublicKeys {
+		pubKeys[i] = key.Name
+	}
+
 	log.Printf("Initializing HSM: %v", cfg)
 	// Create new instance of HSM (KT is empty since there no need for it in the TPM)
 	seHandle, err := se.NewHSM(se.HSMConfig{
@@ -440,6 +426,7 @@ func (s *server) initializeSKU(skuName string) error {
 		NumSessions:   cfg.NumSessions,
 		SymmetricKeys: akeys,
 		PrivateKeys:   pkeys,
+		PublicKeys:    pubKeys,
 		HSMType:       s.hsmType,
 	})
 	if err != nil {
@@ -512,15 +499,15 @@ func (s *server) getSigningParams(sku *skuState, subjectSerialNumber string) ([]
 		fmt.Println("getSigningParams key = ", key)
 		log.Printf("getSigningParams key =%q", key)
 		switch key.Name {
-		case certloader.RSA2048:
+		case skucfg.RSA2048:
 			keyParams = se.RSAParams{key.Size, int(big.NewInt(0).SetBytes(key.Exp).Uint64())}
-		case certloader.RSA3072:
+		case skucfg.RSA3072:
 			keyParams = se.RSAParams{key.Size, int(big.NewInt(0).SetBytes(key.Exp).Uint64())}
-		case certloader.RSA4096:
+		case skucfg.RSA4096:
 			keyParams = se.RSAParams{key.Size, int(big.NewInt(0).SetBytes(key.Exp).Uint64())}
-		case certloader.Secp256r1:
+		case skucfg.Secp256r1:
 			keyParams = elliptic.P256()
-		case certloader.Secp384r1:
+		case skucfg.Secp384r1:
 			keyParams = elliptic.P384()
 		default:
 			return nil, status.Errorf(codes.Unimplemented, "unsupported key")
@@ -580,11 +567,11 @@ func (s *server) getSigningParams(sku *skuState, subjectSerialNumber string) ([]
 }
 
 // ecKeyNameFromInt returns the ec curve name
-func ecKeyNameFromInt(index certloader.KeyName) pbcommon.EllipticCurveType {
+func ecKeyNameFromInt(index skucfg.KeyName) pbcommon.EllipticCurveType {
 	switch index {
-	case certloader.Secp256r1:
+	case skucfg.Secp256r1:
 		return pbcommon.EllipticCurveType_ELLIPTIC_CURVE_TYPE_NIST_P256
-	case certloader.Secp384r1:
+	case skucfg.Secp384r1:
 		return pbcommon.EllipticCurveType_ELLIPTIC_CURVE_TYPE_NIST_P384
 	default:
 		return pbcommon.EllipticCurveType_ELLIPTIC_CURVE_TYPE_UNSPECIFIED

@@ -31,6 +31,7 @@ import (
 	"github.com/lowRISC/opentitan-provisioning/src/pk11"
 	ts "github.com/lowRISC/opentitan-provisioning/src/pk11/test_support"
 	certloader "github.com/lowRISC/opentitan-provisioning/src/spm/services/certloader"
+	"github.com/lowRISC/opentitan-provisioning/src/spm/services/skucfg"
 )
 
 const (
@@ -321,7 +322,7 @@ func TestGenerateCert(t *testing.T) {
 	b := tpm.New()
 
 	subjectAltName, err := certloader.BuildSubjectAltName(
-		certloader.CertificateSubjectAltName{
+		skucfg.CertificateSubjectAltName{
 			Manufacturer: "id:4E544300",
 			Model:        "NPCT75x",
 			Version:      "id:00070002",

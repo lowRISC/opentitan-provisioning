@@ -20,6 +20,7 @@ go_library(
     deps = [
         ":certloader",
         ":se",
+        ":skucfg",
         "//src/cert:signer",
         "//src/cert/templates:tpm",
         "//src/pa/proto:pa_go_pb",
@@ -45,9 +46,9 @@ go_library(
     srcs = ["certloader.go"],
     importpath = "github.com/lowRISC/opentitan-provisioning/src/spm/services/certloader",
     deps = [
+        ":skucfg",
         "//src/cert:signer",
         "//src/cert/templates:tpm",
-        "//src/proto/crypto:common_go_pb",
         "//src/utils",
         "@io_bazel_rules_go//go/tools/bazel",
         "@org_golang_google_grpc//codes",
@@ -78,6 +79,7 @@ go_test(
     embed = [":se"],
     deps = [
         ":certloader",
+        ":skucfg",
         "//src/cert:signer",
         "//src/cert/templates:tpm",
         "//src/pk11",
@@ -87,5 +89,14 @@ go_test(
         "@io_bazel_rules_go//go/tools/bazel",
         "@org_golang_x_crypto//hkdf",
         "@org_golang_x_crypto//sha3",
+    ],
+)
+
+go_library(
+    name = "skucfg",
+    srcs = ["skucfg.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/spm/services/skucfg",
+    deps = [
+        "//src/proto/crypto:common_go_pb",
     ],
 )
