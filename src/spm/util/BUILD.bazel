@@ -1,0 +1,18 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+
+package(default_visibility = ["//visibility:public"])
+
+go_binary(
+    name = "certgen",
+    srcs = ["certgen.go"],
+    deps = [
+        "//src/cert:signer",
+        "//src/pk11",
+        "//src/spm/services:se",
+        "//src/utils",
+    ],
+)

@@ -7,15 +7,13 @@
 // They are not intended for production use.
 //
 // cd /var/lib/opentitan
-// bin/hsmtool --user=user --pin=${SPM_HSM_PIN_USER} \
-//   --module="${OPENTITAN_VAR_DIR}/softhsm2/libsofthsm2.so" \
-//   --token="${SPM_HSM_TOKEN_LABEL}" exec spm/config/sku/sival/import.hjson
+// bin/hsmtool exec spm/sku/sival/import.hjson
 [
   {
     command: "ecdsa-import",
     label: "sku-sival-dice-priv-key-ver-0.0",
     public: false,
-    filename: "/var/lib/opentitan/spm/config/sku/sival/dice_priv_key_ver_0.0.pkcs8.der",
+    filename: "dice_priv_key_ver_0.0.pkcs8.der",
     private_attrs: {
         CKA_CLASS: "CKO_PRIVATE_KEY",
         CKA_DECRYPT: false,
@@ -33,8 +31,9 @@
   {
     command: "kdf-import",
     label: "HighSecKdfSeed",
-    filename: "/var/lib/opentitan/spm/config/sku/sival/secret_kdf_seed_hisec_0.0.bin"
-    attributes: {
+    filename: "secret_kdf_seed_hisec_0.0.bin"
+    unwrap_mechanism: "RsaPkcs",
+    template: {
       CKA_CLASS: "CKO_SECRET_KEY",
       CKA_KEY_TYPE: "CKK_GENERIC_SECRET",
       CKA_DERIVE: true,
@@ -48,8 +47,9 @@
   {
     command: "kdf-import",
     label: "LowSecKdfSeed",
-    filename: "/var/lib/opentitan/spm/config/sku/sival/secret_kdf_seed_losec_0.0.bin"
-    attributes: {
+    filename: "secret_kdf_seed_losec_0.0.bin"
+    unwrap_mechanism: "RsaPkcs",
+    template: {
       CKA_CLASS: "CKO_SECRET_KEY",
       CKA_KEY_TYPE: "CKK_GENERIC_SECRET",
       CKA_DERIVE: true,

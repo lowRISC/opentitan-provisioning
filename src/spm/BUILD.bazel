@@ -43,14 +43,3 @@ go_image(
     base = "@container_softhsm2//image",
     deps = SPM_SERVER_DEPS,
 )
-
-go_binary(
-    name = "spmutil",
-    srcs = ["spmutil.go"],
-    deps = [
-        "//src/cert:signer",
-        "//src/pk11",
-        "//src/spm/services:se",
-        "//src/utils",
-    ],
-)

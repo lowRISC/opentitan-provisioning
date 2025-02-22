@@ -42,8 +42,8 @@ if [ ! -d "${OPENTITAN_VAR_DIR}" ]; then
     sudo chown "${USER}" "${OPENTITAN_VAR_DIR}"
 fi
 cp -r "${CONFIG_DIR}/env" "${OPENTITAN_VAR_DIR}"
-mkdir -p "${OPENTITAN_VAR_DIR}/spm/config"
-cp -Rf ${CONFIG_DIR}/spm/* "${OPENTITAN_VAR_DIR}/spm/config"
+mkdir -p "${OPENTITAN_VAR_DIR}/spm"
+cp -Rf ${CONFIG_DIR}/spm/* "${OPENTITAN_VAR_DIR}/spm"
 echo "Done."
 
 ################################################################################
@@ -63,11 +63,11 @@ echo "Done."
 ################################################################################
 # Install hsmtool to deployment dir.
 ################################################################################
-echo "Installing hsmtool ..."
+echo "Installing HSM configuration utilities ..."
 if [ ! -d "${OPENTITAN_VAR_DIR}/bin" ]; then
     mkdir -p "${OPENTITAN_VAR_DIR}/bin"
 fi
-tar -xvf "${RELEASE_DIR}/hsmtool.tar.xz" --directory "${OPENTITAN_VAR_DIR}/bin"
+tar -xvf "${RELEASE_DIR}/hsmutils.tar.xz" --directory "${OPENTITAN_VAR_DIR}/bin"
 
 ################################################################################
 # Unpack the infrastructure release binaries (PA, SPM, ProxyBuffer, etc.).

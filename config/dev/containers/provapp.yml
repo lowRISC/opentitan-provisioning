@@ -18,7 +18,7 @@ spec:
     args:
     - --port=5000
     - --hsm_so=/usr/local/lib/softhsm/libsofthsm2.so
-    - --spm_config_dir=/var/lib/opentitan/spm/config
+    - --spm_config_dir=/var/lib/opentitan/spm
     # TODO: Update label to point to specific release version.
     image: localhost/spm_server:latest
     resources: {}
@@ -43,7 +43,7 @@ spec:
         - CAP_NET_RAW
         - CAP_AUDIT_WRITE
     volumeMounts:
-    - mountPath: /var/lib/opentitan/spm/config
+    - mountPath: /var/lib/opentitan/spm
       name: var-lib-opentitan-spm-config-host-0
     - mountPath: /var/lib/opentitan/spm/softhsm2
       name: var-lib-opentitan-spm-softhsm2-host-1
@@ -86,7 +86,7 @@ spec:
   restartPolicy: Always
   volumes:
   - hostPath:
-      path: /var/lib/opentitan/spm/config
+      path: /var/lib/opentitan/spm
       type: Directory
     name: var-lib-opentitan-spm-config-host-0
   - hostPath:

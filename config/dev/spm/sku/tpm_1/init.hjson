@@ -1,0 +1,41 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+[
+    {
+        "command": "aes-generate",
+        "label": "KG",
+        "template": {
+            CKA_CLASS: "CKO_SECRET_KEY",
+            CKA_KEY_TYPE: "CKK_AES",
+            CKA_ENCRYPT: true,
+            CKA_DECRYPT: true,
+            CKA_WRAP: true,
+            CKA_UNWRAP: true,
+            // This key is marked as not sensitive for test purposes only.
+            CKA_SENSITIVE: false,
+            // This key is extractable for testing purposes only.
+            CKA_EXTRACTABLE: true,
+            CKA_TOKEN: true,
+        },
+    },
+    {
+        "command": "ecdsa-generate",
+        "label": "KCA",
+        // NIST P-384 curve.
+        "curve": "1.3.132.0.34",
+        "wrapping": false,
+        "extractable": false,
+        "public_template": {
+            CKA_LABEL: "KCAPub",
+            CKA_VERIFY: true,
+            CKA_TOKEN: true,
+        },
+        "private_template": {
+            CKA_LABEL: "KCAPriv",
+            CKA_SIGN: true,
+            CKA_TOKEN: true,
+        }
+    }
+]

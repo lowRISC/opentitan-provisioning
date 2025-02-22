@@ -90,44 +90,18 @@ SoftHSM configuration result: PASS!
 
 The following command initializes the keys in the HSM for test purposes.
 
-Note: The `--force_keygen` flag deletes previous SKU keys in the HSM.
-
 **SoftHSM**
 
-```console
-$ . config/dev/env/spm.env
-$ bazelisk run //src/spm:spmutil -- \
-    --hsm_pw=${SPM_HSM_PIN_USER} \
-    --hsm_so=${OPENTITAN_VAR_DIR}/softhsm2/libsofthsm2.so \
-    --hsm_type=0 \
-    --hsm_slot=0 \
-    --force_keygen \
-    --gen_kg \
-    --gen_kca \
-    --load_low_sec_ks \
-    --low_sec_ks="0x23df79a8052010ef6e3d49255b606f871cff06170247c1145ebb71ad23834061" \
-    --load_high_sec_ks \
-    --high_sec_ks="0xaba9d5616e5a7c18b9a41d8a22f42d4dc3bafa9ca1fad01e404e708b1eab21fd" \
-    --ca_outfile=${OPENTITAN_VAR_DIR}/spm/config/certs/NuvotonTPMRootCA0200.cer
-```
-
-**LunaHSM**
+> Note: This assumes that you have run the integration test beforehand. This
+> is required to install `hsmtool` and `certgen` under
+> `/var/lib/opentitan/bin`. In most cases the integration test case will
+> initialize all keys in the HSM, so you may be able to skip this step.
+>
+> It also assumes that you had initialized SoftHSM as described in the previous
+> step.
 
 ```console
-# Load relevant environment variables beforehand.
-$ bazelisk run //src/spm:spmutil -- \
-    --hsm_pw=${SPM_HSM_PIN_USER} \
-    --hsm_so=/usr/safenet/lunaclient/lib/libCryptoki2_64.so \
-    --hsm_type=1 \
-    --hsm_slot=0 \
-    --force_keygen \
-    --gen_kg \
-    --gen_kca \
-    --load_low_sec_ks \
-    --low_sec_ks="0x23df79a8052010ef6e3d49255b606f871cff06170247c1145ebb71ad23834061" \
-    --load_high_sec_ks \
-    --high_sec_ks="0xaba9d5616e5a7c18b9a41d8a22f42d4dc3bafa9ca1fad01e404e708b1eab21fd" \
-    --ca_outfile=${OPENTITAN_VAR_DIR}/spm/config/certs/NuvotonTPMRootCA0200.cer
+$ config/dev/token_init.sh
 ```
 
 ### Start SPM Server
