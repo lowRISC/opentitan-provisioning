@@ -3,7 +3,7 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-# This script make it easy to build an check-in OT FPGA bitstreams for E2E 
+# This script make it easy to build an check-in OT FPGA bitstreams for E2E
 # testing.
 #
 # This script should be run from the root of this repo on a machine that also
@@ -19,7 +19,7 @@ fi
 
 OT_REPO_TOP=$1
 
-_OT_REPO_BRANCH="Earlgrey-A2-Provisioning-RC0"
+_OT_REPO_BRANCH="Earlgrey-A2-Provisioning-RC2"
 _PROVISIONING_REPO_TOP=$(pwd)
 _FPGAS=("hyper310" "cw340")
 _CP_SKUS=("emulation")

@@ -16,7 +16,7 @@ spec:
     - --port=5000
     - --hsm_type=1
     - --hsm_so=/usr/safenet/lunaclient/lib/libCryptoki2_64.so
-    - --spm_config_dir=/var/lib/opentitan/spm/config
+    - --spm_config_dir=/var/lib/opentitan/spm
     # TODO: Update label to point to specific release version.
     image: localhost/spm_server:latest
     resources: {}
@@ -36,7 +36,7 @@ spec:
         - CAP_NET_RAW
         - CAP_AUDIT_WRITE
     volumeMounts:
-    - mountPath: /var/lib/opentitan/spm/config
+    - mountPath: /var/lib/opentitan/spm
       name: var-lib-opentitan-spm-config-host-0
     - mountPath: /var/lib/opentitan/spm/softhsm2
       name: var-lib-opentitan-spm-softhsm2-host-1
@@ -65,7 +65,7 @@ spec:
   volumes:
   - name: var-lib-opentitan-spm-config-host-0
     hostPath:
-      path: /var/lib/opentitan/spm/config
+      path: /var/lib/opentitan/spm
       type: Directory
   - name: var-lib-opentitan-spm-softhsm2-host-1
     hostPath:

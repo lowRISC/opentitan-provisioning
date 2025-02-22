@@ -2,12 +2,11 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package main implements a Secure Provisioning Module CLI utility used to
-// perform key management operations on the HSM.
+// Package main provides a command line tool to generate self signed
+// certificates for testing purposes.
 package main
 
 import (
-	"crypto/elliptic"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"errors"
@@ -27,19 +26,10 @@ import (
 var (
 	hsmPW            = flag.String("hsm_pw", "", "The HSM's Password; required")
 	hsmSOPath        = flag.String("hsm_so", "", "File path to the PCKS#11 .so library used to interface to the HSM; required")
-	hsmType          = flag.Int64("hsm_type", 0, "The type of the hsm (0 - SoftHSM or 1 - TokenHSM); required")
 	hsmSlot          = flag.Int("hsm_slot", 0, "The HSM slot number; required")
-	genKG            = flag.Bool("gen_kg", false, "Generate KG; optional")
-	genKCA           = flag.Bool("gen_kca", false, "Generate KCA; optional")
-	forceKeygen      = flag.Bool("force_keygen", false, "Destroy existing keys and seeds before keygen; optional")
+	caKeyLabel       = flag.String("ca_key_label", "", "CA HSM key label")
 	caCertOutputPath = flag.String("ca_outfile", "", "CA output path; required when --gen_kca is set to true")
 	version          = flag.Bool("version", false, "Print version information and exit")
-)
-
-const (
-	kgName      = "KG"
-	kcaPrivName = "KCAPriv"
-	kcaPubName  = "KCAPub"
 )
 
 // initSession creates a new HSM instance with a single token session.
@@ -49,56 +39,8 @@ func initSession() (*se.HSM, error) {
 		SlotID:      *hsmSlot,
 		HSMPassword: *hsmPW,
 		NumSessions: 1,
-		HSMType:     pk11.HSMType(*hsmType),
+		HSMType:     pk11.HSMType(0),
 	})
-}
-
-// DestroyKeys destroys any existing key objects stored in the HSM token.
-func DestroyKeys(session *pk11.Session) error {
-	keys := []struct {
-		class pk11.ClassAttribute
-		label string
-	}{
-		{pk11.ClassSecretKey, kgName},
-		{pk11.ClassPrivateKey, kcaPrivName},
-		{pk11.ClassPublicKey, kcaPubName},
-	}
-
-	for _, k := range keys {
-		if keyObj, err := session.FindKeyByLabel(k.class, k.label); err == nil {
-			log.Printf("Destroying key: %q", k.label)
-			if err := keyObj.Destroy(); err != nil {
-				return fmt.Errorf("failed to destroy key with label %q: %v", k.label, err)
-			}
-		}
-	}
-
-	return nil
-}
-
-// GenerateKG generates a new KG key if there are no secret keys with a
-// matching `kgName` label.
-func GenerateKG(session *pk11.Session) error {
-	// Skip keygen if there is a KG key available. In the future we can upate
-	// this flow so that we update the key as opposed of returning early.
-	if _, err := session.FindKeyByLabel(pk11.ClassSecretKey, kgName); err == nil {
-		log.Printf("Key with label %q already exists.", kgName)
-		return nil
-	}
-
-	kg, err := session.GenerateAES(256, &pk11.KeyOptions{
-		Extractable: true,
-		Token:       true,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to generate key, error: %v", err)
-	}
-
-	if err := kg.SetLabel(kgName); err != nil {
-		return fmt.Errorf("failed to set key label %q, error: %v", kgName, err)
-	}
-
-	return nil
 }
 
 // buildCACert returns a root CA certificate template.
@@ -153,30 +95,24 @@ func GenerateKCA(session *pk11.Session) error {
 		return errors.New("--ca_outfile flag not set")
 	}
 
-	if !*genKCA {
-		log.Printf("Skipping %q keygen", kcaPrivName)
-		return nil
+	caLabel := *caKeyLabel
+	if caLabel == "" {
+		return errors.New("--ca_key_label flag not set")
 	}
 
-	if _, err := session.FindKeyByLabel(pk11.ClassPrivateKey, kcaPrivName); err == nil {
-		log.Printf("Key with label %q already exists.", kcaPrivName)
-		return nil
-	}
-
-	ca, err := session.GenerateECDSA(elliptic.P384(), &pk11.KeyOptions{
-		Extractable: true,
-		Token:       true,
-	})
+	caObj, err := session.FindKeyByLabel(pk11.ClassPrivateKey, caLabel)
 	if err != nil {
-		return fmt.Errorf("failed to generate ECDSA key: %v", err)
+		return fmt.Errorf("failed to find key with label %q: %v", caLabel, err)
 	}
 
-	if err := ca.PrivateKey.SetLabel(kcaPrivName); err != nil {
-		return fmt.Errorf("failed to set key label %q, error: %v", kcaPrivName, err)
+	caUID, err := caObj.UID()
+	if err != nil {
+		return fmt.Errorf("failed to get key UID: %v", err)
 	}
 
-	if err := ca.PublicKey.SetLabel(kcaPubName); err != nil {
-		return fmt.Errorf("failed to set key label %q, error: %v", kcaPubName, err)
+	ca, err := session.FindKeyPair(caUID)
+	if err != nil {
+		return fmt.Errorf("failed to find key pair with label %q: %v", caLabel, err)
 	}
 
 	template, err := buildCACert(session)
@@ -186,7 +122,7 @@ func GenerateKCA(session *pk11.Session) error {
 
 	privKey, err := ca.PrivateKey.Signer()
 	if err != nil {
-		return fmt.Errorf("failed to get signer from %q key: %v", kcaPrivName, err)
+		return fmt.Errorf("failed to get signer from %q key: %v", caLabel, err)
 	}
 
 	certBytes, err := signer.CreateCertificate(template, template, privKey.Public(), privKey)
@@ -213,21 +149,7 @@ func main() {
 		log.Fatalf("Failed to initialize HSM session, error: %v", err)
 	}
 
-	for _, task := range []struct {
-		label string
-		run   bool
-		f     se.CmdFunc
-	}{
-		{"Removing previous keys", *forceKeygen, DestroyKeys},
-		{"Generating KG", *genKG, GenerateKG},
-		{"Generating KCA", *genKCA, GenerateKCA},
-	} {
-		if !task.run {
-			continue
-		}
-		log.Printf(task.label)
-		if err := hsm.ExecuteCmd(task.f); err != nil {
-			log.Fatalf("Failed task: %v", err)
-		}
+	if err := hsm.ExecuteCmd(GenerateKCA); err != nil {
+		log.Fatalf("Failed to execute GenerateKCA, error: %v", err)
 	}
 }
