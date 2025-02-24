@@ -9,6 +9,7 @@ import (
 	"context"
 	"log"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -16,6 +17,11 @@ import (
 	"github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/proto/validators"
 	"github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/db"
 )
+
+// Every registry service frontend must implement the `RegistryDevice` function.
+type Registry interface {
+	RegisterDevice(ctx context.Context, request *pbp.DeviceRegistrationRequest, opts ...grpc.CallOption) (*pbp.DeviceRegistrationResponse, error)
+}
 
 // server is the server object.
 type server struct {

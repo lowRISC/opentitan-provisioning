@@ -14,6 +14,7 @@ go_library(
         "//src/proxy_buffer/proto:proxy_buffer_go_pb",
         "//src/proxy_buffer/proto:validators",
         "//src/proxy_buffer/store:db",
+        "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
     ],
