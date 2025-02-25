@@ -1,0 +1,21 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+package(default_visibility = ["//visibility:public"])
+
+go_library(
+    name = "registry_shim",
+    srcs = ["registry_shim.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/pa/services/registry_shim",
+    deps = [
+        "@//src/pa/proto:pa_go_pb",
+        "@//src/proto:device_id_utils",
+        "@//src/proxy_buffer/services:proxybuffer",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+    ],
+)

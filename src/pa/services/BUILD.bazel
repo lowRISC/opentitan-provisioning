@@ -2,9 +2,22 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 package(default_visibility = ["//visibility:public"])
+
+bool_flag(
+    name = "use_vendor_shim",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "vendor_shim_select",
+    flag_values = {
+        ":use_vendor_shim": "True",
+    },
+)
 
 go_library(
     name = "pa",
@@ -12,7 +25,6 @@ go_library(
     importpath = "github.com/lowRISC/opentitan-provisioning/src/pa/services/pa",
     deps = [
         "//src/pa/proto:pa_go_pb",
-        "//src/pa/services/registry_shim",
         "//src/proxy_buffer/proto:proxy_buffer_go_pb",
         "//src/spm/proto:spm_go_pb",
         "//src/transport/auth_service",
@@ -21,7 +33,10 @@ go_library(
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//metadata",
         "@org_golang_google_grpc//status",
-    ],
+    ] + select({
+        ":vendor_shim_select": ["@vendor_repo//registry_shim"],
+        "//conditions:default": ["@//src/pa/services/registry_shim"],
+    }),
 )
 
 go_test(

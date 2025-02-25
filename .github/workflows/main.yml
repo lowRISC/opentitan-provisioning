@@ -27,6 +27,7 @@ jobs:
       - name: Build everything
         run: |
           bazel build //...
+          bazel build --//src/pa/services:use_vendor_shim //src/pa/services:pa
           bazel run //release:release -- \
               --norelease \
               --copy "${PWD}/artifacts" \
