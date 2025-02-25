@@ -47,7 +47,7 @@ func startPAServer(spmClient pbs.SpmServiceClient, pbClient pbr.ProxyBufferServi
 	interceptor := auth_service.NewAuthInterceptor(*enableTLS)
 	opts = append(opts, grpc.UnaryInterceptor(interceptor.Unary))
 	server := grpc.NewServer(opts...)
-	pbp.RegisterProvisioningApplianceServiceServer(server, pa.NewProvisioningApplianceServer(spmClient, pbClient, *enableProxyBuffer))
+	pbp.RegisterProvisioningApplianceServiceServer(server, pa.NewProvisioningApplianceServer(spmClient, pbClient))
 	return server, nil
 }
 

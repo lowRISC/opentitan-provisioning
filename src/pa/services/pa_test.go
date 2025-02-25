@@ -34,7 +34,7 @@ const (
 func bufferDialer(t *testing.T, spmClient pbs.SpmServiceClient, pbClient pbr.ProxyBufferServiceClient) func(context.Context, string) (net.Conn, error) {
 	listener := bufconn.Listen(bufferConnectionSize)
 	server := grpc.NewServer()
-	pbp.RegisterProvisioningApplianceServiceServer(server, pa.NewProvisioningApplianceServer(spmClient, pbClient, false))
+	pbp.RegisterProvisioningApplianceServiceServer(server, pa.NewProvisioningApplianceServer(spmClient, pbClient))
 	go func(t *testing.T) {
 		if err := server.Serve(listener); err != nil {
 			t.Fatal(err)
