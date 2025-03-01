@@ -57,7 +57,8 @@ $ . config/dev/env/spm.env
 $ config/dev/softhsm/init.sh \
     config/dev \
     bazel-bin/external/softhsm2/softhsm2 \
-    /var/lib/opentitan
+    /var/lib/opentitan \
+    spm-hsm
 refresh: The object generation has not been updated
         Manufacturer ID:  SoftHSM project
         Model:            SoftHSM v2
@@ -66,7 +67,7 @@ refresh: The object generation has not been updated
         Serial number:    7381e8d7a197e098
         Initialized:      yes
         User PIN init.:   yes
-        Label:            SoftToken
+        Label:            spm-hsm
 ...
 Execute the following command before launching the spm service:
 export SOFTHSM2_CONF=/var/lib/opentitan/spm/softhsm2/softhsm2.conf
@@ -81,6 +82,7 @@ $ config/dev/softhsm/init.sh \
     config/dev \
     bazel-bin/external/softhsm2/softhsm2 \
     "$(pwd)/.opentitan"
+    spm-hsm
 Execute the following command before launching the spm service:
 export SOFTHSM2_CONF=/home/user/ot-provisioning/.opentitan/spm/softhsm2/softhsm2.conf
 SoftHSM configuration result: PASS!

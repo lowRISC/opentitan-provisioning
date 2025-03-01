@@ -199,7 +199,7 @@ func testOTEndorseCerts(ctx context.Context, numCalls int, skuName string, c *cl
 		Bundles: []*pbp.EndorseCertBundle{
 			{
 				KeyParams: &pbc.SigningKeyParams{
-					KeyLabel: "sku-sival-dice-priv-key-ver-0.0",
+					KeyLabel: "SigningKey/Dice/v0",
 					Key: &pbc.SigningKeyParams_EcdsaParams{
 						EcdsaParams: &pbe.EcdsaParams{
 							HashType: pbcommon.HashType_HASH_TYPE_SHA256,

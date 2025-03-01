@@ -253,6 +253,16 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.Sku)
 	}
 
+	sLabelHi, err := sku.config.GetAttribute(skucfg.AttrNameKdfSecHi)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "could not fetch seed label %q: %v", skucfg.AttrNameKdfSecHi, err)
+	}
+
+	sLabelLo, err := sku.config.GetAttribute(skucfg.AttrNameKdfSecLo)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "could not fetch seed label %q: %v", skucfg.AttrNameKdfSecLo, err)
+	}
+
 	// Build parameter list for all keygens requested.
 	var keygenParams []*se.SymmetricKeygenParams
 	for _, p := range request.Params {
@@ -262,8 +272,10 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 		switch p.Seed {
 		case pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_HIGH_SECURITY:
 			params.KeyType = se.SymmetricKeyTypeSecurityHi
+			params.SeedLabel = sLabelHi
 		case pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_LOW_SECURITY:
 			params.KeyType = se.SymmetricKeyTypeSecurityLo
+			params.SeedLabel = sLabelLo
 		case pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_KEYGEN:
 			params.KeyType = se.SymmetricKeyTypeKeyGen
 		default:
@@ -359,10 +371,14 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 
 	var certs []*pbc.Certificate
 	for _, bundle := range request.Bundles {
+		keyLabel, err := sku.config.GetUnsafeAttribute(bundle.KeyParams.KeyLabel)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "unable to find key label %q in SKU configuration: %v", bundle.KeyParams.KeyLabel, err)
+		}
 		switch key := bundle.KeyParams.Key.(type) {
 		case *pbc.SigningKeyParams_EcdsaParams:
 			params := se.EndorseCertParams{
-				KeyLabel:           bundle.KeyParams.KeyLabel,
+				KeyLabel:           keyLabel,
 				SignatureAlgorithm: ecdsaSignatureAlgorithmFromHashType(key.EcdsaParams.HashType),
 			}
 			cert, err := sku.seHandle.EndorseCert(bundle.Tbs, params)

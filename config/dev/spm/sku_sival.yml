@@ -2,11 +2,19 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-sku: "prod_a"
+sku: "sival"
 slotId: 0
 numSessions: 3
 symmetricKeys:
-  - name: "HighSecKdfSeed"
-  - name: "LowSecKdfSeed"
+  - name: sival-kdf-hisec-v0
+  - name: sival-kdf-losec-v0
 privateKeys:
-    - name: "sku-sival-dice-priv-key-ver-0.0"
+    - name: sival-dice-key-p256-v0
+publicKeys:
+    - name: sku-sival-rsa-rma-v0
+attributes:
+    - KdfSecHi: sival-kdf-hisec-v0
+    - KdfSecLo: sival-kdf-losec-v0
+    - WrappingMechanism: RsaPkcs
+    - WrappingKeyLabel: sku-sival-rsa-rma-v0
+    - SigningKey/Dice/v0: sival-dice-key-p256-v0

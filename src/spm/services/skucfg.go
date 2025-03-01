@@ -16,6 +16,9 @@ type AttrName string
 
 const (
 	AttrNameWrappingMechanism AttrName = "WrappingMechanism"
+	AttrNameWrappingKeyLabel           = "WrappingKeyLabel"
+	AttrNameKdfSecHi                   = "KdfSecHi"
+	AttrNameKdfSecLo                   = "KdfSecLo"
 )
 
 // WrappingMechanism provides the wrapping method for symmetric keys.
@@ -101,6 +104,18 @@ type Auth struct {
 // GetAttribute returns the value of the attribute with the given name.
 func (c *Config) GetAttribute(name AttrName) (string, error) {
 	attr, ok := c.Attributes[string(name)]
+	if !ok {
+		return "", fmt.Errorf("attribute %s not found", name)
+	}
+	return attr, nil
+}
+
+// GetUnsafeAttribute returns the value of the attribute with the given name.
+// This function is labeled as unsafe because it does not check if the
+// attribute is part of the allow-list `AttrName`. It is the caller's
+// responsibility to ensure that the attribute is safe to use.
+func (c *Config) GetUnsafeAttribute(name string) (string, error) {
+	attr, ok := c.Attributes[name]
 	if !ok {
 		return "", fmt.Errorf("attribute %s not found", name)
 	}

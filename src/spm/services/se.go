@@ -87,6 +87,7 @@ const (
 
 // Parameters for GenerateSymmetricKeys().
 type SymmetricKeygenParams struct {
+	SeedLabel   string
 	KeyType     SymmetricKeyType
 	KeyOp       SymmetricKeyOp
 	SizeInBits  uint

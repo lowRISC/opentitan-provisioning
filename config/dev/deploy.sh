@@ -55,9 +55,27 @@ if [ ! -d "${OPENTITAN_VAR_DIR}/softhsm2" ]; then
     tar -xvf "${RELEASE_DIR}/softhsm_dev.tar.xz" \
         --directory "${OPENTITAN_VAR_DIR}/softhsm2"
 fi
-${CONFIG_DIR}/softhsm/init.sh "${CONFIG_DIR}" \
+
+# We create two separate SoftHSM configuration directories, one for the SPM HSM
+# and one for the offline HSM. SoftHSM2 does not provide a mechanism for assiging
+# deterministic slot IDs, so we use separate configuration directories to avoid
+# slot ID conflicts. Both SPM and Offline tokens are available on slot 0 in their
+# respective configurations.
+
+# SPM HSM Instance.
+${CONFIG_DIR}/softhsm/init.sh \
+    "${CONFIG_DIR}" \
     "${OPENTITAN_VAR_DIR}/softhsm2/softhsm2" \
-    "${OPENTITAN_VAR_DIR}"
+    "${OPENTITAN_VAR_DIR}" \
+    "${SPM_HSM_TOKEN_SPM}"
+
+# Offline HSM Instance.
+SOFTHSM2_CONF="${SOFTHSM2_CONF_OFFLINE}" ${CONFIG_DIR}/softhsm/init.sh \
+    "${CONFIG_DIR}" \
+    "${OPENTITAN_VAR_DIR}/softhsm2/softhsm2" \
+    "${OPENTITAN_VAR_DIR}" \
+    "${SPM_HSM_TOKEN_OFFLINE}"
+
 echo "Done."
 
 ################################################################################

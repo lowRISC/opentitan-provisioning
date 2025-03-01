@@ -7,11 +7,11 @@ set -e
 usage() {
     echo >&2 "ERROR: $1"
     echo >&2 ""
-    echo >&2 "Usage: $0 <config-dir> <softhsm-dir> <outdir>"
+    echo >&2 "Usage: $0 <config-dir> <softhsm-dir> <outdir> <token-name>"
     exit 1
 }
 
-if [ $# != 3 ]; then
+if [ $# != 4 ]; then
     usage "Unexpected number of arguments"
 fi
 
@@ -23,6 +23,7 @@ print_message() {
 readonly CONFIG_DIR=$1
 readonly SOFT_HSM2=$2
 export OPENTITAN_VAR_DIR=$3
+readonly TOKEN_LABEL=$4
 
 readonly TEST_SKU_KEYS_DIR="${CONFIG_DIR}/softhsm/keys"
 readonly MOD_PATH="${SOFT_HSM2}/lib/softhsm/libsofthsm2.so"
@@ -63,7 +64,7 @@ EOCFG
 print_message "Initializing SoftHSM"
 
 ${SOFTHSM2_UTIL} --init-token --slot=0 --so-pin=${SPM_HSM_PIN_ADMIN} \
-    --label="${SPM_HSM_TOKEN_LABEL}" --pin=${SPM_HSM_PIN_USER}
+    --label="${TOKEN_LABEL}" --pin=${SPM_HSM_PIN_USER}
 
 ${SOFTHSM2_UTIL} --show-slots
 
