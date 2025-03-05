@@ -63,8 +63,7 @@ type CertInfo struct {
 type SymmetricKeyOp int
 
 const (
-	// SymmetricKeyOpRaw indicates that the key should be generated as a raw
-	// key.
+	// SymmetricKeyOpRaw indicates that the key should be generated as a raw key.
 	SymmetricKeyOpRaw SymmetricKeyOp = iota
 	// SymmetricKeyOpHashedOtLcToken indicates that the key should be generated
 	// as a hashed OT/LC token.
@@ -134,8 +133,21 @@ type SE interface {
 	// The certificate is provided in raw form, and the SE will return the
 	// signed certificate in DER format.
 	//
+	// Note: only ECDSA signature algorithms are currently supported.
+	//
 	// Returns: Raw signature in bytes.
 	EndorseCert(tbs []byte, params EndorseCertParams) ([]byte, error)
+
+	// EndorseData hashes and signs an arbitrary data payload.
+	//
+	// This operation is used to sign an array of bytes with the SE's private key.
+	// The bytes are provided in raw form, and the SE will return the signature in
+	// ASN.1 DER encoded form.
+	//
+	// Note: only ECDSA signature algorithms are currently supported.
+	//
+	// Returns: ECDSA signature (ASN.1 DER encoded).
+	EndorseData(data []byte, params EndorseCertParams) ([]byte, []byte, error)
 
 	// GenerateRandom returns random data extracted from the HSM.
 	GenerateRandom(length int) ([]byte, error)

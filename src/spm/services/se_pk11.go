@@ -7,6 +7,7 @@ package se
 
 import (
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -544,4 +545,61 @@ func (h *HSM) EndorseCert(tbs []byte, params EndorseCertParams) ([]byte, error) 
 		return nil, status.Errorf(codes.Internal, "failed to marshal certificate: %v", err)
 	}
 	return cert, nil
+}
+
+func (h *HSM) EndorseData(data []byte, params EndorseCertParams) ([]byte, []byte, error) {
+	session, release := h.sessions.getHandle()
+	defer release()
+
+	// Get the PKCS#11 private key object.
+	keyID, err := getKeyIDByLabel(session, pk11.ClassPrivateKey, params.KeyLabel)
+	if err != nil {
+		return nil, nil, status.Errorf(codes.Internal, "fail to find key with label: %q, error: %v", params.KeyLabel, err)
+	}
+	privateKey, err := session.FindPrivateKey(keyID)
+	if err != nil {
+		return nil, nil, status.Errorf(codes.Internal, "failed to find private key object %q: %v", keyID, err)
+	}
+
+	// Export the public key from the PKCS#11 private key object.
+	publicKeyHandle, err := privateKey.FindPublicKey()
+	if err != nil {
+		return nil, nil, status.Errorf(codes.Internal, "failed to find public key on SE: %v", err)
+	}
+	publicKey, err := publicKeyHandle.ExportKey()
+	if err != nil {
+		return nil, nil, status.Errorf(codes.Internal, "failed to export public key from SE: %v", err)
+	}
+	var ecdsaPubKey struct{ X, Y *big.Int }
+	ecdsaPubKey.X, ecdsaPubKey.Y = new(big.Int), new(big.Int)
+	ecdsaPubKey.X.Set(publicKey.(*ecdsa.PublicKey).X)
+	ecdsaPubKey.Y.Set(publicKey.(*ecdsa.PublicKey).Y)
+	asn1EcdsaPublicKey, err := asn1.Marshal(ecdsaPubKey)
+	if err != nil {
+		return nil, nil, status.Errorf(codes.Internal, "failed to marshal public key: %v", err)
+	}
+
+	// Hash the data payload.
+	hash, err := hashFromSignatureAlgorithm(params.SignatureAlgorithm)
+	if err != nil {
+		return nil, nil, status.Errorf(codes.Internal, "failed to get hash from signature algorithm: %v", err)
+	}
+
+	// Sign the hash of the data payload.
+	rb, sb, err := privateKey.SignECDSA(hash, data)
+	if err != nil {
+		return nil, nil, status.Errorf(codes.Internal, "failed to sign: %v", err)
+	}
+
+	// Encode the signature as ASN.1 DER.
+	var sig struct{ R, S *big.Int }
+	sig.R, sig.S = new(big.Int), new(big.Int)
+	sig.R.SetBytes(rb)
+	sig.S.SetBytes(sb)
+	asn1Sig, err := asn1.Marshal(sig)
+	if err != nil {
+		return nil, nil, status.Errorf(codes.Internal, "failed to marshal signature: %v", err)
+	}
+
+	return asn1EcdsaPublicKey, asn1Sig, nil
 }

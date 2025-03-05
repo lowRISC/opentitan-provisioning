@@ -9,12 +9,15 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/hex"
 	"encoding/pem"
 	"io"
 	"log"
+	"math/big"
 	"math/rand"
 	"os"
 	"testing"
@@ -452,4 +455,58 @@ func TestEndorseCert(t *testing.T) {
 		Roots: roots,
 	})
 	ts.Check(t, err)
+}
+
+func TestEndorseData(t *testing.T) {
+	log.Printf("TestEndorseData")
+	hsm, _, _, _ := MakeHSM(t)
+
+	// Mint ECDSA keys on HSM.
+	identityKeyPair, err := CreateCAKeys(t, hsm)
+	ts.Check(t, err)
+
+	_, release := hsm.sessions.getHandle()
+	// Add labels to key objects in the HSM.
+	const kIdPrivName = "kid_priv"
+	const kIdPubName = "kid_pub"
+	err = identityKeyPair.PrivateKey.SetLabel(kIdPrivName)
+	ts.Check(t, err)
+	err = identityKeyPair.PublicKey.SetLabel(kIdPubName)
+	ts.Check(t, err)
+	// Export public key from HSM.
+	idPublicKeyExported, err := identityKeyPair.PublicKey.ExportKey()
+	ts.Check(t, err)
+	idPublicKey := idPublicKeyExported.(*ecdsa.PublicKey)
+	release()
+
+	log.Printf("Reading data")
+	data := readFile(t, diceTBSPath)
+
+	// Perform data signature operation.
+	log.Printf("Endorsing data")
+	asn1PubKey, asn1Sig, err := hsm.EndorseData(data, EndorseCertParams{
+		KeyLabel:           kIdPrivName,
+		SignatureAlgorithm: x509.ECDSAWithSHA256,
+	})
+	ts.Check(t, err)
+
+	// Check public keys match.
+	var pubKey struct{ X, Y *big.Int }
+	_, err = asn1.Unmarshal(asn1PubKey, &pubKey)
+	if pubKey.X.Cmp(idPublicKey.X) != 0 {
+		t.Fatal("pubkey (X) exported does not match one in HSM")
+	}
+	if pubKey.Y.Cmp(idPublicKey.Y) != 0 {
+		t.Fatal("pubkey (Y) exported does not match one in HSM")
+	}
+
+	// Verify signatures.
+	log.Printf("Verifying data signature")
+	dataHash := sha256.Sum256(data)
+	var sig struct{ R, S *big.Int }
+	_, err = asn1.Unmarshal(asn1Sig, &sig)
+	verfied := ecdsa.Verify(idPublicKey, dataHash[:], sig.R, sig.S)
+	if !verfied {
+		t.Errorf("signature failed to verify")
+	}
 }
