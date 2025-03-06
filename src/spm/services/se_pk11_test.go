@@ -264,9 +264,10 @@ func TestGenerateSymmKeysWrap(t *testing.T) {
 	}
 }
 
-// CreateCAKeys generates a Certificate Authority (CA) key pair which can be
-// used in any test case. It requires an initialized `hsm` instance.
-func CreateCAKeys(t *testing.T, hsm *HSM) (pk11.KeyPair, error) {
+// MintECDSAKeys generates a P256 ECDSA key pair to be used by various tests
+// below as the keys to a Certificate Authority (CA) or HSM identity.
+// It requires an initialized `hsm` instance.
+func MintECDSAKeys(t *testing.T, hsm *HSM) (pk11.KeyPair, error) {
 	session, release := hsm.sessions.getHandle()
 	defer release()
 	return session.GenerateECDSA(elliptic.P256(), &pk11.KeyOptions{Extractable: true})
@@ -276,7 +277,7 @@ func TestGenerateCert(t *testing.T) {
 	log.Printf("TestGenerateCert")
 	hsm, kg, _, _ := MakeHSM(t)
 
-	ca, err := CreateCAKeys(t, hsm)
+	ca, err := MintECDSAKeys(t, hsm)
 	ts.Check(t, err)
 	caKeyHandle, err := ca.PrivateKey.UID()
 	ts.Check(t, err)
@@ -462,7 +463,7 @@ func TestEndorseData(t *testing.T) {
 	hsm, _, _, _ := MakeHSM(t)
 
 	// Mint ECDSA keys on HSM.
-	identityKeyPair, err := CreateCAKeys(t, hsm)
+	identityKeyPair, err := MintECDSAKeys(t, hsm)
 	ts.Check(t, err)
 
 	_, release := hsm.sessions.getHandle()
