@@ -65,6 +65,7 @@ type fakeSpmClient struct {
 	createKeyAndCert    createKeyAndCertFakeResponse
 	deriveSymmetricKeys deriveSymmetricKeysResponse
 	endorseCerts        endorseCertsResponse
+	endorseData         endorseDataResponse
 }
 
 type initSessionResponse struct {
@@ -87,6 +88,11 @@ type endorseCertsResponse struct {
 	err      error
 }
 
+type endorseDataResponse struct {
+	response *pbs.EndorseDataResponse
+	err      error
+}
+
 func (c *fakeSpmClient) InitSession(ctx context.Context, request *pbp.InitSessionRequest, opts ...grpc.CallOption) (*pbp.InitSessionResponse, error) {
 	return c.initSession.response, c.initSession.err
 }
@@ -101,6 +107,10 @@ func (c *fakeSpmClient) DeriveSymmetricKeys(ctx context.Context, request *pbp.De
 
 func (c *fakeSpmClient) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequest, opts ...grpc.CallOption) (*pbp.EndorseCertsResponse, error) {
 	return c.endorseCerts.response, c.endorseCerts.err
+}
+
+func (c *fakeSpmClient) EndorseData(ctx context.Context, request *pbs.EndorseDataRequest, opts ...grpc.CallOption) (*pbs.EndorseDataResponse, error) {
+	return c.endorseData.response, c.endorseData.err
 }
 
 func TestCreateKeyAndCert(t *testing.T) {

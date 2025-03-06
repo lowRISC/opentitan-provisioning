@@ -8,6 +8,7 @@ syntax = "proto3";
 package spm;
 
 import "src/pa/proto/pa.proto";
+import "src/proto/crypto/cert.proto";
 
 option go_package = "spm_go_bp";
 
@@ -44,4 +45,27 @@ service SpmService {
   // certificates are signed with a CA private key stored in the SPM.
   rpc EndorseCerts(pa.EndorseCertsRequest)
       returns (pa.EndorseCertsResponse) {}
+
+  // EndorseData endorses an arbitrary byte array for a given SKU. The data is
+  // hashed and signed with a private key stored in the SPM.
+  rpc EndorseData(EndorseDataRequest)
+      returns (EndorseDataResponse) {}
+}
+
+// Endorse data request.
+message EndorseDataRequest {
+  // SKU identifier. Required.
+  string sku = 1;
+  // Signing key parameters. Required.
+  crypto.cert.SigningKeyParams key_params = 2;
+  // Data payload to endorse. Required.
+  bytes data = 3;
+}
+
+// Endorse data response.
+message EndorseDataResponse {
+  // ASN.1 DER public key used to sign the data payload.
+  bytes pubkey = 1;
+  // ASN.1 DER signature of data payload.
+  bytes signature = 2;
 }

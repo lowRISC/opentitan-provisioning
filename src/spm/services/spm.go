@@ -395,6 +395,45 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 	}, nil
 }
 
+func (s *server) EndorseData(ctx context.Context, request *pbs.EndorseDataRequest) (*pbs.EndorseDataResponse, error) {
+	log.Printf("SPM.EndorseDataRequest - Sku:%q", request.Sku)
+	s.muSKU.RLock()
+	defer s.muSKU.RUnlock()
+
+	// Locate SKU config.
+	sku, ok := s.skus[request.Sku]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.Sku)
+	}
+
+	// Retrieve signing key label.
+	keyLabel, err := sku.config.GetUnsafeAttribute(request.KeyParams.KeyLabel)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "unable to find key label %q in SKU configuration: %v", request.KeyParams.KeyLabel, err)
+	}
+
+	// Sign data payload with the endorsement key.
+	var asn1Pubkey, asn1Sig []byte
+	switch key := request.KeyParams.Key.(type) {
+	case *pbc.SigningKeyParams_EcdsaParams:
+		params := se.EndorseCertParams{
+			KeyLabel:           keyLabel,
+			SignatureAlgorithm: ecdsaSignatureAlgorithmFromHashType(key.EcdsaParams.HashType),
+		}
+		asn1Pubkey, asn1Sig, err = sku.seHandle.EndorseData(request.Data, params)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "could not endorse data payload: %v", err)
+		}
+	default:
+		return nil, status.Errorf(codes.Unimplemented, "unsupported key format")
+	}
+
+	return &pbs.EndorseDataResponse{
+		Pubkey:    asn1Pubkey,
+		Signature: asn1Sig,
+	}, nil
+}
+
 func (s *server) initializeSKU(skuName string) error {
 	s.muSKU.Lock()
 	defer s.muSKU.Unlock()
