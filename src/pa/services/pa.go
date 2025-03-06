@@ -150,5 +150,5 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pap.DeriveSym
 // interface with their registry service(s), an overrideable shim layer is used
 // to implement this RPC.
 func (s *server) RegisterDevice(ctx context.Context, request *pap.RegistrationRequest) (*pap.RegistrationResponse, error) {
-	return rs.RegisterDevice(ctx, s.pbClient, request)
+	return rs.RegisterDevice(ctx, s.spmClient, s.pbClient, request)
 }

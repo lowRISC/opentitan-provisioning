@@ -20,4 +20,9 @@ message RegistryRecord {
   uint32 version = 3;
   // Device data encoded as a variable length bytes payload.
   bytes data = 4;
+  // ASN.1 DER encoded authority public key that matches the private key used to
+  // generate the endorsement signature below.
+  bytes auth_pubkey = 5;
+  // ASN.1 DER encoded ECDSA signature over the entire DeviceData payload.
+  bytes auth_signature = 6;
 }

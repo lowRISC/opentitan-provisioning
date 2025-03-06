@@ -18,3 +18,4 @@ attributes:
     - WrappingMechanism: RsaPkcs
     - WrappingKeyLabel: sku-sival-rsa-rma-v0
     - SigningKey/Dice/v0: sival-dice-key-p256-v0
+    - SigningKey/Identity/v0: spm-hsm-id-v0

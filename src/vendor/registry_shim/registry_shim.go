@@ -12,12 +12,13 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	pap "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
+	papb "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
 	diu "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_utils"
-	pb "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/services/proxybuffer"
+	proxybuffer "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/services/proxybuffer"
+	spmpb "github.com/lowRISC/opentitan-provisioning/src/spm/proto/spm_go_pb"
 )
 
-func RegisterDevice(ctx context.Context, buffer pb.Registry, request *pap.RegistrationRequest) (*pap.RegistrationResponse, error) {
+func RegisterDevice(ctx context.Context, spmClient spmpb.SpmServiceClient, pbClient proxybuffer.Registry, request *papb.RegistrationRequest) (*papb.RegistrationResponse, error) {
 	log.Printf("In PA - Received RegisterDevice request with DeviceID: %v", diu.DeviceIdToHexString(request.DeviceData.DeviceId))
 
 	// Vendor-specific implementation of RegisterDevice call goes here.
