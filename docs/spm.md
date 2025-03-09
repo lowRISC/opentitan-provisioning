@@ -95,7 +95,7 @@ The following command initializes the keys in the HSM for test purposes.
 **SoftHSM**
 
 > Note: This assumes that you have run the integration test beforehand. This
-> is required to install `hsmtool` and `certgen` under
+> is required to install `hsmtool` under
 > `/var/lib/opentitan/bin`. In most cases the integration test case will
 > initialize all keys in the HSM, so you may be able to skip this step.
 >

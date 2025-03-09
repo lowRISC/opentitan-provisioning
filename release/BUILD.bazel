@@ -39,7 +39,6 @@ pkg_tar(
     srcs = [
         "//src/pa:pa_server",
         "//src/spm:spm_server",
-        "//src/spm/util:certgen",
     ],
     extension = "tar.xz",
 )
@@ -70,7 +69,6 @@ pkg_tar(
 pkg_tar(
     name = "hsmutils",
     srcs = [
-        "//src/spm/util:certgen",
         "@lowrisc_opentitan//sw/host/hsmtool",
     ],
     extension = "tar.xz",

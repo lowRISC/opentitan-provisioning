@@ -30,33 +30,12 @@ const (
 	WrappingMechanismAESGCM
 )
 
-// Parameters for generating an RSA keypair.
-type RSAParams struct {
-	ModBits, Exp int
-}
-
-// Parameters for GenrateKeyPairAndCert().
-type SigningParams struct {
-	// The certificate to sign.
-	Template *x509.Certificate
-	// Parameters for generating the associated key pair; must be one
-	// of RSAParams or elliptic.Curve.
-	KeyParams any
-	// Wrapping mechanism to use.
-	Wrap WrappingMechanism
-}
-
 // Parameters for EndorseCert().
 type EndorseCertParams struct {
 	// Key label. Used to identify the key in the HSM.
 	KeyLabel string
 	// Signature algorithm to use.
 	SignatureAlgorithm x509.SignatureAlgorithm
-}
-
-// The return type of GenerateKeyPairAndCert().
-type CertInfo struct {
-	WrappedKey, Iv, Cert []byte
 }
 
 // SymmetricKeyOp specifies the operation to perform on the key.
@@ -108,17 +87,6 @@ type SymmetricKeyResult struct {
 // An SE provides privileged access to cryptographic operations using high-value
 // assets, such as long-lived root secrets.
 type SE interface {
-	// Generates and signs certificates with the given parent corresponding to the
-	// arguments in certs.
-	//
-	// Returns: the certs along with their private keys, which will be wrapped with
-	// Kg.
-	//
-	// The certs are returned in the order the parameters are provided. If an error
-	// is returned, the returned slice will contain all certificates that were
-	// successfully generated up until that point.
-	GenerateKeyPairAndCert(caCert *x509.Certificate, params []SigningParams) ([]CertInfo, error)
-
 	// Generates symmetric keys.
 	//
 	// These keys are generated via the HKDF mechanism and may be used as:
@@ -149,9 +117,6 @@ type SE interface {
 	//
 	// Returns: ECDSA signature (ASN.1 DER encoded).
 	EndorseData(data []byte, params EndorseCertParams) ([]byte, []byte, error)
-
-	// GenerateRandom returns random data extracted from the HSM.
-	GenerateRandom(length int) ([]byte, error)
 
 	// VerifySession verifies that a session to the HSM for a given SKU is active
 	VerifySession() error

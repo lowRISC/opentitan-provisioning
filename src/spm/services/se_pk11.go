@@ -8,20 +8,17 @@ package se
 import (
 	"crypto"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"errors"
 	"fmt"
 	"math/big"
-	"reflect"
 
 	"golang.org/x/crypto/sha3"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/lowRISC/opentitan-provisioning/src/cert/signer"
 	"github.com/lowRISC/opentitan-provisioning/src/pk11"
 )
 
@@ -238,93 +235,6 @@ func (h *HSM) VerifySession() error {
 		return status.Errorf(codes.Internal, "failed to verify session: %v", err)
 	}
 	return nil
-}
-
-// GenerateRandom returns random data extracted from the HSM.
-func (h *HSM) GenerateRandom(length int) ([]byte, error) {
-	session, release := h.sessions.getHandle()
-	defer release()
-	return session.GenerateRandom(length)
-}
-
-// GenerateKeyPairAndCert generates certificate and the associated key pair;
-// must be one of RSAParams or elliptic.Curve.
-func (h *HSM) GenerateKeyPairAndCert(caCert *x509.Certificate, params []SigningParams) ([]CertInfo, error) {
-	session, release := h.sessions.getHandle()
-	defer release()
-
-	kca, ok := h.PrivateKeys["KCAPriv"]
-	if !ok {
-		return nil, status.Errorf(codes.Internal, "failed to find KCAPriv key UID")
-	}
-
-	caObj, err := session.FindPrivateKey(kca)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to find Kca key object: %v", err)
-	}
-
-	ca, err := caObj.Signer()
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get Kca signer: %v", err)
-	}
-
-	kg, ok := h.SymmetricKeys["KG"]
-	if !ok {
-		return nil, status.Errorf(codes.Internal, "failed to find KG key UID")
-	}
-
-	wi, err := session.FindSecretKey(kg)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get KG key object: %v", err)
-	}
-
-	certs := []CertInfo{}
-	for _, p := range params {
-		var kp pk11.KeyPair
-		switch k := p.KeyParams.(type) {
-		case RSAParams:
-			kp, err = session.GenerateRSA(uint(k.ModBits), uint(k.Exp), &pk11.KeyOptions{Extractable: true, Sensitive: true})
-			if err != nil {
-				return nil, fmt.Errorf("failed GenerateRSA: %v", err)
-			}
-		case elliptic.Curve:
-			kp, err = session.GenerateECDSA(k, &pk11.KeyOptions{Extractable: true, Sensitive: true})
-			if err != nil {
-				return nil, fmt.Errorf("failed GenerateECDSA: %v", err)
-			}
-		default:
-			panic(fmt.Sprintf("unknown key param type: %s", reflect.TypeOf(p)))
-		}
-
-		var public any
-		public, err = kp.PublicKey.ExportKey()
-		if err != nil {
-			return nil, fmt.Errorf("failed to export kp public key: %v", err)
-		}
-
-		var cert CertInfo
-		switch p.Wrap {
-		case WrappingMechanismAESGCM:
-			cert.WrappedKey, cert.Iv, err = wi.WrapAESGCM(kp.PrivateKey)
-		case WrappingMechanismAESKWP:
-			cert.WrappedKey, err = wi.WrapAESKWP(kp.PrivateKey)
-		default:
-			return nil, fmt.Errorf("unsupported wrapping mechanism: %v", p.Wrap)
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to wrap kp with wi: %v", err)
-		}
-		cert.Cert, err = signer.CreateCertificate(p.Template, caCert, public, ca)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create certificate: %v", err)
-		}
-		certs = append(certs, cert)
-
-		// Delete the keys after they are used once
-		session.DestroyKeyPairObject(kp)
-	}
-
-	return certs, nil
 }
 
 // GenerateSymmetricKeys generates a symmetric key.

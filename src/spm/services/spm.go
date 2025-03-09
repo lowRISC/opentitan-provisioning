@@ -17,7 +17,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/lowRISC/opentitan-provisioning/src/spm/services/certloader"
 	"github.com/lowRISC/opentitan-provisioning/src/spm/services/se"
 	"github.com/lowRISC/opentitan-provisioning/src/spm/services/skucfg"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/auth_service/session_token"
@@ -50,9 +49,6 @@ type Options struct {
 
 // server is the server object.
 type server struct {
-	// Instance of the tpm certificate template builder.
-	loader *certloader.Loader
-
 	// configDir points to the directory holding all SKU configuration files
 	// and assets.
 	configDir string
@@ -121,7 +117,6 @@ func NewSpmServer(opts Options) (pbs.SpmServiceServer, error) {
 	session_token.NewSessionTokenInstance()
 
 	return &server{
-		loader:          certloader.New(),
 		configDir:       opts.SPMConfigDir,
 		hsmSOLibPath:    opts.HSMSOLibPath,
 		hsmPasswordFile: opts.HsmPWFile,
@@ -140,8 +135,7 @@ func (s *server) initSku(sku string) (string, error) {
 	}
 	err = s.initializeSKU(sku)
 	if err != nil {
-		log.Printf("failed to initialize sku: %v", err)
-		return "", status.Errorf(codes.Internal, "failed to initialize sku  %v", err)
+		return "", status.Errorf(codes.Internal, "failed to initialize sku: %v", err)
 	}
 	return token, nil
 }

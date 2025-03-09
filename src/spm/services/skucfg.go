@@ -39,10 +39,7 @@ type Config struct {
 	SymmetricKeys   []SymmetricKey            `yaml:"symmetricKeys"`
 	PrivateKeys     []PrivateKey              `yaml:"privateKeys"`
 	PublicKeys      []PublicKey               `yaml:"publicKeys"`
-	Keys            []Key                     `yaml:"keyWrapConfig"`
 	Certs           []Certificate             `yaml:"certs"`
-	CertTemplates   []Certificate             `yaml:"certTemplates"`
-	CertTemplateSan CertificateSubjectAltName `yaml:"certTemplateSAN"`
 	Attributes      map[string]string         `yaml:"attributes"`
 }
 

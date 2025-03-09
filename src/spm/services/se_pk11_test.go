@@ -11,30 +11,21 @@ import (
 	"crypto/elliptic"
 	"crypto/sha256"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/hex"
 	"encoding/pem"
 	"io"
 	"log"
 	"math/big"
-	"math/rand"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/bazelbuild/rules_go/go/tools/bazel"
-	"github.com/google/go-cmp/cmp"
-	kwp "github.com/google/tink/go/kwp/subtle"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/sha3"
 
-	"github.com/lowRISC/opentitan-provisioning/src/cert/signer"
-	"github.com/lowRISC/opentitan-provisioning/src/cert/templates/tpm"
 	"github.com/lowRISC/opentitan-provisioning/src/pk11"
 	ts "github.com/lowRISC/opentitan-provisioning/src/pk11/test_support"
-	certloader "github.com/lowRISC/opentitan-provisioning/src/spm/services/certloader"
-	"github.com/lowRISC/opentitan-provisioning/src/spm/services/skucfg"
 )
 
 const (
@@ -58,20 +49,10 @@ func readFile(t *testing.T, filename string) []byte {
 }
 
 // Creates a new HSM for a test by reaching into the tests's SoftHSM token.
-//
-// Returns the hsm, the (host-side) bytes of the KG.
-func MakeHSM(t *testing.T) (*HSM, []byte, []byte, []byte) {
+func MakeHSM(t *testing.T) (*HSM, []byte, []byte) {
 	t.Helper()
 	s := ts.GetSession(t)
 	ts.Check(t, s.Login(pk11.NormalUser, ts.UserPin))
-
-	// Initialize HSM with KG.
-	global, err := s.GenerateAES(256, &pk11.KeyOptions{Extractable: true})
-	ts.Check(t, err)
-	gUID, err := global.UID()
-	ts.Check(t, err)
-	globalKeyBytes, err := global.ExportKey()
-	ts.Check(t, err)
 
 	// Initialize HSM with KHsks.
 	hsKeySeed := []byte("high security KDF seed")
@@ -114,7 +95,6 @@ func MakeHSM(t *testing.T) (*HSM, []byte, []byte, []byte) {
 
 	return &HSM{
 			SymmetricKeys: map[string][]byte{
-				"KG":             gUID,
 				"HighSecKdfSeed": hsksUID,
 				"LowSecKdfSeed":  lsksUID,
 			},
@@ -126,13 +106,12 @@ func MakeHSM(t *testing.T) (*HSM, []byte, []byte, []byte) {
 			},
 			sessions: sessions,
 		},
-		[]byte(globalKeyBytes.(pk11.AESKey)),
 		hsKeySeed,
 		lsKeySeed
 }
 
 func TestGenerateSymmKeys(t *testing.T) {
-	hsm, _, hsKeySeed, lsKeySeed := MakeHSM(t)
+	hsm, hsKeySeed, lsKeySeed := MakeHSM(t)
 
 	// Symmetric keygen parameters.
 	// test unlock token
@@ -206,7 +185,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 }
 
 func TestGenerateSymmKeysWrap(t *testing.T) {
-	hsm, _, _, _ := MakeHSM(t)
+	hsm, _, _ := MakeHSM(t)
 
 	// RMA token
 	rmaParams := SymmetricKeygenParams{
@@ -277,133 +256,9 @@ func MintECDSAKeys(t *testing.T, hsm *HSM) (pk11.KeyPair, error) {
 	return session.GenerateECDSA(elliptic.P256(), &pk11.KeyOptions{Extractable: true})
 }
 
-func TestGenerateCert(t *testing.T) {
-	log.Printf("TestGenerateCert")
-	hsm, kg, _, _ := MakeHSM(t)
-
-	ca, err := MintECDSAKeys(t, hsm)
-	ts.Check(t, err)
-	caKeyHandle, err := ca.PrivateKey.UID()
-	ts.Check(t, err)
-
-	caPrivHostI, err := ca.PrivateKey.ExportKey()
-	ts.Check(t, err)
-	caPrivHost := caPrivHostI.(*ecdsa.PrivateKey)
-	caPubHostI, err := ca.PublicKey.ExportKey()
-	ts.Check(t, err)
-	caPubHost := caPubHostI.(*ecdsa.PublicKey)
-
-	epoch, err := time.Parse(time.RFC3339, "2022-01-01T00:00:00.000Z")
-	ts.Check(t, err)
-
-	b := tpm.New()
-
-	subjectAltName, err := certloader.BuildSubjectAltName(
-		skucfg.CertificateSubjectAltName{
-			Manufacturer: "id:4E544300",
-			Model:        "NPCT75x",
-			Version:      "id:00070002",
-		})
-	ts.Check(t, err)
-
-	template, err := b.Build(&signer.Params{
-		SerialNumber: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19},
-		Issuer: pkix.Name{
-			Country:            []string{"US"},
-			Province:           []string{"California"},
-			Organization:       []string{"OpenTitan"},
-			OrganizationalUnit: []string{"Engineering"},
-		},
-		Subject: pkix.Name{
-			Country:            []string{"US"},
-			Province:           []string{"California"},
-			Organization:       []string{"OpenTitan"},
-			OrganizationalUnit: []string{"Engineering"},
-		},
-		NotBefore:             epoch,
-		NotAfter:              epoch.Add(time.Hour * 24 * 31),
-		KeyUsage:              x509.KeyUsageCertSign,
-		IsCA:                  true,
-		BasicConstraintsValid: true,
-		IssuingCertificateURL: nil,
-		SubjectAltName:        subjectAltName,
-	})
-
-	ts.Check(t, err)
-	caCertBytes, err := signer.CreateCertificate(template, template, caPubHost, caPrivHost)
-	caCert, err := x509.ParseCertificate(caCertBytes)
-	ts.Check(t, err)
-
-	// TPM extensions marked as critical end up in this list. We explicitly
-	// clear the list to get x509.Verify to pass.
-	caCert.UnhandledCriticalExtensions = nil
-
-	roots := x509.NewCertPool()
-	roots.AddCert(caCert)
-
-	template, err = b.Build(&signer.Params{
-		SerialNumber: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19},
-		Issuer:       template.Subject,
-		Subject: pkix.Name{
-			Country:            []string{"US"},
-			Province:           []string{"California"},
-			Organization:       []string{"OpenTitan"},
-			OrganizationalUnit: []string{"Engineering"},
-			CommonName:         "OpenTitan TPM EK",
-		},
-		NotBefore:             epoch,
-		NotAfter:              epoch.Add(time.Hour * 24 * 31),
-		KeyUsage:              x509.KeyUsageDigitalSignature,
-		IsCA:                  false,
-		BasicConstraintsValid: true,
-		IssuingCertificateURL: nil,
-		SubjectAltName:        subjectAltName,
-	})
-	ts.Check(t, err)
-
-	hsm.PrivateKeys["KCAPriv"] = caKeyHandle
-	certs, err := hsm.GenerateKeyPairAndCert(caCert, []SigningParams{{template, elliptic.P256(), WrappingMechanismAESKWP}})
-	ts.Check(t, err)
-
-	cert, err := x509.ParseCertificate(certs[0].Cert)
-	ts.Check(t, err)
-
-	// TPM extensions marked as critical end up in this list. We explicitly
-	// clear the list to get x509.Verify to pass.
-	cert.UnhandledCriticalExtensions = nil
-
-	_, err = cert.Verify(x509.VerifyOptions{
-		Roots:       roots,
-		CurrentTime: epoch.Add(time.Hour * 200),
-		KeyUsages:   []x509.ExtKeyUsage{x509.ExtKeyUsage(x509.KeyUsageDigitalSignature)},
-	})
-	ts.Check(t, err)
-
-	kwp, err := kwp.NewKWP(kg)
-	ts.Check(t, err)
-	unwrap, err := kwp.Unwrap(certs[0].WrappedKey)
-	ts.Check(t, err)
-
-	privI, err := x509.ParsePKCS8PrivateKey(unwrap)
-	ts.Check(t, err)
-	pub := cert.PublicKey.(*ecdsa.PublicKey)
-	priv := privI.(*ecdsa.PrivateKey)
-
-	if diff := cmp.Diff(pub, &priv.PublicKey); diff != "" {
-		t.Errorf("unexpected diff (-want +got):\n%s", diff)
-	}
-
-	bytes := []byte("a message to sign")
-	r, s, err := ecdsa.Sign(rand.New(rand.NewSource(0)), priv, bytes)
-	ts.Check(t, err)
-	if !ecdsa.Verify(pub, bytes, r, s) {
-		t.Fatal("verification failed")
-	}
-}
-
 func TestEndorseCert(t *testing.T) {
 	log.Printf("TestEndorseCert")
-	hsm, _, _, _ := MakeHSM(t)
+	hsm, _, _ := MakeHSM(t)
 
 	const kcaPrivName = "kca_priv"
 
@@ -464,7 +319,7 @@ func TestEndorseCert(t *testing.T) {
 
 func TestEndorseData(t *testing.T) {
 	log.Printf("TestEndorseData")
-	hsm, _, _, _ := MakeHSM(t)
+	hsm, _, _ := MakeHSM(t)
 
 	// Mint ECDSA keys on HSM.
 	identityKeyPair, err := MintECDSAKeys(t, hsm)

@@ -30,11 +30,6 @@ if [ ! -x "${OPENTITAN_VAR_DIR}/bin/hsmtool" ]; then
   return 1
 fi
 
-if [ ! -x "${OPENTITAN_VAR_DIR}/bin/certgen" ]; then
-  echo "Error: '${OPENTITAN_VAR_DIR}/bin/certgen' is not executable or does not exist."
-  return 1
-fi
-
 function run_hsm_init() {
   local init_script="$1"
   local original_dir="$(pwd)"
