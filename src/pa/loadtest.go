@@ -356,6 +356,7 @@ func main() {
 		if err != nil {
 			result.pass = false
 			result.msg = fmt.Sprintf("failed to initialize client tasks: %v", err)
+			results = append(results, result)
 			continue
 		}
 		log.Printf("Running test %q", t.testName)

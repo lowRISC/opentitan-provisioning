@@ -141,7 +141,7 @@ func (s *server) initSku(sku string) (string, error) {
 	err = s.initializeSKU(sku)
 	if err != nil {
 		log.Printf("failed to initialize sku: %v", err)
-		return "", status.Errorf(codes.Internal, "failed to initialize sku")
+		return "", status.Errorf(codes.Internal, "failed to initialize sku  %v", err)
 	}
 	return token, nil
 }
@@ -248,6 +248,12 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 			default:
 				return nil, status.Errorf(codes.Internal, "invalid wrapping method: %s", wmech)
 			}
+
+			wkl, err := sku.config.GetAttribute(skucfg.AttrNameWrappingKeyLabel)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "could not get wrapping key label: %s", err)
+			}
+			params.WrapKeyLabel = wkl
 		} else {
 			params.Wrap = se.WrappingMechanismNone
 		}

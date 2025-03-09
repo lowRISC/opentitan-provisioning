@@ -137,6 +137,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 	// Symmetric keygen parameters.
 	// test unlock token
 	testUnlockTokenParams := SymmetricKeygenParams{
+		SeedLabel:   "LowSecKdfSeed",
 		KeyType:     SymmetricKeyTypeSecurityLo,
 		KeyOp:       SymmetricKeyOpRaw,
 		SizeInBits:  128,
@@ -146,6 +147,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 	}
 	// test exit token
 	testExitTokenParams := SymmetricKeygenParams{
+		SeedLabel:   "LowSecKdfSeed",
 		KeyType:     SymmetricKeyTypeSecurityLo,
 		KeyOp:       SymmetricKeyOpRaw,
 		SizeInBits:  128,
@@ -155,6 +157,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 	}
 	// wafer authentication secret
 	wasParams := SymmetricKeygenParams{
+		SeedLabel:   "HighSecKdfSeed",
 		KeyType:     SymmetricKeyTypeSecurityHi,
 		KeyOp:       SymmetricKeyOpRaw,
 		SizeInBits:  256,
@@ -207,12 +210,13 @@ func TestGenerateSymmKeysWrap(t *testing.T) {
 
 	// RMA token
 	rmaParams := SymmetricKeygenParams{
-		KeyType:     SymmetricKeyTypeKeyGen,
-		KeyOp:       SymmetricKeyOpHashedOtLcToken,
-		SizeInBits:  128,
-		Sku:         "test sku",
-		Diversifier: "rma: device_id",
-		Wrap:        WrappingMechanismRSAPCKS,
+		KeyType:      SymmetricKeyTypeKeyGen,
+		KeyOp:        SymmetricKeyOpHashedOtLcToken,
+		SizeInBits:   128,
+		Sku:          "test sku",
+		Diversifier:  "rma: device_id",
+		Wrap:         WrappingMechanismRSAPCKS,
+		WrapKeyLabel: "TokenWrappingKey",
 	}
 	params := []*SymmetricKeygenParams{
 		&rmaParams,

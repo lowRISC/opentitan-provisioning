@@ -86,13 +86,14 @@ const (
 
 // Parameters for GenerateSymmetricKeys().
 type SymmetricKeygenParams struct {
-	SeedLabel   string
-	KeyType     SymmetricKeyType
-	KeyOp       SymmetricKeyOp
-	SizeInBits  uint
-	Sku         string
-	Diversifier string
-	Wrap        WrappingMechanism
+	SeedLabel    string
+	KeyType      SymmetricKeyType
+	KeyOp        SymmetricKeyOp
+	SizeInBits   uint
+	Sku          string
+	Diversifier  string
+	Wrap         WrappingMechanism
+	WrapKeyLabel string
 }
 
 type SymmetricKeyResult struct {

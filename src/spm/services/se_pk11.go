@@ -344,18 +344,18 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 		var err error
 		switch p.KeyType {
 		case SymmetricKeyTypeSecurityHi:
-			khs, ok := h.SymmetricKeys["HighSecKdfSeed"]
+			khs, ok := h.SymmetricKeys[p.SeedLabel]
 			if !ok {
-				return nil, status.Errorf(codes.Internal, "failed to find HighSecKdfSeed key UID")
+				return nil, status.Errorf(codes.Internal, "failed to find %q key UID", p.SeedLabel)
 			}
 			seed, err = session.FindSecretKey(khs)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "failed to get KHsks key object: %v", err)
 			}
 		case SymmetricKeyTypeSecurityLo:
-			kls, ok := h.SymmetricKeys["LowSecKdfSeed"]
+			kls, ok := h.SymmetricKeys[p.SeedLabel]
 			if !ok {
-				return nil, status.Errorf(codes.Internal, "failed to find LowSecKdfSeed key UID")
+				return nil, status.Errorf(codes.Internal, "failed to find %q key UID", p.SeedLabel)
 			}
 			seed, err = session.FindSecretKey(kls)
 			if err != nil {
@@ -407,13 +407,13 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 		wkey := []byte{}
 		if p.Wrap == WrappingMechanismRSAPCKS || p.Wrap == WrappingMechanismRSAOAEP {
 			// Wrap the key with RSA PKCS1v1.5.
-			wk, ok := h.PublicKeys["TokenWrappingKey"]
+			wk, ok := h.PublicKeys[p.WrapKeyLabel]
 			if !ok {
-				return nil, status.Errorf(codes.Internal, "failed to find TokenWrappingKey key UID")
+				return nil, status.Errorf(codes.Internal, "failed to find %q key UID", p.WrapKeyLabel)
 			}
 			wkObj, err := session.FindPublicKey(wk)
 			if err != nil {
-				return nil, status.Errorf(codes.Internal, "failed to find TokenWrappingKey key object: %v", err)
+				return nil, status.Errorf(codes.Internal, "failed to find %q key object: %v", p.WrapKeyLabel, err)
 			}
 
 			var m pk11.KdfWrapMechanism
