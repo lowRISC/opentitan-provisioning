@@ -8,4 +8,4 @@ metadata:
   name: spm-config
 data:
   spm_hsm_pin_user: "cryptoki"
-  softhsm2_conf: "/var/lib/opentitan/spm/softhsm2/softhsm2.conf"
+  softhsm2_conf: "/var/lib/opentitan/config/dev/spm/softhsm2/softhsm2.conf"
