@@ -7,8 +7,6 @@ package skucfg
 
 import (
 	"fmt"
-
-	pbcommon "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/common_go_pb"
 )
 
 // AttrName is an attribute name.
@@ -33,36 +31,14 @@ const (
 )
 
 type Config struct {
-	Sku             string                    `yaml:"sku"`
-	SlotID          int                       `yaml:"slotId"`
-	NumSessions     int                       `yaml:"numSessions"`
-	SymmetricKeys   []SymmetricKey            `yaml:"symmetricKeys"`
-	PrivateKeys     []PrivateKey              `yaml:"privateKeys"`
-	PublicKeys      []PublicKey               `yaml:"publicKeys"`
-	Certs           []Certificate             `yaml:"certs"`
-	Attributes      map[string]string         `yaml:"attributes"`
-}
-
-// KeyType is a type of key to generate.
-type KeyType string
-
-// KeyName represents signature algorithm.
-type KeyName int
-
-const (
-	Secp256r1 KeyName = iota
-	Secp384r1
-	RSA2048
-	RSA3072
-	RSA4096
-)
-
-type Key struct {
-	Type KeyType           `yaml:"type"`
-	Size int               `yaml:"size"`
-	Name KeyName           `yaml:"name"`
-	Hash pbcommon.HashType `yaml:"hash"`
-	Exp  []byte            `yaml:"exp"`
+	Sku           string            `yaml:"sku"`
+	SlotID        int               `yaml:"slotId"`
+	NumSessions   int               `yaml:"numSessions"`
+	SymmetricKeys []SymmetricKey    `yaml:"symmetricKeys"`
+	PrivateKeys   []PrivateKey      `yaml:"privateKeys"`
+	PublicKeys    []PublicKey       `yaml:"publicKeys"`
+	Certs         []Certificate     `yaml:"certs"`
+	Attributes    map[string]string `yaml:"attributes"`
 }
 
 type SymmetricKey struct {
@@ -76,12 +52,6 @@ type PublicKey struct {
 type PrivateKey struct {
 	Name          string `yaml:"name"`
 	EnsorsingCert string `yaml:"endorsingCert"`
-}
-
-type CertificateSubjectAltName struct {
-	Manufacturer string `yaml:"tpmManufacturer"`
-	Model        string `yaml:"tpmModel"`
-	Version      string `yaml:"tpmVersion"`
 }
 
 type Certificate struct {

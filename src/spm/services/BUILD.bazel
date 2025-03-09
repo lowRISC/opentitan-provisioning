@@ -68,7 +68,4 @@ go_library(
     name = "skucfg",
     srcs = ["skucfg.go"],
     importpath = "github.com/lowRISC/opentitan-provisioning/src/spm/services/skucfg",
-    deps = [
-        "//src/proto/crypto:common_go_pb",
-    ],
 )
