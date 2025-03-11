@@ -13,6 +13,9 @@ namespace provisioning {
 namespace test_programs {
 
 class DutLib {
+ private:
+  void* transport_;
+
  public:
   DutLib(){};
 
@@ -25,6 +28,9 @@ class DutLib {
   // Calls opentitanlib backend transport init for FPGA.
   absl::Status DutInit(const std::string& fpga,
                        const std::string& fpga_bitstream);
+
+  // Calls opentitanlib test util to load an SRAM ELF into the DUT over JTAG.
+  void DutLoadSramElf(const std::string& openocd, const std::string& elf);
 };
 
 }  // namespace test_programs

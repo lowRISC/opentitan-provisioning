@@ -16,6 +16,7 @@
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_replace.h"
 #include "src/ate/ate_client.h"
 #include "src/ate/test_programs/dut_lib/dut_lib.h"
 #include "src/pa/proto/pa.grpc.pb.h"
@@ -25,6 +26,11 @@
  * DUT configuration flags.
  */
 ABSL_FLAG(std::string, fpga, "", "FPGA platform to use.");
+ABSL_FLAG(std::string, bitstream,
+          "third_party/lowrisc/ot_bitstreams/cp_$fpga.bit",
+          "Bitstream to load.");
+ABSL_FLAG(std::string, openocd, "", "OpenOCD binary path.");
+ABSL_FLAG(std::string, cp_sram_elf, "", "CP SRAM ELF (device binary).");
 
 /**
  * PA configuration flags.
@@ -96,16 +102,13 @@ absl::StatusOr<AteClient::Options> ValidateAteClientOptions(void) {
   return options;
 }
 
-absl::StatusOr<std::string> ValidateDutOptions(void) {
-  std::string fpga_bitstream_path =
-      absl::StrCat("third_party/lowrisc/ot_bitstreams/cp_",
-                   absl::GetFlag(FLAGS_fpga), ".bit");
-  std::ifstream file_stream(fpga_bitstream_path);
+absl::StatusOr<std::string> ValidateFilePathInput(std::string path) {
+  std::ifstream file_stream(path);
   if (file_stream.good()) {
-    return fpga_bitstream_path;
+    return path;
   }
   return absl::InvalidArgumentError(
-      absl::StrCat("Unable to open file: \"", fpga_bitstream_path, "\""));
+      absl::StrCat("Unable to open file: \"", path, "\""));
 }
 }  // namespace
 
@@ -125,13 +128,30 @@ int main(int argc, char **argv) {
     LOG(ERROR) << ate_opts_result.status().message() << std::endl;
     return -1;
   }
+  // Validate FPGA bitstream path.
   AteClient::Options ate_options = ate_opts_result.value();
-  auto dut_opts_result = ValidateDutOptions();
-  if (!dut_opts_result.ok()) {
-    LOG(ERROR) << dut_opts_result.status().message() << std::endl;
+  auto bitstream_result = ValidateFilePathInput(absl::StrReplaceAll(
+      absl::GetFlag(FLAGS_bitstream), {{"$fpga", absl::GetFlag(FLAGS_fpga)}}));
+  if (!bitstream_result.ok()) {
+    LOG(ERROR) << bitstream_result.status().message() << std::endl;
     return -1;
   }
-  std::string fpga_bitstream_path = dut_opts_result.value();
+  std::string fpga_bitstream_path = bitstream_result.value();
+  // Validate OpenOCD path.
+  auto openocd_result = ValidateFilePathInput(absl::GetFlag(FLAGS_openocd));
+  if (!openocd_result.ok()) {
+    LOG(ERROR) << openocd_result.status().message() << std::endl;
+    return -1;
+  }
+  std::string openocd_path = openocd_result.value();
+  // Validate SRAM ELF path.
+  auto sram_elf_result =
+      ValidateFilePathInput(absl::GetFlag(FLAGS_cp_sram_elf));
+  if (!sram_elf_result.ok()) {
+    LOG(ERROR) << sram_elf_result.status().message() << std::endl;
+    return -1;
+  }
+  std::string sram_elf_path = sram_elf_result.value();
 
   // Instantiate an ATE client (gateway to PA).
   auto ate = AteClient::Create(ate_options);
@@ -155,7 +175,8 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  // TODO(#6): add CP test code here.
+  // Load and execute CP SRAM provisioning binary.
+  dut->DutLoadSramElf(openocd_path, sram_elf_path);
 
   // Close session with PA.
   pa_status = ate->CloseSession();
