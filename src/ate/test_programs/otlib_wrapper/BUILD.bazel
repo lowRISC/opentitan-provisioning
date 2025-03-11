@@ -12,6 +12,9 @@ rust_library(
         "src/lib.rs",
     ],
     deps = [
+        "@crate_index//:anyhow",
+        "@crate_index//:crc",
+        "@crate_index//:regex",
         "@lowrisc_opentitan//sw/host/opentitanlib",
     ],
 )

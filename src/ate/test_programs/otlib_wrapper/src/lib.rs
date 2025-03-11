@@ -3,10 +3,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::ffi::CStr;
+use std::io::Write;
 use std::os::raw::c_char;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
+
+use anyhow::Result;
+use crc::{Crc, CRC_32_ISO_HDLC};
+use regex::Regex;
 
 use opentitanlib::app::TransportWrapper;
 use opentitanlib::backend;
@@ -14,12 +19,15 @@ use opentitanlib::backend::chip_whisperer::ChipWhispererOpts;
 use opentitanlib::backend::proxy::ProxyOpts;
 use opentitanlib::backend::ti50emulator::Ti50EmulatorOpts;
 use opentitanlib::backend::verilator::VerilatorOpts;
+use opentitanlib::console::spi::SpiConsoleDevice;
+use opentitanlib::io::console::{ConsoleDevice, ConsoleError};
 use opentitanlib::io::jtag::{JtagParams, JtagTap};
 use opentitanlib::test_utils::init::InitializeTest;
 use opentitanlib::test_utils::load_bitstream::LoadBitstream;
 use opentitanlib::test_utils::load_sram_program::{
     ExecutionMode, ExecutionResult, SramProgramParams,
 };
+use opentitanlib::uart::console::{ExitStatus, UartConsole};
 
 #[no_mangle]
 pub extern "C" fn OtLibFpgaTransportInit(fpga: *mut c_char) -> *const TransportWrapper {
@@ -74,8 +82,9 @@ pub extern "C" fn OtLibFpgaLoadBitstream(
     transport: *const TransportWrapper,
     fpga_bitstream: *mut c_char,
 ) {
-    // Rebind transport as a ref to the pointed-to object.
-    let transport: &TransportWrapper = unsafe { &*transport };
+    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
+    // the call to `OtLibFpgaTransportInit(...)` above.
+    let transport = unsafe { &*transport };
 
     // SAFETY: The FPGA bitstream path string must be defined by the caller and be a valid path.
     let fpga_bitstream_cstr = unsafe { CStr::from_ptr(fpga_bitstream) };
@@ -93,10 +102,14 @@ pub extern "C" fn OtLibFpgaLoadBitstream(
 
 #[no_mangle]
 pub extern "C" fn OtLibLoadSramElf(
-    transport: &TransportWrapper,
+    transport: *const TransportWrapper,
     openocd_path: *mut c_char,
     sram_elf: *mut c_char,
 ) {
+    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
+    // the call to `OtLibFpgaTransportInit(...)` above.
+    let transport: &TransportWrapper = unsafe { &*transport };
+
     // Unpack path strings.
     // SAFETY: The OpenOCD path string must be set by the caller and be valid.
     let openocd_path_cstr = unsafe { CStr::from_ptr(openocd_path) };
@@ -144,4 +157,124 @@ pub extern "C" fn OtLibLoadSramElf(
         .unwrap()
         .remove()
         .unwrap();
+}
+
+#[no_mangle]
+pub extern "C" fn OtLibConsoleWaitForRx(
+    transport: *const TransportWrapper,
+    c_msg: *mut c_char,
+    timeout_ms: u64,
+) {
+    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
+    // the call to `OtLibFpgaTransportInit(...)` above.
+    let transport: &TransportWrapper = unsafe { &*transport };
+
+    // Get handle to SPI console.
+    let spi = transport.spi("BOOTSTRAP").unwrap();
+    let spi_console = SpiConsoleDevice::new(&*spi).unwrap();
+
+    // Unpack msg string.
+    // SAFETY: The expected message string must be set by the caller and be valid.
+    let msg_cstr = unsafe { CStr::from_ptr(c_msg) };
+    let msg = msg_cstr.to_str().unwrap();
+
+    // Wait for message to be received over the console.
+    println!("Waiting for \"{}\" message over console ...", msg);
+    let _ = UartConsole::wait_for(&spi_console, msg, Duration::from_millis(timeout_ms)).unwrap();
+    println!("Message received.");
+}
+
+fn check_console_crc(json_str: &str, crc_str: &str) -> Result<()> {
+    let crc = crc_str.parse::<u32>()?;
+    let actual_crc = Crc::<u32>::new(&CRC_32_ISO_HDLC).checksum(json_str.as_bytes());
+    if crc != actual_crc {
+        return Err(
+            ConsoleError::GenericError("CRC didn't match received json body.".into()).into(),
+        );
+    }
+    Ok(())
+}
+
+#[no_mangle]
+pub extern "C" fn OtLibConsoleRx(
+    transport: *const TransportWrapper,
+    quiet: bool,
+    timeout_ms: u64,
+    msg: *mut u8,
+    msg_size: *mut usize,
+) {
+    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
+    // the call to `OtLibFpgaTransportInit(...)` above.
+    let transport: &TransportWrapper = unsafe { &*transport };
+
+    // Get handle to SPI console.
+    let spi = transport.spi("BOOTSTRAP").unwrap();
+    let spi_console = SpiConsoleDevice::new(&*spi).unwrap();
+
+    // Instantiate a "UartConsole", which is really just a console buffer.
+    let mut console = UartConsole {
+        timeout: Some(Duration::from_millis(timeout_ms)),
+        timestamp: true,
+        newline: true,
+        exit_success: Some(Regex::new(r"RESP_OK:(.*) CRC:([0-9]+)\n").unwrap()),
+        exit_failure: Some(Regex::new(r"RESP_ERR:(.*) CRC:([0-9]+)\n").unwrap()),
+        ..Default::default()
+    };
+
+    // Select if we should silence STDOUT.
+    let mut stdout = std::io::stdout();
+    let out = if !quiet {
+        let w: &mut dyn Write = &mut stdout;
+        Some(w)
+    } else {
+        None
+    };
+
+    // Receive the payload from DUT.
+    let msg_size = unsafe { &mut *msg_size };
+    let msg = unsafe { std::slice::from_raw_parts_mut(msg, *msg_size) };
+    let result = console.interact(&spi_console, None, out).unwrap();
+    println!();
+    match result {
+        ExitStatus::ExitSuccess => {
+            let cap = console
+                .captures(ExitStatus::ExitSuccess)
+                .expect("RESP_OK capture");
+            let json_str = cap.get(1).expect("RESP_OK group").as_str();
+            let crc_str = cap.get(2).expect("CRC group").as_str();
+            check_console_crc(json_str, crc_str).unwrap();
+            msg[..json_str.len()].copy_from_slice(json_str.as_bytes());
+            *msg_size = json_str.len();
+        }
+        ExitStatus::ExitFailure => {
+            let cap = console
+                .captures(ExitStatus::ExitFailure)
+                .expect("RESP_ERR capture");
+            let json_str = cap.get(1).expect("RESP_OK group").as_str();
+            let crc_str = cap.get(2).expect("CRC group").as_str();
+            check_console_crc(json_str, crc_str).unwrap();
+            panic!("{}", json_str)
+        }
+        ExitStatus::Timeout => panic!("Timed Out"),
+        _ => panic!("Impossible result: {:?}", result),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn OtLibConsoleTx(transport: *const TransportWrapper, c_msg: *mut c_char) {
+    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
+    // the call to `OtLibFpgaTransportInit(...)` above.
+    let transport: &TransportWrapper = unsafe { &*transport };
+
+    // Unpack msg string.
+    // SAFETY: The expected message string must be set by the caller and be valid.
+    let msg_cstr = unsafe { CStr::from_ptr(c_msg) };
+    let msg = msg_cstr.to_str().unwrap();
+
+    // Get handle to SPI console.
+    let spi = transport.spi("BOOTSTRAP").unwrap();
+    let spi_console = SpiConsoleDevice::new(&*spi).unwrap();
+
+    // Send string to console.
+    spi_console.console_write(msg.as_bytes()).unwrap();
 }
