@@ -210,6 +210,21 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 		return nil, status.Errorf(codes.Internal, "could not fetch seed label %q: %v", skucfg.AttrNameKdfSecLo, err)
 	}
 
+	dM, err := sku.config.GetAttribute(skucfg.AttrNameKdfMechanism)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "could not fetch derive mechanism %q: %v", skucfg.AttrNameKdfMechanism, err)
+	}
+
+	var dMech se.KdfMechanism
+	switch dM {
+	case skucfg.KdfMechanismHKDF:
+		dMech = se.KdfMechanismHKDF
+	case skucfg.KdfMechanismVendorLunaPRF:
+		dMech = se.KdfMechanismVendorLunaPRF
+	default:
+		return nil, status.Errorf(codes.Internal, "invalid derive mechanism %q", dM)
+	}
+
 	// Build parameter list for all keygens requested.
 	var keygenParams []*se.SymmetricKeygenParams
 	for _, p := range request.Params {
@@ -271,9 +286,9 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 			return nil, status.Errorf(codes.InvalidArgument, "invalid key type requested: %d", p.Type)
 		}
 
-		// Set sku and diversifier strings.
 		params.Sku = request.Sku
 		params.Diversifier = p.Diversifier
+		params.DeriveMech = dMech
 
 		keygenParams = append(keygenParams, params)
 	}

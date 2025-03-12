@@ -16,6 +16,7 @@ publicKeys:
 attributes:
     KdfSecHi: sival-kdf-hisec-v0
     KdfSecLo: sival-kdf-losec-v0
+    KdfMechanism: HKDF
     WrappingMechanism: RsaPkcs
     WrappingKeyLabel: sku-sival-rsa-rma-v0
     SigningKey/Dice/v0: sival-dice-key-p256-v0

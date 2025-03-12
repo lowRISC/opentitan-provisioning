@@ -10,6 +10,20 @@ import (
 	"crypto/x509"
 )
 
+// KdfMechanism specifies the key derivation function mechanism for symmetric
+// keys.
+type KdfMechanism int
+
+const (
+	// KdfMechanismNone indicates that the key should not be derived.
+	KdfMechanismNone KdfMechanism = iota
+	// KdfMechanismHKDF indicates that the key should be derived using HKDF.
+	KdfMechanismHKDF
+	// KdfMechanismVendorLunaPRF indicates that the key should be derived using
+	// a vendor-specific PRF.
+	KdfMechanismVendorLunaPRF
+)
+
 // WrappingMechanism specifies the wrapping mechanism for the key.
 type WrappingMechanism int
 
@@ -65,12 +79,13 @@ const (
 
 // Parameters for GenerateSymmetricKeys().
 type SymmetricKeygenParams struct {
-	SeedLabel    string
-	KeyType      SymmetricKeyType
+	DeriveMech   KdfMechanism
+	Diversifier  string
 	KeyOp        SymmetricKeyOp
+	KeyType      SymmetricKeyType
+	SeedLabel    string
 	SizeInBits   uint
 	Sku          string
-	Diversifier  string
 	Wrap         WrappingMechanism
 	WrapKeyLabel string
 }

@@ -122,6 +122,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 		SizeInBits:  128,
 		Sku:         "test sku",
 		Diversifier: "test_unlock",
+		DeriveMech:  KdfMechanismHKDF,
 		Wrap:        WrappingMechanismNone,
 	}
 	// test exit token
@@ -132,6 +133,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 		SizeInBits:  128,
 		Sku:         "test sku",
 		Diversifier: "test_exit",
+		DeriveMech:  KdfMechanismHKDF,
 		Wrap:        WrappingMechanismNone,
 	}
 	// wafer authentication secret
@@ -142,6 +144,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 		SizeInBits:  256,
 		Sku:         "test sku",
 		Diversifier: "was",
+		DeriveMech:  KdfMechanismHKDF,
 		Wrap:        WrappingMechanismNone,
 	}
 	params := []*SymmetricKeygenParams{
@@ -194,6 +197,7 @@ func TestGenerateSymmKeysWrap(t *testing.T) {
 		SizeInBits:   128,
 		Sku:          "test sku",
 		Diversifier:  "rma: device_id",
+		DeriveMech:   KdfMechanismHKDF,
 		Wrap:         WrappingMechanismRSAPCKS,
 		WrapKeyLabel: "TokenWrappingKey",
 	}

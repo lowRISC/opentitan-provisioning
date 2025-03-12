@@ -287,10 +287,38 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 		}
 
 		// Generate key from seed and extract.
-		seKey, err := seed.HKDFDeriveAES(crypto.SHA256, []byte(p.Sku),
-			[]byte(p.Diversifier), p.SizeInBits, &pk11.KeyOptions{Extractable: true, Sensitive: false})
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed HKDFDeriveAES: %v", err)
+		var seKey pk11.SecretKey
+		switch p.DeriveMech {
+		case KdfMechanismHKDF:
+			seKey, err = seed.HKDFDeriveAES(
+				crypto.SHA256,
+				[]byte(p.Sku),
+				[]byte(p.Diversifier),
+				p.SizeInBits,
+				&pk11.KeyOptions{
+					Extractable: true,
+					Sensitive:   false,
+				},
+			)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed HKDFDeriveAES: %v", err)
+			}
+		case KdfMechanismVendorLunaPRF:
+			seKey, err = seed.VendorLunaPRFKDF(
+				crypto.SHA256,
+				[]byte(p.Sku),
+				[]byte(p.Diversifier),
+				p.SizeInBits,
+				&pk11.KeyOptions{
+					Extractable: true,
+					Sensitive:   false,
+				},
+			)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed VendorLunaPRF: %v", err)
+			}
+		default:
+			return nil, status.Errorf(codes.Internal, "unsupported derive mechanism: %v", p.DeriveMech)
 		}
 
 		// Extract the key from the SE.

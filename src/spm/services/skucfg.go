@@ -13,10 +13,21 @@ import (
 type AttrName string
 
 const (
-	AttrNameWrappingMechanism AttrName = "WrappingMechanism"
-	AttrNameWrappingKeyLabel           = "WrappingKeyLabel"
+	AttrNameKdfMechanism      AttrName = "KdfMechanism"
 	AttrNameKdfSecHi                   = "KdfSecHi"
 	AttrNameKdfSecLo                   = "KdfSecLo"
+	AttrNameWrappingKeyLabel           = "WrappingKeyLabel"
+	AttrNameWrappingMechanism          = "WrappingMechanism"
+)
+
+type KdfMechanism string
+
+// KdfMechanism provides the key derivation function mechanism for symmetric
+// keys.
+const (
+	KdfMechanismNone          KdfMechanism = "none"
+	KdfMechanismHKDF                       = "HKDF"
+	KdfMechanismVendorLunaPRF              = "VendorLunaPRF"
 )
 
 // WrappingMechanism provides the wrapping method for symmetric keys.
@@ -24,10 +35,10 @@ type WrappingMechanism string
 
 const (
 	WrappingMechanismNone     WrappingMechanism = "none"
-	WrappingMechanismRSAPKCS1                   = "RsaPkcs"
-	WrappingMechanismRSAOAEP                    = "RsaOaep"
 	WrappingMechanismAESGCM                     = "AesGcm"
 	WrappingMechanismAESKWP                     = "AesKwp"
+	WrappingMechanismRSAOAEP                    = "RsaOaep"
+	WrappingMechanismRSAPKCS1                   = "RsaPkcs"
 )
 
 type Config struct {

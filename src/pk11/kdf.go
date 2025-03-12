@@ -181,6 +181,63 @@ func (k *SecretKey) HKDFExpandAES(hash crypto.Hash, info []byte, keyBitLen uint,
 	return SecretKey{object{k.sess, obj}}, nil
 }
 
+// VendorLunaPRFKDF derives a key using the KDF-PRF mechanism.
+//
+// The label and context are optional, but if provided, they must be unique for
+// each derivation.
+//
+// This operation can be quite slow, so it is recommended to call it from another
+// goroutine.
+func (k *SecretKey) VendorLunaPRFKDF(hash crypto.Hash, label, context []byte, keyBitLen uint, opts *KeyOptions) (SecretKey, error) {
+	if opts == nil {
+		opts = &KeyOptions{}
+	}
+	if keyBitLen%8 != 0 || keyBitLen < 128 {
+		return SecretKey{}, fmt.Errorf("keyBitLen must be a multiple of 8 >= 128; got %d", keyBitLen)
+	}
+
+	params := native.KDFPRFParams{
+		Counter:        keyBitLen / 8,
+		Label:          label,
+		Context:        context,
+		EncodingScheme: native.KDFPRFEncodingScheme1,
+	}
+
+	switch hash {
+	case crypto.SHA256:
+		params.Scheme = native.KDFPRFSchemeHMACSHA256
+	case crypto.SHA384:
+		params.Scheme = native.KDFPRFSchemeHMACSHA384
+	case crypto.SHA512:
+		params.Scheme = native.KDFPRFSchemeHMACSHA512
+	default:
+		return SecretKey{}, fmt.Errorf("unknown hash function: %s", hash)
+	}
+
+	tpl := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_VALUE_LEN, keyBitLen/8),
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_SECRET_KEY),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_AES),
+		pkcs11.NewAttribute(pkcs11.CKA_ENCRYPT, true),
+		pkcs11.NewAttribute(pkcs11.CKA_DECRYPT, true),
+		pkcs11.NewAttribute(pkcs11.CKA_WRAP, true),
+		pkcs11.NewAttribute(pkcs11.CKA_UNWRAP, true),
+		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, opts.Sensitive),
+		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, opts.Extractable),
+	}
+	k.sess.tok.m.appendAttrKeyID(&tpl)
+
+	rawMech := params.MakeRawMech()
+	defer params.Free()
+
+	obj, err := native.RawDeriveKey(k.sess.tok.m.Raw(), k.sess.raw, k.raw, rawMech, tpl)
+	if err != nil {
+		return SecretKey{}, fmt.Errorf("could not perform expansion operation: %v", err)
+	}
+
+	return SecretKey{object{k.sess, obj}}, nil
+}
+
 // HKDFDeriveAES performs a single-step HKDF key derivation.
 //
 // The salt may be a byte slice, a SecretKey, or nil; in the latter case, a
@@ -230,7 +287,7 @@ func (k *SecretKey) HKDFDeriveAES(hash crypto.Hash, salt any, info []byte, keyBi
 		pkcs11.NewAttribute(pkcs11.CKA_DECRYPT, true),
 		pkcs11.NewAttribute(pkcs11.CKA_WRAP, true),
 		pkcs11.NewAttribute(pkcs11.CKA_UNWRAP, true),
-		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, !opts.Extractable),
+		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, opts.Sensitive),
 		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, opts.Extractable),
 	}
 	k.sess.tok.m.appendAttrKeyID(&tpl)

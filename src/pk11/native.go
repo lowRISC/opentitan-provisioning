@@ -18,6 +18,9 @@ import (
 
 #include <stdlib.h> // For calloc() and free().
 
+typedef unsigned char CK_BYTE;
+typedef CK_BYTE* CK_BYTE_PTR;
+
 typedef unsigned char CK_BBOOL;
 typedef unsigned long CK_ULONG;
 typedef CK_ULONG CK_RV;
@@ -58,6 +61,47 @@ struct CK_HKDF_PARAMS {
   CK_ULONG info_len;
 };
 
+// The following definitions are from the Luna HSM PKCS#11 module.
+// See: https://thalesdocs.com/gphsm/luna/7/docs/network/Content/sdk/mechanisms/CKM_NIST_PRF_KDF.html
+// for more information.
+
+
+// PRF KDF schemes
+#define CK_NIST_PRF_KDF_DES3_CMAC      0x00000001
+#define CK_NIST_PRF_KDF_AES_CMAC       0x00000002
+#define CK_PRF_KDF_ARIA_CMAC           0x00000003
+#define CK_PRF_KDF_SEED_CMAC           0x00000004
+#define CK_NIST_PRF_KDF_HMAC_SHA1      0x00000005
+#define CK_NIST_PRF_KDF_HMAC_SHA224    0x00000006
+#define CK_NIST_PRF_KDF_HMAC_SHA256    0x00000007
+#define CK_NIST_PRF_KDF_HMAC_SHA384    0x00000008
+#define CK_NIST_PRF_KDF_HMAC_SHA512    0x00000009
+#define CK_PRF_KDF_HMAC_RIPEMD160      0x0000000A
+
+// PRF KDF encoding schemes
+// SCHEME_1:      Counter (4 bytes) || Context || 0x00             || Label            || Length
+// SCHEME_2:      Counter (4 bytes) || Context || Label            ||                  ||
+// SCHEME_3:      Counter (4 bytes) || Label   || 0x00             || Context          || Length
+// SCHEME_4:      Counter (4 bytes) || Label   || Context          ||                  ||
+// SCHEME_SCP03:  Label             || 0x00    || Length (2 bytes) || Counter (1 byte) || Context
+// SCHEME_HID_KD: Counter (1 byte)  || Label   || 0x00             || Context          || Length (2 bytes)
+#define LUNA_PRF_KDF_ENCODING_SCHEME_1      0x00000000
+#define LUNA_PRF_KDF_ENCODING_SCHEME_2      0x00000001
+#define LUNA_PRF_KDF_ENCODING_SCHEME_3      0x00000002
+#define LUNA_PRF_KDF_ENCODING_SCHEME_4      0x00000003
+#define LUNA_PRF_KDF_ENCODING_SCHEME_SCP03  0x00000004
+#define LUNA_PRF_KDF_ENCODING_SCHEME_HID_KD 0x00000005
+
+struct CK_KDF_PRF_PARAMS {
+CK_ULONG prfType;
+void*    pLabel;
+CK_ULONG ulLabelLen;
+void*    pContext;
+CK_ULONG ulContextLen;
+CK_ULONG ulCounter;
+CK_ULONG ulEncodingScheme;
+};
+
 struct ctx {
   void* handle;
   void** vtable;
@@ -79,6 +123,104 @@ type RawMech struct {
 	typ   C.CK_MECHANISM_TYPE
 	param unsafe.Pointer
 	len   C.CK_ULONG
+}
+
+const (
+	// CKMVendorDefined is a Go representation of CKM_VENDOR_DEFINED.
+	CKMVendorDefined = 0x80000000
+	// KDFPRFMechanismType is a Go representation of CK_NIST_PRF_KDF.
+	// CKM_VENDOR_DEFINED + 0xA02
+	KDFPRFMechanismType = CKMVendorDefined + 0xA02
+)
+
+// KDFPRFScheme is a Go representation of the available PRF KDF schemes.
+type KDFPRFScheme uint
+
+const (
+	KDFPRFSchemeDES3CMAC      KDFPRFScheme = C.CK_NIST_PRF_KDF_DES3_CMAC
+	KDFPRFSchemeAESCMAC                    = C.CK_NIST_PRF_KDF_AES_CMAC
+	KDFPRFSchemeARIACMAC                   = C.CK_PRF_KDF_ARIA_CMAC
+	KDFPRFSchemeSEEDCMAC                   = C.CK_PRF_KDF_SEED_CMAC
+	KDFPRFSchemeHMACSHA1                   = C.CK_NIST_PRF_KDF_HMAC_SHA1
+	KDFPRFSchemeHMACSHA224                 = C.CK_NIST_PRF_KDF_HMAC_SHA224
+	KDFPRFSchemeHMACSHA256                 = C.CK_NIST_PRF_KDF_HMAC_SHA256
+	KDFPRFSchemeHMACSHA384                 = C.CK_NIST_PRF_KDF_HMAC_SHA384
+	KDFPRFSchemeHMACSHA512                 = C.CK_NIST_PRF_KDF_HMAC_SHA512
+	KDFPRFSchemeHMACRIPEMD160              = C.CK_PRF_KDF_HMAC_RIPEMD160
+)
+
+// KDFPRFEncodingScheme is a Go representation of CK_PRF_KDF_ENCODING_SCHEME.
+type KDFPRFEncodingScheme uint
+
+const (
+	KDFPRFEncodingScheme1     KDFPRFEncodingScheme = C.LUNA_PRF_KDF_ENCODING_SCHEME_1
+	KDFPRFEncodingScheme2                          = C.LUNA_PRF_KDF_ENCODING_SCHEME_2
+	KDFPRFEncodingScheme3                          = C.LUNA_PRF_KDF_ENCODING_SCHEME_3
+	KDFPRFEncodingScheme4                          = C.LUNA_PRF_KDF_ENCODING_SCHEME_4
+	KDFPRFEncodingSchemeSCP03                      = C.LUNA_PRF_KDF_ENCODING_SCHEME_SCP03
+	KDFPRFEncodingSchemeHIDKD                      = C.LUNA_PRF_KDF_ENCODING_SCHEME_HID_KD
+)
+
+// KDFPRFParams is a Go representation of CK_KDF_PRF_PARAMS.
+type KDFPRFParams struct {
+	Scheme         KDFPRFScheme
+	Label          []byte
+	Context        []byte
+	Counter        uint
+	EncodingScheme KDFPRFEncodingScheme
+
+	raw *C.struct_CK_KDF_PRF_PARAMS
+}
+
+// MakeRawMech allocates (and caches) a CK_KDF_PRF_PARAMS containing copies of
+// data in the Go fields, and returns it wrapped in a RawMech.
+//
+// It must be freed with Free().
+func (p *KDFPRFParams) MakeRawMech() RawMech {
+	if p.raw != nil {
+		goto done
+	}
+
+	p.raw = (*C.struct_CK_KDF_PRF_PARAMS)(C.calloc(C.sizeof_struct_CK_KDF_PRF_PARAMS, 1))
+	if p.raw == nil {
+		panic("calloc() returned nil")
+	}
+
+	*p.raw = C.struct_CK_KDF_PRF_PARAMS{
+		prfType:          C.CK_ULONG(p.Scheme),
+		ulLabelLen:       C.CK_ULONG(len(p.Label)),
+		ulContextLen:     C.CK_ULONG(len(p.Context)),
+		ulCounter:        C.CK_ULONG(p.Counter),
+		ulEncodingScheme: C.CK_ULONG(p.EncodingScheme),
+	}
+
+	if len(p.Label) > 0 {
+		p.raw.pLabel = C.CBytes(p.Label)
+		p.raw.ulLabelLen = C.CK_ULONG(len(p.Label))
+	}
+	if len(p.Context) > 0 {
+		p.raw.pContext = C.CBytes(p.Context)
+		p.raw.ulContextLen = C.CK_ULONG(len(p.Context))
+	}
+
+done:
+	return RawMech{
+		typ:   C.CK_MECHANISM_TYPE(KDFPRFMechanismType),
+		param: unsafe.Pointer(p.raw),
+		len:   C.CK_ULONG(C.sizeof_struct_CK_KDF_PRF_PARAMS),
+	}
+}
+
+// Frees memory allocated with MakeRawMech.
+func (p *KDFPRFParams) Free() {
+	if p.raw == nil {
+		return
+	}
+
+	C.free(p.raw.pLabel)
+	C.free(p.raw.pContext)
+	C.free(unsafe.Pointer(p.raw))
+	p.raw = nil
 }
 
 // HKDFParams is a Go representation of CK_HKDF_PARAMS.
