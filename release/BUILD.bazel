@@ -55,7 +55,14 @@ pkg_tar(
         "//config/dev:deploy_config",
     ],
     extension = "tar.xz",
-    strip_prefix = "/config/dev",
+)
+
+pkg_tar(
+    name = "deploy_prod",
+    srcs = [
+        "//config/prod:deploy_config",
+    ],
+    extension = "tar.xz",
 )
 
 pkg_tar(
@@ -77,6 +84,7 @@ pkg_tar(
 release(
     name = "release",
     artifacts = {
+        ":deploy_prod": "Production deployment scripts",
         ":deploy_dev": "Development deployment scripts",
         ":provisioning_appliance_binaries": "Provisioning Appliance binaries",
         ":proxybuffer_binaries": "ProxyBuffer binaries",

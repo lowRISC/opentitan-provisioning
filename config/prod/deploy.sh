@@ -41,41 +41,9 @@ if [ ! -d "${OPENTITAN_VAR_DIR}" ]; then
     sudo mkdir -p "${OPENTITAN_VAR_DIR}"
     sudo chown "${USER}" "${OPENTITAN_VAR_DIR}"
 fi
-mkdir -p "${OPENTITAN_VAR_DIR}/config/dev/spm"
-cp -r "${CONFIG_DIR}/env" "${OPENTITAN_VAR_DIR}/config/dev"
-cp -Rf ${CONFIG_DIR}/spm/* "${OPENTITAN_VAR_DIR}/config/dev/spm"
-echo "Done."
-
-################################################################################
-# Install SoftHSM2 to deployment dir and initialize it.
-################################################################################
-echo "Installing and configuring SoftHSM2 ..."
-if [ ! -d "${OPENTITAN_VAR_DIR}/config/dev/softhsm2" ]; then
-    mkdir -p "${OPENTITAN_VAR_DIR}/config/dev/softhsm2"
-    tar -xvf "${RELEASE_DIR}/softhsm_dev.tar.xz" \
-        --directory "${OPENTITAN_VAR_DIR}/config/dev/softhsm2"
-fi
-
-# We create two separate SoftHSM configuration directories, one for the SPM HSM
-# and one for the offline HSM. SoftHSM2 does not provide a mechanism for assiging
-# deterministic slot IDs, so we use separate configuration directories to avoid
-# slot ID conflicts. Both SPM and Offline tokens are available on slot 0 in their
-# respective configurations.
-
-# SPM HSM Instance.
-${CONFIG_DIR}/softhsm/init.sh \
-    "${CONFIG_DIR}" \
-    "${OPENTITAN_VAR_DIR}/config/dev/softhsm2/softhsm2" \
-    "${OPENTITAN_VAR_DIR}" \
-    "${SPM_HSM_TOKEN_SPM}"
-
-# Offline HSM Instance.
-SOFTHSM2_CONF="${SOFTHSM2_CONF_OFFLINE}" ${CONFIG_DIR}/softhsm/init.sh \
-    "${CONFIG_DIR}" \
-    "${OPENTITAN_VAR_DIR}/config/dev/softhsm2/softhsm2" \
-    "${OPENTITAN_VAR_DIR}" \
-    "${SPM_HSM_TOKEN_OFFLINE}"
-
+mkdir -p "${OPENTITAN_VAR_DIR}/config/prod/spm"
+cp -r "${CONFIG_DIR}/env" "${OPENTITAN_VAR_DIR}/config/prod"
+cp -Rf ${CONFIG_DIR}/spm/* "${OPENTITAN_VAR_DIR}/config/prod/spm"
 echo "Done."
 
 ################################################################################
@@ -91,17 +59,17 @@ tar -xvf "${RELEASE_DIR}/hsmutils.tar.xz" --directory "${OPENTITAN_VAR_DIR}/bin"
 # Unpack the infrastructure release binaries (PA, SPM, ProxyBuffer, etc.).
 ################################################################################
 echo "Unpacking release binaries and container images ..."
-mkdir -p "${OPENTITAN_VAR_DIR}/dev/release"
+mkdir -p "${OPENTITAN_VAR_DIR}/prod/release"
 if [ -z "${CONTAINERS_ONLY}" ]; then
     tar -xvf "${RELEASE_DIR}/provisioning_appliance_binaries.tar.xz" \
-        --directory "${OPENTITAN_VAR_DIR}/dev/release"
+        --directory "${OPENTITAN_VAR_DIR}/prod/release"
     tar -xvf "${RELEASE_DIR}/proxybuffer_binaries.tar.xz" \
-        --directory "${OPENTITAN_VAR_DIR}/dev/release"
+        --directory "${OPENTITAN_VAR_DIR}/prod/release"
 else
     sudo cp "${RELEASE_DIR}/provisioning_appliance_containers.tar" \
-        "${OPENTITAN_VAR_DIR}/dev/release/"
+        "${OPENTITAN_VAR_DIR}/prod/release/"
     sudo cp "${RELEASE_DIR}/proxybuffer_containers.tar" \
-        "${OPENTITAN_VAR_DIR}/dev/release/"
+        "${OPENTITAN_VAR_DIR}/prod/release/"
     echo "Skipping unpacking raw binaries; deploying containers only ..."
 fi
 echo "Done."
@@ -120,9 +88,9 @@ infra_image = "podman_pause:latest"
 
 EOF
 podman load \
-    -i "${OPENTITAN_VAR_DIR}/dev/release/provisioning_appliance_containers.tar"
+    -i "${OPENTITAN_VAR_DIR}/prod/release/provisioning_appliance_containers.tar"
 podman load \
-    -i "${OPENTITAN_VAR_DIR}/dev/release/proxybuffer_containers.tar"
+    -i "${OPENTITAN_VAR_DIR}/prod/release/proxybuffer_containers.tar"
 echo "Done."
 
 ################################################################################
@@ -130,5 +98,5 @@ echo "Done."
 ################################################################################
 echo "Launching containers ..."
 podman play kube "${CONFIG_DIR}/containers/provapp.yml" \
-    --configmap "${CONFIG_DIR}/env/spm.yml"
+    --configmap="${CONFIG_DIR}/env/spm.yml"
 echo "Done."

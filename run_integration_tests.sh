@@ -14,6 +14,10 @@ for i in "$@"; do
     export DEBUG="yes"
     shift
     ;;
+  --prod)
+    export PROD_SETUP_EN="yes"
+    shift
+    ;;
   *)
     echo "Unknown option $i"
     exit 1
@@ -21,17 +25,37 @@ for i in "$@"; do
   esac
 done
 
-# Register trap to shutdown containers before exit.
-# Teardown containers. This currently does not remove the container volumes.
-shutdown_containers() {
-  podman pod stop provapp
-  podman pod rm provapp
-}
-if [ -z "${DEBUG}" ]; then
-  trap shutdown_containers EXIT
+if [[ -n "${PROD_SETUP_EN}" ]]; then
+  # Spawn the SPM server as a process and store its process ID.
+  echo "Launching SPM server outside of container"
+  . config/prod/env/spm.env
+  bazelisk run //src/spm:spm_server -- \
+    --port=5000 \
+    "--hsm_so=${HSMTOOL_MODULE}" \
+    --spm_config_dir=/var/lib/opentitan/config/prod/spm &
+  SPM_COMMAND_PID=$!
 fi
 
-# Build and deploy containers.
+
+# Register trap to shutdown containers before exit.
+# Teardown containers. This currently does not remove the container volumes.
+shutdown_callback() {
+  if [ -z "${DEBUG}" ]; then
+    podman pod stop provapp
+    podman pod rm provapp
+  fi
+
+  # Send kill signal to SPM server process and wait for it to terminate.
+  if [[ -n "${PROD_SETUP_EN}" ]]; then
+    kill "${SPM_COMMAND_PID}" 2>/dev/null
+    wait "${SPM_COMMAND_PID}" 2>/dev/null
+  fi
+}
+trap shutdown_callback EXIT
+
+
+# Build and deploy containers. The ${PROD_SETUP_EN} envar is checked
+# by `deploy_test_k8_pod.sh`.
 ./util/containers/deploy_test_k8_pod.sh
 
 # Run the loadtest.

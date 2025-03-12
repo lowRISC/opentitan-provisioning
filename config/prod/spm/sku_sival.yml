@@ -1,0 +1,22 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+sku: "sival"
+slotId: 0
+numSessions: 3
+symmetricKeys:
+  - name: sival-kdf-hisec-v0
+  - name: sival-kdf-losec-v0
+privateKeys:
+    - name: sival-dice-key-p256-v0
+    - name: spm-hsm-id-v0.priv
+publicKeys:
+    - name: sku-sival-rsa-rma-v0
+attributes:
+    KdfSecHi: sival-kdf-hisec-v0
+    KdfSecLo: sival-kdf-losec-v0
+    WrappingMechanism: RsaPkcs
+    WrappingKeyLabel: sku-sival-rsa-rma-v0
+    SigningKey/Dice/v0: sival-dice-key-p256-v0
+    SigningKey/Identity/v0: spm-hsm-id-v0.priv
