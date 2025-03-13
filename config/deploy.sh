@@ -11,21 +11,27 @@ set -e
 usage() {
     echo >&2 "ERROR: $1"
     echo >&2 ""
-    echo >&2 "Usage: $0 <release-dir>"
+    echo >&2 "Usage: $0 <dev|prod> <release-dir>"
     exit 1
 }
 
 ################################################################################
 # Parse args.
 ################################################################################
-if [ $# != 1 ]; then
+if [ $# != 2 ]; then
     usage "Unexpected number of arguments"
 fi
-RELEASE_DIR=$1
+
+CONFIG_SUBDIR=$1
+if [ "${CONFIG_SUBDIR}" != "dev" ] && [ "${CONFIG_SUBDIR}" != "prod" ]; then
+    usage "CONFIG_SUBDIR: ${CONFIG_SUBDIR} must be 'dev' or 'prod'"
+fi
+
+RELEASE_DIR=$2
 if [ ! -d "${RELEASE_DIR}" ]; then
     usage "RELEASE_DIR: ${RELEASE_DIR} does not exist"
 fi
-CONFIG_DIR="$(dirname "$0")"
+CONFIG_DIR="$(dirname "$0")/${CONFIG_SUBDIR}"
 
 ################################################################################
 # Source envars.
@@ -41,10 +47,47 @@ if [ ! -d "${OPENTITAN_VAR_DIR}" ]; then
     sudo mkdir -p "${OPENTITAN_VAR_DIR}"
     sudo chown "${USER}" "${OPENTITAN_VAR_DIR}"
 fi
-mkdir -p "${OPENTITAN_VAR_DIR}/config/prod/spm"
-cp -r "${CONFIG_DIR}/env" "${OPENTITAN_VAR_DIR}/config/prod"
-cp -Rf ${CONFIG_DIR}/spm/* "${OPENTITAN_VAR_DIR}/config/prod/spm"
+
+DEPLOYMENT_DIR="${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}"
+
+mkdir -p "${DEPLOYMENT_DIR}/spm"
+cp -r "${CONFIG_DIR}/env" "${DEPLOYMENT_DIR}"
+cp -Rf ${CONFIG_DIR}/spm/* "${DEPLOYMENT_DIR}/spm"
 echo "Done."
+
+################################################################################
+# Install SoftHSM2 to deployment dir and initialize it.
+################################################################################
+if [ "${CONFIG_SUBDIR}" == "dev" ]; then
+    echo "Installing and configuring SoftHSM2 ..."
+    if [ ! -d "${DEPLOYMENT_DIR}/softhsm2" ]; then
+        mkdir -p "${DEPLOYMENT_DIR}/softhsm2"
+        tar -xvf "${RELEASE_DIR}/softhsm_dev.tar.xz" \
+            --directory "${DEPLOYMENT_DIR}/softhsm2"
+    fi
+
+    # We create two separate SoftHSM configuration directories, one for the SPM HSM
+    # and one for the offline HSM. SoftHSM2 does not provide a mechanism for assiging
+    # deterministic slot IDs, so we use separate configuration directories to avoid
+    # slot ID conflicts. Both SPM and Offline tokens are available on slot 0 in their
+    # respective configurations.
+
+    # SPM HSM Instance.
+    ${CONFIG_DIR}/softhsm/init.sh \
+        "${CONFIG_DIR}" \
+        "${DEPLOYMENT_DIR}/softhsm2/softhsm2" \
+        "${OPENTITAN_VAR_DIR}" \
+        "${SPM_HSM_TOKEN_SPM}"
+
+    # Offline HSM Instance.
+    SOFTHSM2_CONF="${SOFTHSM2_CONF_OFFLINE}" ${CONFIG_DIR}/softhsm/init.sh \
+        "${CONFIG_DIR}" \
+        "${DEPLOYMENT_DIR}/softhsm2/softhsm2" \
+        "${OPENTITAN_VAR_DIR}" \
+        "${SPM_HSM_TOKEN_OFFLINE}"
+
+    echo "Done."
+fi
 
 ################################################################################
 # Install hsmtool to deployment dir.
@@ -59,17 +102,17 @@ tar -xvf "${RELEASE_DIR}/hsmutils.tar.xz" --directory "${OPENTITAN_VAR_DIR}/bin"
 # Unpack the infrastructure release binaries (PA, SPM, ProxyBuffer, etc.).
 ################################################################################
 echo "Unpacking release binaries and container images ..."
-mkdir -p "${OPENTITAN_VAR_DIR}/prod/release"
+mkdir -p "${OPENTITAN_VAR_DIR}/release"
 if [ -z "${CONTAINERS_ONLY}" ]; then
     tar -xvf "${RELEASE_DIR}/provisioning_appliance_binaries.tar.xz" \
-        --directory "${OPENTITAN_VAR_DIR}/prod/release"
+        --directory "${OPENTITAN_VAR_DIR}/release"
     tar -xvf "${RELEASE_DIR}/proxybuffer_binaries.tar.xz" \
-        --directory "${OPENTITAN_VAR_DIR}/prod/release"
+        --directory "${OPENTITAN_VAR_DIR}/release"
 else
     sudo cp "${RELEASE_DIR}/provisioning_appliance_containers.tar" \
-        "${OPENTITAN_VAR_DIR}/prod/release/"
+        "${OPENTITAN_VAR_DIR}/release/"
     sudo cp "${RELEASE_DIR}/proxybuffer_containers.tar" \
-        "${OPENTITAN_VAR_DIR}/prod/release/"
+        "${OPENTITAN_VAR_DIR}/release/"
     echo "Skipping unpacking raw binaries; deploying containers only ..."
 fi
 echo "Done."
@@ -88,9 +131,9 @@ infra_image = "podman_pause:latest"
 
 EOF
 podman load \
-    -i "${OPENTITAN_VAR_DIR}/prod/release/provisioning_appliance_containers.tar"
+    -i "${OPENTITAN_VAR_DIR}/release/provisioning_appliance_containers.tar"
 podman load \
-    -i "${OPENTITAN_VAR_DIR}/prod/release/proxybuffer_containers.tar"
+    -i "${OPENTITAN_VAR_DIR}/release/proxybuffer_containers.tar"
 echo "Done."
 
 ################################################################################
@@ -98,5 +141,5 @@ echo "Done."
 ################################################################################
 echo "Launching containers ..."
 podman play kube "${CONFIG_DIR}/containers/provapp.yml" \
-    --configmap="${CONFIG_DIR}/env/spm.yml"
+    --configmap "${CONFIG_DIR}/env/spm.yml"
 echo "Done."

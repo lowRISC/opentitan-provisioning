@@ -52,6 +52,7 @@ pkg_tar(
 pkg_tar(
     name = "deploy_dev",
     srcs = [
+        "//config:deploy_script",
         "//config/dev:deploy_config",
     ],
     extension = "tar.xz",
@@ -60,6 +61,7 @@ pkg_tar(
 pkg_tar(
     name = "deploy_prod",
     srcs = [
+        "//config:deploy_script",
         "//config/prod:deploy_config",
     ],
     extension = "tar.xz",

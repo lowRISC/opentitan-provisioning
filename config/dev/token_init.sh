@@ -63,4 +63,3 @@ for filename in "${SKU_CONFIG_FILES[@]}"; do
 done
 
 echo "HSM initialization complete."
-

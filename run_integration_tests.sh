@@ -15,7 +15,7 @@ for i in "$@"; do
     shift
     ;;
   --prod)
-    export PROD_SETUP_EN="yes"
+    export OT_PROV_PROD_EN="yes"
     shift
     ;;
   *)
@@ -25,7 +25,7 @@ for i in "$@"; do
   esac
 done
 
-if [[ -n "${PROD_SETUP_EN}" ]]; then
+if [[ -n "${OT_PROV_PROD_EN}" ]]; then
   # Spawn the SPM server as a process and store its process ID.
   echo "Launching SPM server outside of container"
   . config/prod/env/spm.env
@@ -46,7 +46,7 @@ shutdown_callback() {
   fi
 
   # Send kill signal to SPM server process and wait for it to terminate.
-  if [[ -n "${PROD_SETUP_EN}" ]]; then
+  if [[ -n "${OT_PROV_PROD_EN}" ]]; then
     kill "${SPM_COMMAND_PID}" 2>/dev/null
     wait "${SPM_COMMAND_PID}" 2>/dev/null
   fi
@@ -54,7 +54,7 @@ shutdown_callback() {
 trap shutdown_callback EXIT
 
 
-# Build and deploy containers. The ${PROD_SETUP_EN} envar is checked
+# Build and deploy containers. The ${OT_PROV_PROD_EN} envar is checked
 # by `deploy_test_k8_pod.sh`.
 ./util/containers/deploy_test_k8_pod.sh
 

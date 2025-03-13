@@ -8,18 +8,27 @@ set -e
 readonly REPO_TOP=$(git rev-parse --show-toplevel)
 
 # Build release containers.
+bazelisk build --stamp //release:hsmutils
 bazelisk build --stamp //release:provisioning_appliance_containers_tar
 bazelisk build --stamp //release:proxybuffer_containers_tar
 bazelisk build --stamp //release:softhsm_dev
-bazelisk build --stamp //release:hsmutils
 
 # Deploy the provisioning appliance services.
 export CONTAINERS_ONLY="yes"
-. ${REPO_TOP}/config/dev/env/spm.env
-${REPO_TOP}/config/dev/deploy.sh ${REPO_TOP}/bazel-bin/release
 
-echo "Initializing tokens ..."
-${REPO_TOP}/config/dev/token_init.sh
+CONFIG_SUBDIR="dev"
+if [[ -n "${OT_PROV_PROD_EN}" ]]; then
+    CONFIG_SUBDIR="prod"
+fi
+
+. ${REPO_TOP}/config/${CONFIG_SUBDIR}/env/spm.env
+${REPO_TOP}/config/deploy.sh ${CONFIG_SUBDIR} ${REPO_TOP}/bazel-bin/release
+
+TOKEN_INIT_SCRIPT="${REPO_TOP}/config/${CONFIG_SUBDIR}/token_init.sh"
+if [ -f "${TOKEN_INIT_SCRIPT}" ]; then
+    echo "Initializing tokens ..."
+    ${TOKEN_INIT_SCRIPT}
+fi
 
 echo "Provisioning services launched."
 echo "Run the following to teardown:"
