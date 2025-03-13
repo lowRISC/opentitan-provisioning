@@ -272,11 +272,11 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 				return nil, status.Errorf(codes.Internal, "failed to get KLsks key object: %v", err)
 			}
 		case SymmetricKeyTypeKeyGen:
-			seed, err = session.GenerateGenericSecret(
-				p.SizeInBits,
+			seed, err = session.Generate(
+				256,
 				&pk11.KeyOptions{
 					Extractable: true,
-					Sensitive:   false,
+					Sensitive:   true,
 					Token:       false,
 				})
 			if err != nil {
@@ -286,54 +286,13 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 			return nil, status.Errorf(codes.Internal, "unsupported key type: %v", p.KeyType)
 		}
 
-		// Generate key from seed and extract.
-		var seKey pk11.SecretKey
-		switch p.DeriveMech {
-		case KdfMechanismHKDF:
-			seKey, err = seed.HKDFDeriveAES(
-				crypto.SHA256,
-				[]byte(p.Sku),
-				[]byte(p.Diversifier),
-				p.SizeInBits,
-				&pk11.KeyOptions{
-					Extractable: true,
-					Sensitive:   false,
-				},
-			)
-			if err != nil {
-				return nil, status.Errorf(codes.Internal, "failed HKDFDeriveAES: %v", err)
-			}
-		case KdfMechanismVendorLunaPRF:
-			seKey, err = seed.VendorLunaPRFKDF(
-				crypto.SHA256,
-				[]byte(p.Sku),
-				[]byte(p.Diversifier),
-				p.SizeInBits,
-				&pk11.KeyOptions{
-					Extractable: true,
-					Sensitive:   false,
-				},
-			)
-			if err != nil {
-				return nil, status.Errorf(codes.Internal, "failed VendorLunaPRF: %v", err)
-			}
-		default:
-			return nil, status.Errorf(codes.Internal, "unsupported derive mechanism: %v", p.DeriveMech)
-		}
-
-		// Extract the key from the SE.
-		exportedKey, err := seKey.ExportKey()
+		// Generate token from seed and extract.
+		rawData := append([]byte(p.Sku), []byte(p.Diversifier)...)
+		keyBytes, err := seed.SignHMAC256(rawData)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to extract symmetric key: %v", err)
+			return nil, status.Errorf(codes.Internal, "failed to hash seed: %v", err)
 		}
 
-		// Parse and format the key bytes.
-		aesKey, ok := exportedKey.(pk11.AESKey)
-		if !ok {
-			return nil, status.Errorf(codes.Internal,
-				"failed to parse extracted symmetric key: %v", ok)
-		}
-		keyBytes := []byte(aesKey)
 		if p.KeyOp == SymmetricKeyOpHashedOtLcToken {
 			// OpenTitan lifecycle tokens are stored in OTP in hashed form using the
 			// cSHAKE128 algorithm with the "LC_CTRL" customization string.
@@ -354,16 +313,16 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 				return nil, status.Errorf(codes.Internal, "failed to find %q key object: %v", p.WrapKeyLabel, err)
 			}
 
-			var m pk11.KdfWrapMechanism
+			var m pk11.GenSecretWrapMechanism
 			switch p.Wrap {
 			case WrappingMechanismRSAPCKS:
-				m = pk11.KdfWrapMechanismRsaPcks
+				m = pk11.GenSecretWrapMechanismRsaPcks
 			case WrappingMechanismRSAOAEP:
-				m = pk11.KdfWrapMechanismRsaOaep
+				m = pk11.GenSecretWrapMechanismRsaOaep
 			default:
 				return nil, status.Errorf(codes.Internal, "unsupported wrap mechanism: %v", p.Wrap)
 			}
-			wkey, err = seed.WrapKey(wkObj, m)
+			wkey, err = seed.Wrap(wkObj, m)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "failed to wrap key: %v", err)
 			}

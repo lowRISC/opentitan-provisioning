@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -12,24 +12,12 @@ go_library(
         "aes.go",
         "dump.go",
         "ecdsa.go",
-        "kdf.go",
+        "gensec.go",
         "object.go",
         "pk11.go",
         "rsa.go",
     ],
     importpath = "github.com/lowRISC/opentitan-provisioning/src/pk11",
-    deps = [
-        ":native",
-        "@com_github_miekg_pkcs11//:go_default_library",
-    ],
-)
-
-go_library(
-    name = "native",
-    srcs = ["native.go"],
-    cgo = True,
-    importpath = "github.com/lowRISC/opentitan-provisioning/src/pk11/native",
-    visibility = ["//visibility:private"],
     deps = [
         "@com_github_miekg_pkcs11//:go_default_library",
     ],
@@ -63,16 +51,6 @@ go_test(
     deps = [
         ":pk11",
         ":test_support",
-    ],
-)
-
-go_test(
-    name = "hkdf_test",
-    srcs = ["hkdf_test.go"],
-    deps = [
-        ":pk11",
-        ":test_support",
-        "@org_golang_x_crypto//hkdf",
     ],
 )
 

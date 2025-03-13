@@ -6,22 +6,20 @@ package se
 
 import (
 	"bytes"
-	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/hex"
 	"encoding/pem"
-	"io"
 	"log"
 	"math/big"
 	"os"
 	"testing"
 
 	"github.com/bazelbuild/rules_go/go/tools/bazel"
-	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/sha3"
 
 	"github.com/lowRISC/opentitan-provisioning/src/pk11"
@@ -55,15 +53,17 @@ func MakeHSM(t *testing.T) (*HSM, []byte, []byte) {
 	ts.Check(t, s.Login(pk11.NormalUser, ts.UserPin))
 
 	// Initialize HSM with KHsks.
-	hsKeySeed := []byte("high security KDF seed")
-	hsks, err := s.ImportKeyMaterial(hsKeySeed, &pk11.KeyOptions{Extractable: false})
+	hs := sha256.Sum256([]byte("high security KDF seed"))
+	hsKeySeed := hs[:]
+	hsks, err := s.ImportGenericSecret(hsKeySeed, &pk11.KeyOptions{Extractable: false})
 	ts.Check(t, err)
 	hsksUID, err := hsks.UID()
 	ts.Check(t, err)
 
 	// Initialize HSM with KLsks.
-	lsKeySeed := []byte("low security KDF seed")
-	lsks, err := s.ImportKeyMaterial(lsKeySeed, &pk11.KeyOptions{Extractable: false})
+	ls := sha256.Sum256([]byte("low security KDF seed"))
+	lsKeySeed := ls[:]
+	lsks, err := s.ImportGenericSecret(lsKeySeed, &pk11.KeyOptions{Extractable: false})
 	ts.Check(t, err)
 	lsksUID, err := lsks.UID()
 	ts.Check(t, err)
@@ -163,15 +163,18 @@ func TestGenerateSymmKeys(t *testing.T) {
 
 	// Check actual keys match those generated using the go crypto package.
 	for i, p := range params {
+
 		// Generate expected key.
-		var keyGenerator io.Reader
+		var k []byte
 		if p.KeyType == SymmetricKeyTypeSecurityHi {
-			keyGenerator = hkdf.New(crypto.SHA256.New, hsKeySeed, []byte(p.Sku), []byte(p.Diversifier))
+			k = hsKeySeed
 		} else {
-			keyGenerator = hkdf.New(crypto.SHA256.New, lsKeySeed, []byte(p.Sku), []byte(p.Diversifier))
+			k = lsKeySeed
 		}
-		expected_key := make([]byte, len(keys[i]))
-		keyGenerator.Read(expected_key)
+		h2 := hmac.New(sha256.New, k)
+		h2.Write([]byte(p.Sku + p.Diversifier))
+		expected_key := h2.Sum(nil)
+
 		if p.KeyOp == SymmetricKeyOpHashedOtLcToken {
 			hasher := sha3.NewCShake128([]byte(""), []byte("LC_CTRL"))
 			hasher.Write(expected_key)
@@ -227,17 +230,12 @@ func TestGenerateSymmKeysWrap(t *testing.T) {
 		pk, err := s.FindPrivateKey(wk)
 		ts.Check(t, err)
 
-		seed, err := s.UnwrapKDFKey(r.WrappedKey, pk, pk11.KdfWrapMechanismRsaPcks, &pk11.KeyOptions{Extractable: true})
+		seed, err := s.UnwrapGenSecret(r.WrappedKey, pk, pk11.GenSecretWrapMechanismRsaPcks, &pk11.KeyOptions{Extractable: true})
 		ts.Check(t, err)
 
-		seKey, err := seed.HKDFDeriveAES(crypto.SHA256, []byte(rmaParams.Sku),
-			[]byte(rmaParams.Diversifier), rmaParams.SizeInBits, &pk11.KeyOptions{Extractable: true})
-
-		exportedKey, err := seKey.ExportKey()
+		keyBytes, err := seed.SignHMAC256([]byte(rmaParams.Sku + rmaParams.Diversifier))
 		ts.Check(t, err)
 
-		aesKey, _ := exportedKey.(pk11.AESKey)
-		keyBytes := []byte(aesKey)
 		hasher := sha3.NewCShake128([]byte(""), []byte("LC_CTRL"))
 		hasher.Write(keyBytes)
 		hasher.Read(keyBytes)
