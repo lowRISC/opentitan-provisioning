@@ -13,21 +13,10 @@ import (
 type AttrName string
 
 const (
-	AttrNameKdfMechanism      AttrName = "KdfMechanism"
-	AttrNameKdfSecHi                   = "KdfSecHi"
+	AttrNameKdfSecHi          AttrName = "KdfSecHi"
 	AttrNameKdfSecLo                   = "KdfSecLo"
 	AttrNameWrappingKeyLabel           = "WrappingKeyLabel"
 	AttrNameWrappingMechanism          = "WrappingMechanism"
-)
-
-type KdfMechanism string
-
-// KdfMechanism provides the key derivation function mechanism for symmetric
-// keys.
-const (
-	KdfMechanismNone          KdfMechanism = "none"
-	KdfMechanismHKDF                       = "HKDF"
-	KdfMechanismVendorLunaPRF              = "VendorLunaPRF"
 )
 
 // WrappingMechanism provides the wrapping method for symmetric keys.
