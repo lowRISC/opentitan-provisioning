@@ -51,6 +51,7 @@
     "template": {
       CKA_DERIVE: true,
       CKA_SENSITIVE: true,
+      CKA_SIGN: true,
       CKA_TOKEN: true,
     },
     "filename": "sival-kdf-hisec-v0.bin"
@@ -63,6 +64,7 @@
     "template": {
       CKA_DERIVE: true,
       CKA_SENSITIVE: true,
+      CKA_SIGN: true,
       CKA_TOKEN: true,
     },
     "filename": "sival-kdf-losec-v0.bin"
