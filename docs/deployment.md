@@ -65,7 +65,7 @@ instructions use `${STAGING_DIR}` to point to it.
 1. (Optional) Use the following command to execute the PA server load test:
 
     ```console
-    $ /var/lib/opentitan/release/loadtest \
+    $ ${OPENTITAN_VAR_DIR}/release/loadtest \
         --enable_tls=false \
         --pa_address="localhost:5001" \
         --parallel_clients=20 \
@@ -103,7 +103,7 @@ $ bazelisk build //release
 $ config/dev/deploy.sh bazel-bin/release
 
 # Run load test.
-$ /var/lib/opentitan/release/loadtest \
+$ ${OPENTITAN_VAR_DIR}/release/loadtest \
     --enable_tls=false \
     --pa_address="localhost:5001" \
     --parallel_clients=20 \

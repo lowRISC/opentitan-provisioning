@@ -43,14 +43,15 @@ source "${CONFIG_DIR}/env/spm.env"
 ################################################################################
 echo "Staging deployment directory structure ..."
 if [ ! -d "${OPENTITAN_VAR_DIR}" ]; then
-    echo "Creating config directory: ${OPENTITAN_VAR_DIR}. This requires sudo."
-    sudo mkdir -p "${OPENTITAN_VAR_DIR}"
-    sudo chown "${USER}" "${OPENTITAN_VAR_DIR}"
+    echo "Creating config directory: ${OPENTITAN_VAR_DIR}."
+    mkdir -p "${OPENTITAN_VAR_DIR}"
+    chown "${USER}" "${OPENTITAN_VAR_DIR}"
 fi
 
 DEPLOYMENT_DIR="${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}"
 
 mkdir -p "${DEPLOYMENT_DIR}/spm"
+cp -r "${CONFIG_DIR}/containers" "${DEPLOYMENT_DIR}"
 cp -r "${CONFIG_DIR}/env" "${DEPLOYMENT_DIR}"
 cp -Rf ${CONFIG_DIR}/spm/* "${DEPLOYMENT_DIR}/spm"
 echo "Done."
@@ -109,9 +110,9 @@ if [ -z "${CONTAINERS_ONLY}" ]; then
     tar -xvf "${RELEASE_DIR}/proxybuffer_binaries.tar.xz" \
         --directory "${OPENTITAN_VAR_DIR}/release"
 else
-    sudo cp "${RELEASE_DIR}/provisioning_appliance_containers.tar" \
+    cp -f "${RELEASE_DIR}/provisioning_appliance_containers.tar" \
         "${OPENTITAN_VAR_DIR}/release/"
-    sudo cp "${RELEASE_DIR}/proxybuffer_containers.tar" \
+    cp -f "${RELEASE_DIR}/proxybuffer_containers.tar" \
         "${OPENTITAN_VAR_DIR}/release/"
     echo "Skipping unpacking raw binaries; deploying containers only ..."
 fi
@@ -137,9 +138,17 @@ podman load \
 echo "Done."
 
 ################################################################################
+# Generate Kube configuration files from templates.
+################################################################################
+envsubst \
+    < "${DEPLOYMENT_DIR}/containers/provapp.yml.tmpl" \
+    > "${DEPLOYMENT_DIR}/containers/provapp.yml"
+
+
+################################################################################
 # Launch containers with podman.
 ################################################################################
 echo "Launching containers ..."
-podman play kube "${CONFIG_DIR}/containers/provapp.yml" \
-    --configmap "${CONFIG_DIR}/env/spm.yml"
+podman play kube "${DEPLOYMENT_DIR}/containers/provapp.yml" \
+    --configmap "${DEPLOYMENT_DIR}/env/spm.yml"
 echo "Done."

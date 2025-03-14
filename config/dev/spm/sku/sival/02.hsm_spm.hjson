@@ -6,7 +6,7 @@
 // The following operations are for testing purposes only. They are not
 // intended for production use.
 //
-// cd /var/lib/opentitan/spm/sku/sival
+// cd ${OPENTITAN_VAR_DIR}/config/dev/spm/sku/sival
 // bin/hsmtool exec hsm_manuf.hjson
 [
   {

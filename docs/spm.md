@@ -57,7 +57,7 @@ $ . config/dev/env/spm.env
 $ config/dev/softhsm/init.sh \
     config/dev \
     bazel-bin/external/softhsm2/softhsm2 \
-    /var/lib/opentitan \
+    ${OPENTITAN_VAR_DIR} \
     spm-hsm
 refresh: The object generation has not been updated
         Manufacturer ID:  SoftHSM project
@@ -70,7 +70,7 @@ refresh: The object generation has not been updated
         Label:            spm-hsm
 ...
 Execute the following command before launching the spm service:
-export SOFTHSM2_CONF=/var/lib/opentitan/spm/softhsm2/softhsm2.conf
+export SOFTHSM2_CONF=${OPENTITAN_VAR_DIR}/config/dev/spm/softhsm2/softhsm2.conf
 SoftHSM configuration available at: PASS!
 ```
 

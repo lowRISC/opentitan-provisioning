@@ -7,7 +7,7 @@
 // intended for production use.
 //
 // $ source config/dev/env/spm.env
-// $ cd /var/lib/opentitan/spm/sku/sival
+// $ cd ${OPENTITAN_VAR_DIR}/config/dev/spm/sku/sival
 // $ bin/hsmtool exec 01.hsm_offline_keygen.hjson
 [
     // Import public keys.

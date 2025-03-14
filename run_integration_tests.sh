@@ -32,7 +32,7 @@ if [[ -n "${OT_PROV_PROD_EN}" ]]; then
   bazelisk run //src/spm:spm_server -- \
     --port=5000 \
     "--hsm_so=${HSMTOOL_MODULE}" \
-    --spm_config_dir=/var/lib/opentitan/config/prod/spm &
+    --spm_config_dir=${OPENTITAN_VAR_DIR}/config/prod/spm &
   SPM_COMMAND_PID=$!
 fi
 
