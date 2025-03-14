@@ -42,7 +42,7 @@ jobs:
         run: bazel test --test_tag_filters=-lint //...
 
   # Run integration tests.
-  integration_tests:
+  integration_tests_softhsm:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
@@ -50,7 +50,15 @@ jobs:
       - name: Prepare environment
         uses: ./.github/actions/prepare-env
       - name: Run PA loadtest (in containers)
-        run: ./run_integration_tests.sh
+        run: OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./run_integration_tests.sh
+
+  integration_tests_hsm:
+    runs-on: ot-provisioning-self-hosted
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run PA loadtest
+        run: OPENTITAN_VAR_DIR=$(pwd)/.otvar-prod ./run_integration_tests.sh --prod
 
   # Test airgapped build.
   airgapped_build_test:
