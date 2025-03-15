@@ -169,6 +169,8 @@ int main(int argc, char **argv) {
   auto dut = DutLib::Create(absl::GetFlag(FLAGS_fpga));
   dut->DutFpgaLoadBitstream(fpga_bitstream_path);
   dut->DutLoadSramElf(openocd_path, sram_elf_path);
+  dut->DutConsoleWaitForRx("Waiting for CP provisioning data ...",
+                           /*timeout_ms=*/1000);
 
   // Close session with PA.
   pa_status = ate->CloseSession();

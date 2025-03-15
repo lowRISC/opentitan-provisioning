@@ -16,6 +16,11 @@ extern "C" {
 void* OtLibFpgaTransportInit(const char* fpga);
 void OtLibFpgaLoadBitstream(void* transport, const char* fpga_bitstream);
 void OtLibLoadSramElf(void* transport, const char* openocd, const char* elf);
+void OtLibConsoleWaitForRx(void* transport, const char* msg,
+                           uint64_t timeout_ms);
+void OtLibConsoleRx(void* transport, bool quiet, uint64_t timeout_ms,
+                    uint8_t* msg, size_t* msg_size);
+void OtLibConsoleTx(void* transport, const char* msg);
 }
 
 std::unique_ptr<DutLib> DutLib::Create(const std::string& fpga) {
@@ -32,6 +37,25 @@ void DutLib::DutLoadSramElf(const std::string& openocd,
                             const std::string& elf) {
   LOG(INFO) << "in DutLib::DutLoadSramElf";
   OtLibLoadSramElf(transport_, openocd.c_str(), elf.c_str());
+}
+
+void DutLib::DutConsoleWaitForRx(const char* msg, uint64_t timeout_ms) {
+  LOG(INFO) << "in DutLib::DutConsoleWaitForRx";
+  OtLibConsoleWaitForRx(transport_, msg, timeout_ms);
+}
+
+std::string DutLib::DutConsoleRx(bool quiet, uint64_t timeout_ms) {
+  LOG(INFO) << "in DutLib::DutConsoleRx";
+  size_t msg_size = kMaxRxMsgSizeInBytes;
+  OtLibConsoleRx(transport_, quiet, timeout_ms,
+                 reinterpret_cast<uint8_t*>(console_msg_buf_), &msg_size);
+  std::string result(console_msg_buf_, msg_size);
+  return result;
+}
+
+void DutLib::DutConsoleTx(std::string& msg) {
+  LOG(INFO) << "in DutLib::DutConsoleTx";
+  OtLibConsoleTx(transport_, msg.c_str());
 }
 
 }  // namespace test_programs

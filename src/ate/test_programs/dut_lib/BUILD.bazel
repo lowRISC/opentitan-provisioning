@@ -21,7 +21,6 @@ cc_library(
         "//src/ate:ate_client",
         "//src/ate/test_programs/otlib_wrapper",
         "@com_google_absl//absl/log",
-        "@com_google_absl//absl/status",
         "@lowrisc_opentitan//sw/host/opentitanlib",
     ],
 )
