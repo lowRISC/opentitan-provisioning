@@ -117,14 +117,15 @@ Start the SPM server after setting the SoftHSM2 envars with mTLS enabled.
 
 ```console
 $ source config/dev/env/spm.env
-$ bazelisk build //src/spm:spm_server
-$ bazel-bin/src/spm/spm_server_/spm_server --port=5000 \
+$ bazel build //src/spm:spm_server
+$ bazel-bin/src/spm/spm_server_/spm_server \
+    --port=${OTPROV_PORT_SPM} \
     --enable_tls=true \
-    --service_key=$(pwd)/config/dev/certs/out/spm-service-key.pem \
-    --service_cert=$(pwd)/config/dev/certs/out/spm-service-cert.pem \
-    --ca_root_certs=$(pwd)/config/dev/certs/out/ca-cert.pem \
-    --hsm_so=$(pwd)/bazel-bin/external/softhsm2/softhsm2/lib/softhsm/libsofthsm2.so \
-    --spm_config_dir=$(pwd)/config/dev/spm
+    --service_key=${OPENTITAN_VAR_DIR}/config/dev/certs/out/spm-service-key.pem \
+    --service_cert=${OPENTITAN_VAR_DIR}/config/dev/certs/out/spm-service-cert.pem \
+    --ca_root_certs=${OPENTITAN_VAR_DIR}/config/dev/certs/out/ca-cert.pem \
+    --hsm_so=${OPENTITAN_VAR_DIR}/config/dev/softhsm2/libsofthsm2.so \
+    --spm_config_dir=${OPENTITAN_VAR_DIR}/config/dev/spm
 YYYY/mm/DD HH:MM:DD Server is now listening on port: 5000
 ```
 

@@ -7,8 +7,8 @@ set -e
 # See docs/spm.md for more details on how use the keys and certificates
 # produced by this script.
 
-readonly CONFIG_PATH=${OPENTITAN_VAR_DIR}/config/dev/certs/out
-readonly CONFIG_TEMPLATE_PATH=${OPENTITAN_VAR_DIR}/config/dev/certs/templates
+readonly CONFIG_PATH=${OPENTITAN_VAR_DIR}/config/prod/certs/out
+readonly CONFIG_TEMPLATE_PATH=${OPENTITAN_VAR_DIR}/config/prod/certs/templates
 readonly CA_KEY=${CONFIG_PATH}/ca-key.pem
 readonly CA_CERT=${CONFIG_PATH}/ca-cert.pem
 

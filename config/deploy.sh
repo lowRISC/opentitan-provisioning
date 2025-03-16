@@ -51,6 +51,7 @@ fi
 DEPLOYMENT_DIR="${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}"
 
 mkdir -p "${DEPLOYMENT_DIR}/spm"
+cp -r "${CONFIG_DIR}/certs" "${DEPLOYMENT_DIR}"
 cp -r "${CONFIG_DIR}/containers" "${DEPLOYMENT_DIR}"
 cp -r "${CONFIG_DIR}/env" "${DEPLOYMENT_DIR}"
 cp -Rf ${CONFIG_DIR}/spm/* "${DEPLOYMENT_DIR}/spm"
@@ -144,6 +145,12 @@ envsubst \
     < "${DEPLOYMENT_DIR}/containers/provapp.yml.tmpl" \
     > "${DEPLOYMENT_DIR}/containers/provapp.yml"
 
+################################################################################
+# Generate gRPC certificates.
+################################################################################
+echo "Generating gRPC certificates ..."
+${CONFIG_DIR}/certs/gen_certs.sh
+echo "Done."
 
 ################################################################################
 # Launch containers with podman.

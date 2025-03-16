@@ -1,0 +1,17 @@
+[ req ]
+default_bits       = 4096
+distinguished_name = req_distinguished_name
+req_extensions     = req_ext
+prompt             = no
+
+[ req_distinguished_name ]
+C           = US
+L           = Mountain View
+CN          = OpenTitan
+
+[ req_ext ]
+subjectAltName = @alt_names
+
+[ alt_names ]
+IP.1 = ${OTPROV_IP_PA}
+DNS.1 = ${OTPROV_DNS_PA}

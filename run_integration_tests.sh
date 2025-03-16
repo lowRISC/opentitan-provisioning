@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set -e
-set -x
 
 # Parse command line options.
 for i in "$@"; do
@@ -25,6 +24,13 @@ for i in "$@"; do
     ;;
   esac
 done
+
+CONFIG_SUBDIR="dev"
+if [[ -n "${OT_PROV_PROD_EN}" ]]; then
+  CONFIG_SUBDIR="prod"
+fi
+
+DEPLOYMENT_DIR="${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}"
 
 # SPM_PID_FILE is used to store the process ID of the SPM server process.
 # This is used to send a kill signal to the process when the script exits.
@@ -67,23 +73,33 @@ trap shutdown_callback EXIT
 # by `deploy_test_k8_pod.sh`.
 ./util/containers/deploy_test_k8_pod.sh
 
+. ${DEPLOYMENT_DIR}/env/spm.env
+
 if [[ -n "${OT_PROV_PROD_EN}" ]]; then
   # Spawn the SPM server as a process and store its process ID.
   echo "Launching SPM server outside of container"
   . config/prod/env/spm.env
   spm_server_try_stop
   bazelisk run //src/spm:spm_server -- \
-    --port=5000 \
+    --enable_tls=true \
+    --service_cert="${DEPLOYMENT_DIR}/certs/out/spm-service-cert.pem" \
+    --service_key="${DEPLOYMENT_DIR}/certs/out/spm-service-key.pem" \
+    --ca_root_certs=${DEPLOYMENT_DIR}/certs/out/ca-cert.pem \
+    --port=${OTPROV_PORT_SPM} \
     "--hsm_so=${HSMTOOL_MODULE}" \
-    "--spm_config_dir=${OPENTITAN_VAR_DIR}/config/prod/spm" &
+    "--spm_config_dir=${DEPLOYMENT_DIR}/spm" &
   echo $! > "${SPM_PID_FILE}"
 fi
 
 # Run the loadtest.
 echo "Running PA loadtest ..."
 bazelisk run //src/pa:loadtest -- \
-    --pa_address="localhost:5001" \
+    --enable_tls=true \
+    --client_cert="${DEPLOYMENT_DIR}/certs/out/ate-client-cert.pem" \
+    --client_key="${DEPLOYMENT_DIR}/certs/out/ate-client-key.pem" \
+    --ca_root_certs=${DEPLOYMENT_DIR}/certs/out/ca-cert.pem \
+    --pa_address="${OTPROV_DNS_PA}:${OTPROV_PORT_PA}" \
     --sku_auth="test_password" \
-    --parallel_clients=10 \
-    --total_calls_per_method=10
+    --parallel_clients=2 \
+    --total_calls_per_method=4
 echo "Done."

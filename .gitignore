@@ -1,5 +1,7 @@
 .dev-cache/
 .softhsm2
 .opentitan
+.otdev
+.otprod
 bazel-*
 *.swp

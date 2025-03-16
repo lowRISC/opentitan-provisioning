@@ -14,35 +14,54 @@ spec:
   # Configuration for the `paserver` container.
   - name: paserver
     args:
-    - --port=5001
-    - --spm_address=localhost:5000
+    - --enable_tls=true
+    - --service_key=/var/lib/opentitan/config/prod/certs/out/pa-service-key.pem
+    - --service_cert=/var/lib/opentitan/config/prod/certs/out/pa-service-cert.pem
+    - --ca_root_certs=/var/lib/opentitan/config/prod/certs/out/ca-cert.pem
+    - --port=${OTPROV_PORT_PA}
+    - --spm_address=${OTPROV_DNS_SPM}:${OTPROV_PORT_SPM}
     - --enable_pb
-    - --pb_address=localhost:5002
+    - --pb_address=${OTPROV_DNS_PB}:${OTPROV_PORT_PB}
     # TODO: Update label to point to specific release version.
     image: localhost/pa_server:latest
     resources: {}
     ports:
-      - containerPort: 5001
+      - containerPort: ${OTPROV_PORT_PA}
     securityContext:
       capabilities:
         drop:
         - CAP_MKNOD
         - CAP_NET_RAW
         - CAP_AUDIT_WRITE
+    volumeMounts:
+    - mountPath: /var/lib/opentitan/config/prod
+      name: var-lib-opentitan-spm-config-prod-0
   - name: pbserver
     args:
-    - --port=5002
+    - --enable_tls=true
+    - --service_key=/var/lib/opentitan/config/prod/certs/out/pb-service-key.pem
+    - --service_cert=/var/lib/opentitan/config/prod/certs/out/pb-service-cert.pem
+    - --ca_root_certs=/var/lib/opentitan/config/prod/certs/out/ca-cert.pem
+    - --port=${OTPROV_PORT_PB}
     - --db_path=file::memory:?cache=shared
     # TODO: Update label to point to specific release version.
     image: localhost/pb_server:latest
     resources: {}
     ports:
-      - containerPort: 5002
+      - containerPort: ${OTPROV_PORT_PB}
     securityContext:
       capabilities:
         drop:
         - CAP_MKNOD
         - CAP_NET_RAW
         - CAP_AUDIT_WRITE
+    volumeMounts:
+    - mountPath: /var/lib/opentitan/config/prod
+      name: var-lib-opentitan-spm-config-prod-0
   restartPolicy: Always
+  volumes:
+  - hostPath:
+      path: ${OPENTITAN_VAR_DIR}/config/prod
+      type: Directory
+    name: var-lib-opentitan-spm-config-prod-0
 status: {}

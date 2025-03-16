@@ -9,6 +9,22 @@ under [`src/pa/proto/pa.proto`](../src/pa/proto/pa.proto).
 
 ## Developer Notes
 
+### Start Proxy buffer
+
+The proxy buffer service is required by the `loadtest`.
+
+```console
+$ source config/dev/env/spm.env
+$ bazel build //src/proxy_buffer:pb_server
+$ bazel-bin/src/proxy_buffer/pb_server_/pb_server \
+    --enable_tls=true \
+    --service_key=${OPENTITAN_VAR_DIR}/config/dev/certs/out/pb-service-key.pem \
+    --service_cert=${OPENTITAN_VAR_DIR}/config/dev/certs/out/pb-service-cert.pem \
+    --ca_root_certs=${OPENTITAN_VAR_DIR}/config/dev/certs/out/ca-cert.pem \
+    --port=${OTPROV_PORT_PB} \
+    --db_path=file::memory:?cache=shared
+```
+
 ### Start PA Server
 
 Run the following steps before proceeding.
@@ -20,13 +36,17 @@ Start the server with mTLS enabled. The Provisioning Appliance (PA) connects to 
 SPM at startup time.
 
 ```console
-$ bazelisk build //src/pa:pa_server
-$ bazel-bin/src/pa/pa_server_/pa_server --port=5001 \
-    --spm_address="localhost:5000" \
+$ source config/dev/env/spm.env
+$ bazel build //src/pa:pa_server
+$ bazel-bin/src/pa/pa_server_/pa_server \
+    --port=${OTPROV_PORT_PA} \
+    --spm_address="${OTPROV_DNS_SPM}:${OTPROV_PORT_SPM}" \
+    --enable_pb \
+    --pb_address="${OTPROV_DNS_PB}:${OTPROV_PORT_PB}" \
     --enable_tls=true \
-    --service_key=$(pwd)/config/dev/certs/out/pa-service-key.pem \
-    --service_cert=$(pwd)/config/dev/certs/out/pa-service-cert.pem \
-    --ca_root_certs=$(pwd)/config/dev/certs/out/ca-cert.pem
+    --service_key=${OPENTITAN_VAR_DIR}/config/dev/certs/out/pa-service-key.pem \
+    --service_cert=${OPENTITAN_VAR_DIR}/config/dev/certs/out/pa-service-cert.pem \
+    --ca_root_certs=${OPENTITAN_VAR_DIR}/config/dev/certs/out/ca-cert.pem
 YYYY/mm/DD 22:28:09 starting SPM client at address: "localhost:5000"
 YYYY/mm/DD 22:28:09 server is now listening on port: 5001
 ```
@@ -36,12 +56,12 @@ YYYY/mm/DD 22:28:09 server is now listening on port: 5001
 The following command can be used to execute a PA server load test:
 
 ```console
-$ bazelisk run //src/pa:loadtest -- \
+$ bazel run //src/pa:loadtest -- \
     --enable_tls=true \
-    --client_cert=$(pwd)/config/dev/certs/out/ate-client-cert.pem \
-    --client_key=$(pwd)/config/dev/certs/out/ate-client-key.pem \
-    --ca_root_certs=$(pwd)/config/dev/certs/out/ca-cert.pem \
-    --pa_address="localhost:5001" \
+    --client_cert=${OPENTITAN_VAR_DIR}/config/dev/certs/out/ate-client-cert.pem \
+    --client_key=${OPENTITAN_VAR_DIR}/config/dev/certs/out/ate-client-key.pem \
+    --ca_root_certs=${OPENTITAN_VAR_DIR}/config/dev/certs/out/ca-cert.pem \
+    --pa_address="${OTPROV_DNS_PA}:${OTPROV_PORT_PA}" \
     --parallel_clients=20 \
     --total_calls_per_method=100
 ```
