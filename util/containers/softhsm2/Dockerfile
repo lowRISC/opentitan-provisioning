@@ -42,7 +42,6 @@ RUN cd /opt && \
 
 # Apply patches.
 COPY 0001-Disable-filename-logging.patch /tmp/
-COPY 0002-Implement-PKCS-11-HKDF-key-derivation.patch /tmp/
 RUN cd /opt/SoftHSMv2/ && for p in $(ls /tmp/*.patch); do git apply ${p}; done
 
 # Build SoftHSM2.
