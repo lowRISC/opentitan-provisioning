@@ -53,6 +53,7 @@ func RegisterDevice(ctx context.Context, spmClient spmpb.SpmServiceClient, pbCli
 				},
 			},
 		},
+		Data: deviceDataBytes,
 	}
 	edResponse, err := spmClient.EndorseData(ctx, edRequest)
 	if err != nil {
