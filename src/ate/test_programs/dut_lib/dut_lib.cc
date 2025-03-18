@@ -47,9 +47,11 @@ void DutLib::DutConsoleWaitForRx(const char* msg, uint64_t timeout_ms) {
 std::string DutLib::DutConsoleRx(bool quiet, uint64_t timeout_ms) {
   LOG(INFO) << "in DutLib::DutConsoleRx";
   size_t msg_size = kMaxRxMsgSizeInBytes;
+  std::string result(kMaxRxMsgSizeInBytes, '\0');
   OtLibConsoleRx(transport_, quiet, timeout_ms,
-                 reinterpret_cast<uint8_t*>(console_msg_buf_), &msg_size);
-  std::string result(console_msg_buf_, msg_size);
+                 reinterpret_cast<uint8_t*>(const_cast<char*>(result.data())),
+                 &msg_size);
+  result.resize(msg_size);
   return result;
 }
 

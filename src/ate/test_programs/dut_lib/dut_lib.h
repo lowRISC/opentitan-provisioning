@@ -52,7 +52,6 @@ class DutLib {
   DutLib(void* transport) : transport_(transport){};
 
   void* transport_;
-  char console_msg_buf_[kMaxRxMsgSizeInBytes];
 };
 
 }  // namespace test_programs

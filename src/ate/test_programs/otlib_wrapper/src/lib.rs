@@ -231,7 +231,9 @@ pub extern "C" fn OtLibConsoleRx(
     };
 
     // Receive the payload from DUT.
+    // SAFETY: msg_size should be a valid pointer to memory allocated by the caller.
     let msg_size = unsafe { &mut *msg_size };
+    // SAFETY: msg should be a valid pointer to memory allocated by the caller.
     let msg = unsafe { std::slice::from_raw_parts_mut(msg, *msg_size) };
     let result = console.interact(&spi_console, None, out).unwrap();
     println!();
