@@ -170,7 +170,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 		}
 		h2 := hmac.New(sha256.New, k)
 		h2.Write([]byte(p.Sku + p.Diversifier))
-		expected_key := h2.Sum(nil)
+		expected_key := h2.Sum(nil)[:p.SizeInBits/8]
 
 		if p.KeyOp == SymmetricKeyOpHashedOtLcToken {
 			hasher := sha3.NewCShake128([]byte(""), []byte("LC_CTRL"))
@@ -231,6 +231,7 @@ func TestGenerateSymmKeysWrap(t *testing.T) {
 
 		keyBytes, err := seed.SignHMAC256([]byte(rmaParams.Sku + rmaParams.Diversifier))
 		ts.Check(t, err)
+		keyBytes = keyBytes[:rmaParams.SizeInBits/8]
 
 		hasher := sha3.NewCShake128([]byte(""), []byte("LC_CTRL"))
 		hasher.Write(keyBytes)

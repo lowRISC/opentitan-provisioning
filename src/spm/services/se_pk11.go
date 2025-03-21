@@ -293,6 +293,11 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 			return nil, status.Errorf(codes.Internal, "failed to hash seed: %v", err)
 		}
 
+		// Truncate token if size is 128-bits (only valid value < 256 bits).
+		if p.SizeInBits == 128 {
+			keyBytes = keyBytes[:16]
+		}
+
 		if p.KeyOp == SymmetricKeyOpHashedOtLcToken {
 			// OpenTitan lifecycle tokens are stored in OTP in hashed form using the
 			// cSHAKE128 algorithm with the "LC_CTRL" customization string.
