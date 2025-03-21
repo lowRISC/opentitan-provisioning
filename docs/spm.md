@@ -131,5 +131,6 @@ YYYY/mm/DD HH:MM:DD Server is now listening on port: 5000
 
 ## Read More
 
+* [HSM Configuration](hsm.md)
 * [Provisioning Appliance](pa.md)
 * [Documentation index](README.md)

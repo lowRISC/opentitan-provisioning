@@ -12,6 +12,7 @@
 
 * [Authentication](auth.md)
 * [Containers](containers.md)
+* [HSM Configuration](hsm.md)
 
 ## Development Guides
 
