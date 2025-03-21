@@ -23,14 +23,14 @@ func newDB(t *testing.T) connector.Connector {
 
 func TestInsert(t *testing.T) {
 	db := newDB(t)
-	if err := db.Insert(context.Background(), "key", []byte("value")); err != nil {
+	if err := db.Insert(context.Background(), "key", "sku", []byte("value")); err != nil {
 		t.Errorf("Insert failed: %v", err)
 	}
 }
 
 func TestGet(t *testing.T) {
 	db := newDB(t)
-	if err := db.Insert(context.Background(), "key", []byte("value")); err != nil {
+	if err := db.Insert(context.Background(), "key", "sku", []byte("value")); err != nil {
 		t.Errorf("Insert failed: %v", err)
 	}
 
