@@ -47,11 +47,11 @@ func New(db_path string) (connector.Connector, error) {
 
 // Insert adds a `key` `value` pair to the database. Multiple calls with the
 // same key will fail. Multiple calss with the same key will succeed.
-func (s *sqliteDB) Insert(ctx context.Context, key string, value []byte) error {
+func (s *sqliteDB) Insert(ctx context.Context, key, sku string, value []byte) error {
 	writeMutex.Lock()
 	defer writeMutex.Unlock()
 
-	r := s.db.Create(&deviceSchema{DeviceID: key, Device: value})
+	r := s.db.Create(&deviceSchema{DeviceID: key, SKU: sku, Device: value})
 	if r.Error != nil {
 		return fmt.Errorf("failed to insert data with key: %q, error: %v", key, r.Error)
 	}

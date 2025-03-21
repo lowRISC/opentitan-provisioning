@@ -13,7 +13,7 @@ import (
 type Connector interface {
 	// Insert a `key` `value` pair to the database.
 	// It should respect context cancellation and timeout.
-	Insert(ctx context.Context, key string, value []byte) error
+	Insert(ctx context.Context, key, sku string, value []byte) error
 
 	// Get returns a value associated with a given `key`.
 	// It should respect context cancellation and timeout.

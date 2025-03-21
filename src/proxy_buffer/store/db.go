@@ -34,7 +34,7 @@ func (d *DB) InsertDevice(ctx context.Context, rr *rpb.RegistryRecord) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal registry record: %v", err)
 	}
-	return d.conn.Insert(ctx, key, data)
+	return d.conn.Insert(ctx, key, rr.Sku, data)
 }
 
 // GetDevice returns a device record associated with a `di` device id. The
