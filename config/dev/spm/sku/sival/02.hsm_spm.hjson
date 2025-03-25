@@ -38,6 +38,7 @@
     "label": "sival-dice-key-p256-v0"
     "public": false,
     "unwrap": "sival-aes-unwrap-v0",
+    "unwrap_mechanism": "AesKeyWrap",
     "private_attrs": {
         CKA_SENSITIVE: true,
         CKA_SIGN: true

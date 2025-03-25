@@ -129,6 +129,7 @@
         "private": true,
         "format": "Pem",
         "wrap": "sival-aes-wrap-v0",
+        "wrap_mechanism": "AesKeyWrap",
         "filename": "sival-dice-key-p256-v0.pem"
     }
     {

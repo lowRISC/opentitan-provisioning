@@ -8,7 +8,7 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 _MISC_LINTERS_VERSION = "20240820_01"
 _BAZEL_RELEASE_VERSION = "0.0.3"
 _BAZEL_SKYLIB_VERSION = "1.5.0"
-_OPENTITAN_VERSION = "Earlgrey-A2-Provisioning-RC2"
+_OPENTITAN_VERSION = "Earlgrey-A2-Provisioning-RC3"
 
 def lowrisc_repos(misc_linters = None, bazel_release = None, bazel_skylib = None, opentitan = None):
     maybe(
@@ -41,7 +41,7 @@ def lowrisc_repos(misc_linters = None, bazel_release = None, bazel_skylib = None
         http_archive_or_local,
         local = opentitan,
         name = "lowrisc_opentitan",
-        sha256 = "640d2f080a8677fa396028371b8224fabdd197689b32a44952cae49b93c75146",
+        sha256 = "67734361c39228a1f9fcb4e7f8f36e1ba048e37778b50a0ef290713c236c3321",
         strip_prefix = "opentitan-{}".format(_OPENTITAN_VERSION),
         url = "https://github.com/lowRISC/opentitan/archive/refs/tags/{}.tar.gz".format(_OPENTITAN_VERSION),
     )
