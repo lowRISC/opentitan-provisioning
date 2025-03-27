@@ -137,8 +137,8 @@ message DeriveSymmetricKeysResponse{
 message GetStoredTokensRequest{
   // SKU identifier. Required.
   string sku = 1;
-  // Token identifier. Required.
-  string token = 2;
+  // Token identifiers. Required.
+  repeated string tokens = 2;
 }
 
 // Get stored tokens response.
