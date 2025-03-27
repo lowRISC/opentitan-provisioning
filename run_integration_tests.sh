@@ -87,6 +87,7 @@ if [[ -n "${OT_PROV_PROD_EN}" ]]; then
     --ca_root_certs=${DEPLOYMENT_DIR}/certs/out/ca-cert.pem \
     --port=${OTPROV_PORT_SPM} \
     "--hsm_so=${HSMTOOL_MODULE}" \
+    --spm_auth_config="sku_auth.yml" \
     "--spm_config_dir=${DEPLOYMENT_DIR}/spm" &
   echo $! > "${SPM_PID_FILE}"
 fi

@@ -23,6 +23,7 @@ spec:
     - --ca_root_certs=/var/lib/opentitan/config/dev/certs/out/ca-cert.pem
     - --port=${OTPROV_PORT_SPM}
     - --hsm_so=/usr/local/lib/softhsm/libsofthsm2.so
+    - --spm_auth_config=sku_auth.yml
     - --spm_config_dir=/var/lib/opentitan/config/dev/spm
     # TODO: Update label to point to specific release version.
     image: localhost/spm_server:latest

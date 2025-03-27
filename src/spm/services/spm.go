@@ -35,12 +35,12 @@ type Options struct {
 	// to the HSM.
 	HSMSOLibPath string
 
-	// SPMConfigPath contains the path to the SPM YAML configuration file.
-	SPMConfigFile string
+	// SPMAuthConfigFile contains the path to the SPM authentication
+	// configuration file.
+	SPMAuthConfigFile string
 
 	// SPMConfigDir contains the path to the SPM configuration directory. All
-	// files referenced in the configuration YAML file `SPMConfigFile` must be
-	// relative to this path.
+	// configuration files must be relative to this path.
 	SPMConfigDir string
 
 	// File contains the full file path of the HSM's password
@@ -101,16 +101,12 @@ func generateSessionToken(n int) (string, error) {
 // NewSpmServer returns an implementation of the SPM gRPC server.
 func NewSpmServer(opts Options) (pbs.SpmServiceServer, error) {
 	if _, err := os.Stat(opts.SPMConfigDir); os.IsNotExist(err) {
-		log.Printf("config directory does not exist: %q, error: %v", opts.SPMConfigDir, err)
 		return nil, fmt.Errorf("config directory does not exist: %q, error: %v", opts.SPMConfigDir, err)
 	}
 
-	// TODO: make this runtime configurable
-	filename := "sku_auth.yml"
 	var config skucfg.Auth
-	err := utils.LoadConfig(opts.SPMConfigDir, filename, &config)
+	err := utils.LoadConfig(opts.SPMConfigDir, opts.SPMAuthConfigFile, &config)
 	if err != nil {
-		log.Printf("could not load config: %v", err)
 		return nil, fmt.Errorf("could not load sku auth config: %v", err)
 	}
 
@@ -130,12 +126,11 @@ func NewSpmServer(opts Options) (pbs.SpmServiceServer, error) {
 func (s *server) initSku(sku string) (string, error) {
 	token, err := generateSessionToken(TokenSize)
 	if err != nil {
-		log.Printf("failed to generate session token: %v", err)
-		return "", status.Errorf(codes.NotFound, "failed to generate session token: %v", err)
+		return "", fmt.Errorf("failed to generate session token: %v", err)
 	}
 	err = s.initializeSKU(sku)
 	if err != nil {
-		return "", status.Errorf(codes.Internal, "failed to initialize sku: %v", err)
+		return "", fmt.Errorf("failed to initialize sku: %v", err)
 	}
 	return token, nil
 }
@@ -171,7 +166,6 @@ func (s *server) InitSession(ctx context.Context, request *pbp.InitSessionReques
 		}
 		err := utils.CompareHashAndPassword(auth.SkuAuth, request.SkuAuth)
 		if err != nil {
-			log.Printf("incorrect sku hash authentication: %q", request.SkuAuth)
 			return nil, status.Errorf(codes.Internal, "incorrect sku authentication %q", request.SkuAuth)
 		}
 	} else {
@@ -180,7 +174,6 @@ func (s *server) InitSession(ctx context.Context, request *pbp.InitSessionReques
 
 	token, err := s.initSku(request.Sku)
 	if err != nil {
-		log.Printf("failed to initialize sku: %v", err)
 		return nil, status.Errorf(codes.Internal, "failed to initialize sku: %v", err)
 	}
 
@@ -403,7 +396,6 @@ func (s *server) initializeSKU(skuName string) error {
 	var cfg skucfg.Config
 	err := utils.LoadConfig(s.configDir, configFilename, &cfg)
 	if err != nil {
-		log.Printf("could not load config: %v", err)
 		return fmt.Errorf("could not load config: %v", err)
 	}
 
@@ -454,7 +446,6 @@ func (s *server) initializeSKU(skuName string) error {
 		PublicKeys:    pubKeys,
 	})
 	if err != nil {
-		log.Printf("fail to create an instance of HSM: %v", err)
 		return fmt.Errorf("fail to create an instance of HSM: %v", err)
 	}
 
