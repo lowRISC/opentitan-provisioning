@@ -23,6 +23,8 @@ service ProvisioningApplianceService {
     returns (EndorseCertsResponse) {}
   rpc DeriveSymmetricKeys(DeriveSymmetricKeysRequest)
     returns (DeriveSymmetricKeysResponse) {}
+  rpc GetStoredTokens(GetStoredTokensRequest)
+    returns (GetStoredTokensResponse) {}
   rpc RegisterDevice(RegistrationRequest)
     returns (RegistrationResponse) {}
 }
@@ -127,10 +129,23 @@ message SymmetricKey {
 
 // Derive symmetric keys response.
 message DeriveSymmetricKeysResponse{
-  // Key. Size is provided in the request.
+  // Keys. Size is provided in the request.
   repeated SymmetricKey keys = 1;
 }
 
+// Get stored tokens response.
+message GetStoredTokensRequest{
+  // SKU identifier. Required.
+  string sku = 1;
+  // Token identifier. Required.
+  string token = 2;
+}
+
+// Get stored tokens response.
+message GetStoredTokensResponse{
+  // Tokens. Size is provided in the request.
+  repeated bytes tokens = 1;
+}
 
 // Initialize SKU session request.
 message InitSessionRequest {

@@ -28,6 +28,10 @@ service SpmService {
   rpc DeriveSymmetricKeys(pa.DeriveSymmetricKeysRequest)
       returns (pa.DeriveSymmetricKeysResponse) {}
 
+  // GetStoredTokens retrieves a token preprovisioned on the SPM.
+  rpc GetStoredTokens(pa.GetStoredTokensRequest)
+      returns (pa.GetStoredTokensResponse) {}
+
   // EndorseCerts endorses a set of certificates for a given SKU. The
   // certificates are signed with a CA private key stored in the SPM.
   rpc EndorseCerts(pa.EndorseCertsRequest)

@@ -131,6 +131,16 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pap.DeriveSym
 	return r, nil
 }
 
+// GetStoredTokens retrieves a token stored within the SPM.
+func (s *server) GetStoredTokens(ctx context.Context, request *pap.GetStoredTokensRequest) (*pap.GetStoredTokensResponse, error) {
+	log.Printf("In PA - Received GetStoredTokens request")
+	r, err := s.spmClient.GetStoredTokens(ctx, request)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "SPM returned error: %v", err)
+	}
+	return r, nil
+}
+
 // RegisterDevice registers a new device record in the registry database.
 //
 // The registry database is accessed through the ProxyBuffer or any downstream

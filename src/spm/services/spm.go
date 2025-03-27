@@ -311,6 +311,11 @@ func ecdsaSignatureAlgorithmFromHashType(h pbcommon.HashType) x509.SignatureAlgo
 	}
 }
 
+// GetStoredTokens retrieves a provisioned token from the SPM's HSM.
+func (s *server) GetStoredTokens(ctx context.Context, request *pbp.GetStoredTokensRequest) (*pbp.GetStoredTokensResponse, error) {
+	return nil, status.Errorf(codes.Internal, "SPM.GetStoredTokens - unimplemented")
+}
+
 func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequest) (*pbp.EndorseCertsResponse, error) {
 	log.Printf("SPM.EndorseCertsRequest - Sku:%q", request.Sku)
 
