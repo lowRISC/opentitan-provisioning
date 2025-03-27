@@ -16,8 +16,6 @@ import (
 	"math/big"
 
 	"golang.org/x/crypto/sha3"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/lowRISC/opentitan-provisioning/src/pk11"
 )
@@ -120,31 +118,31 @@ type HSM struct {
 func openSessions(soPath, hsmPW string, tokSlot, numSessions int) (*sessionQueue, error) {
 	mod, err := pk11.Load(soPath)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "fail to load pk11: %v", err)
+		return nil, fmt.Errorf("fail to load pk11: %v", err)
 	}
 	toks, err := mod.Tokens()
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to open tokens: %v", err)
+		return nil, fmt.Errorf("failed to open tokens: %v", err)
 	}
 	if tokSlot >= len(toks) {
-		return nil, status.Errorf(codes.Internal, "fail to find slot number: %v", err)
+		return nil, fmt.Errorf("fail to find slot number: %v", err)
 	}
 
 	sessions := newSessionQueue(numSessions)
 	for i := 0; i < numSessions; i++ {
 		s, err := toks[tokSlot].OpenSession()
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "fail to open session to HSM: %v", err)
+			return nil, fmt.Errorf("fail to open session to HSM: %v", err)
 		}
 
 		err = s.Login(pk11.NormalUser, hsmPW)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "fail to login into the HSM: %v", err)
+			return nil, fmt.Errorf("fail to login into the HSM: %v", err)
 		}
 
 		err = sessions.insert(s)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to enqueue session: %v", err)
+			return nil, fmt.Errorf("failed to enqueue session: %v", err)
 		}
 	}
 	return sessions, nil
@@ -162,7 +160,7 @@ func getKeyIDByLabel(session *pk11.Session, classKeyType pk11.ClassAttribute, la
 		return nil, err
 	}
 	if id == nil {
-		return nil, status.Errorf(codes.Internal, "fail to find ID attribute")
+		return nil, fmt.Errorf("fail to find ID attribute")
 	}
 	return id, nil
 }
@@ -171,7 +169,7 @@ func getKeyIDByLabel(session *pk11.Session, classKeyType pk11.ClassAttribute, la
 func NewHSM(cfg HSMConfig) (*HSM, error) {
 	sq, err := openSessions(cfg.SOPath, cfg.HSMPassword, cfg.SlotID, cfg.NumSessions)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "fail to get session: %v", err)
+		return nil, fmt.Errorf("fail to get session: %v", err)
 	}
 
 	hsm := &HSM{
@@ -185,7 +183,7 @@ func NewHSM(cfg HSMConfig) (*HSM, error) {
 	for _, key := range cfg.SymmetricKeys {
 		id, err := getKeyIDByLabel(session, pk11.ClassSecretKey, key)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "fail to find symmetric key ID: %q, error: %v", key, err)
+			return nil, fmt.Errorf("fail to find symmetric key ID: %q, error: %v", key, err)
 		}
 		hsm.SymmetricKeys[key] = id
 	}
@@ -194,7 +192,7 @@ func NewHSM(cfg HSMConfig) (*HSM, error) {
 	for _, key := range cfg.PrivateKeys {
 		id, err := getKeyIDByLabel(session, pk11.ClassPrivateKey, key)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "fail to find private key ID: %q, error: %v", key, err)
+			return nil, fmt.Errorf("fail to find private key ID: %q, error: %v", key, err)
 		}
 		hsm.PrivateKeys[key] = id
 	}
@@ -203,7 +201,7 @@ func NewHSM(cfg HSMConfig) (*HSM, error) {
 	for _, key := range cfg.PublicKeys {
 		id, err := getKeyIDByLabel(session, pk11.ClassPublicKey, key)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "fail to find public key ID: %q, error: %v", key, err)
+			return nil, fmt.Errorf("fail to find public key ID: %q, error: %v", key, err)
 		}
 		hsm.PublicKeys[key] = id
 	}
@@ -227,12 +225,12 @@ func (h *HSM) VerifySession() error {
 
 	kca, ok := h.PrivateKeys["KCAPriv"]
 	if !ok {
-		return status.Errorf(codes.Internal, "failed to find KCAPriv key UID")
+		return fmt.Errorf("failed to find KCAPriv key UID")
 	}
 
 	_, err := session.FindPrivateKey(kca)
 	if err != nil {
-		return status.Errorf(codes.Internal, "failed to verify session: %v", err)
+		return fmt.Errorf("failed to verify session: %v", err)
 	}
 	return nil
 }
@@ -246,7 +244,7 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 	for _, p := range params {
 		// Only support extracting random keys using a wrapping key.
 		if p.KeyType != SymmetricKeyTypeKeyGen && p.Wrap != WrappingMechanismNone {
-			return nil, status.Errorf(codes.Internal, "unsupported key type %v and wrap %v", p.KeyType, p.Wrap)
+			return nil, fmt.Errorf("unsupported key type %v and wrap %v", p.KeyType, p.Wrap)
 		}
 
 		// Select the seed asset to use (High or Low security seed).
@@ -256,20 +254,20 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 		case SymmetricKeyTypeSecurityHi:
 			khs, ok := h.SymmetricKeys[p.SeedLabel]
 			if !ok {
-				return nil, status.Errorf(codes.Internal, "failed to find %q key UID", p.SeedLabel)
+				return nil, fmt.Errorf("failed to find %q key UID", p.SeedLabel)
 			}
 			seed, err = session.FindSecretKey(khs)
 			if err != nil {
-				return nil, status.Errorf(codes.Internal, "failed to get KHsks key object: %v", err)
+				return nil, fmt.Errorf("failed to get KHsks key object: %v", err)
 			}
 		case SymmetricKeyTypeSecurityLo:
 			kls, ok := h.SymmetricKeys[p.SeedLabel]
 			if !ok {
-				return nil, status.Errorf(codes.Internal, "failed to find %q key UID", p.SeedLabel)
+				return nil, fmt.Errorf("failed to find %q key UID", p.SeedLabel)
 			}
 			seed, err = session.FindSecretKey(kls)
 			if err != nil {
-				return nil, status.Errorf(codes.Internal, "failed to get KLsks key object: %v", err)
+				return nil, fmt.Errorf("failed to get KLsks key object: %v", err)
 			}
 		case SymmetricKeyTypeKeyGen:
 			seed, err = session.Generate(
@@ -280,17 +278,17 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 					Token:       false,
 				})
 			if err != nil {
-				return nil, status.Errorf(codes.Internal, "failed to generate random key: %v", err)
+				return nil, fmt.Errorf("failed to generate random key: %v", err)
 			}
 		default:
-			return nil, status.Errorf(codes.Internal, "unsupported key type: %v", p.KeyType)
+			return nil, fmt.Errorf("unsupported key type: %v", p.KeyType)
 		}
 
 		// Generate token from seed and extract.
 		rawData := append([]byte(p.Sku), []byte(p.Diversifier)...)
 		keyBytes, err := seed.SignHMAC256(rawData)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to hash seed: %v", err)
+			return nil, fmt.Errorf("failed to hash seed: %v", err)
 		}
 
 		// Truncate token if size is 128-bits (only valid value < 256 bits).
@@ -311,11 +309,11 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 			// Wrap the key with RSA PKCS1v1.5.
 			wk, ok := h.PublicKeys[p.WrapKeyLabel]
 			if !ok {
-				return nil, status.Errorf(codes.Internal, "failed to find %q key UID", p.WrapKeyLabel)
+				return nil, fmt.Errorf("failed to find %q key UID", p.WrapKeyLabel)
 			}
 			wkObj, err := session.FindPublicKey(wk)
 			if err != nil {
-				return nil, status.Errorf(codes.Internal, "failed to find %q key object: %v", p.WrapKeyLabel, err)
+				return nil, fmt.Errorf("failed to find %q key object: %v", p.WrapKeyLabel, err)
 			}
 
 			var m pk11.GenSecretWrapMechanism
@@ -325,11 +323,11 @@ func (h *HSM) GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]Symmetri
 			case WrappingMechanismRSAOAEP:
 				m = pk11.GenSecretWrapMechanismRsaOaep
 			default:
-				return nil, status.Errorf(codes.Internal, "unsupported wrap mechanism: %v", p.Wrap)
+				return nil, fmt.Errorf("unsupported wrap mechanism: %v", p.Wrap)
 			}
 			wkey, err = seed.Wrap(wkObj, m)
 			if err != nil {
-				return nil, status.Errorf(codes.Internal, "failed to wrap key: %v", err)
+				return nil, fmt.Errorf("failed to wrap key: %v", err)
 			}
 		}
 
@@ -400,22 +398,22 @@ func (h *HSM) EndorseCert(tbs []byte, params EndorseCertParams) ([]byte, error) 
 
 	keyID, err := getKeyIDByLabel(session, pk11.ClassPrivateKey, params.KeyLabel)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "fail to find key with label: %q, error: %v", params.KeyLabel, err)
+		return nil, fmt.Errorf("fail to find key with label: %q, error: %v", params.KeyLabel, err)
 	}
 
 	key, err := session.FindPrivateKey(keyID)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to find key object %q: %v", keyID, err)
+		return nil, fmt.Errorf("failed to find key object %q: %v", keyID, err)
 	}
 
 	hash, err := hashFromSignatureAlgorithm(params.SignatureAlgorithm)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get hash from signature algorithm: %v", err)
+		return nil, fmt.Errorf("failed to get hash from signature algorithm: %v", err)
 	}
 
 	rb, sb, err := key.SignECDSA(hash, tbs)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to sign: %v", err)
+		return nil, fmt.Errorf("failed to sign: %v", err)
 	}
 
 	// Encode the signature as ASN.1 DER.
@@ -425,12 +423,12 @@ func (h *HSM) EndorseCert(tbs []byte, params EndorseCertParams) ([]byte, error) 
 	sig.S.SetBytes(sb)
 	s, err := asn1.Marshal(sig)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to marshal signature: %v", err)
+		return nil, fmt.Errorf("failed to marshal signature: %v", err)
 	}
 
 	sigType, err := oidFromSignatureAlgorithm(params.SignatureAlgorithm)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get signature algorithm OID: %v", err)
+		return nil, fmt.Errorf("failed to get signature algorithm OID: %v", err)
 	}
 
 	certRaw := struct {
@@ -444,7 +442,7 @@ func (h *HSM) EndorseCert(tbs []byte, params EndorseCertParams) ([]byte, error) 
 	}
 	cert, err := asn1.Marshal(certRaw)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to marshal certificate: %v", err)
+		return nil, fmt.Errorf("failed to marshal certificate: %v", err)
 	}
 	return cert, nil
 }
@@ -456,21 +454,21 @@ func (h *HSM) EndorseData(data []byte, params EndorseCertParams) ([]byte, []byte
 	// Get the PKCS#11 private key object.
 	keyID, err := getKeyIDByLabel(session, pk11.ClassPrivateKey, params.KeyLabel)
 	if err != nil {
-		return nil, nil, status.Errorf(codes.Internal, "fail to find key with label: %q, error: %v", params.KeyLabel, err)
+		return nil, nil, fmt.Errorf("fail to find key with label: %q, error: %v", params.KeyLabel, err)
 	}
 	privateKey, err := session.FindPrivateKey(keyID)
 	if err != nil {
-		return nil, nil, status.Errorf(codes.Internal, "failed to find private key object %q: %v", keyID, err)
+		return nil, nil, fmt.Errorf("failed to find private key object %q: %v", keyID, err)
 	}
 
 	// Export the public key from the PKCS#11 private key object.
 	publicKeyHandle, err := privateKey.FindPublicKey()
 	if err != nil {
-		return nil, nil, status.Errorf(codes.Internal, "failed to find public key on SE: %v", err)
+		return nil, nil, fmt.Errorf("failed to find public key on SE: %v", err)
 	}
 	publicKey, err := publicKeyHandle.ExportKey()
 	if err != nil {
-		return nil, nil, status.Errorf(codes.Internal, "failed to export public key from SE: %v", err)
+		return nil, nil, fmt.Errorf("failed to export public key from SE: %v", err)
 	}
 	var ecdsaPubKey struct{ X, Y *big.Int }
 	ecdsaPubKey.X, ecdsaPubKey.Y = new(big.Int), new(big.Int)
@@ -478,19 +476,19 @@ func (h *HSM) EndorseData(data []byte, params EndorseCertParams) ([]byte, []byte
 	ecdsaPubKey.Y.Set(publicKey.(*ecdsa.PublicKey).Y)
 	asn1EcdsaPublicKey, err := asn1.Marshal(ecdsaPubKey)
 	if err != nil {
-		return nil, nil, status.Errorf(codes.Internal, "failed to marshal public key: %v", err)
+		return nil, nil, fmt.Errorf("failed to marshal public key: %v", err)
 	}
 
 	// Hash the data payload.
 	hash, err := hashFromSignatureAlgorithm(params.SignatureAlgorithm)
 	if err != nil {
-		return nil, nil, status.Errorf(codes.Internal, "failed to get hash from signature algorithm: %v", err)
+		return nil, nil, fmt.Errorf("failed to get hash from signature algorithm: %v", err)
 	}
 
 	// Sign the hash of the data payload.
 	rb, sb, err := privateKey.SignECDSA(hash, data)
 	if err != nil {
-		return nil, nil, status.Errorf(codes.Internal, "failed to sign: %v", err)
+		return nil, nil, fmt.Errorf("failed to sign: %v", err)
 	}
 
 	// Encode the signature as ASN.1 DER.
@@ -500,7 +498,7 @@ func (h *HSM) EndorseData(data []byte, params EndorseCertParams) ([]byte, []byte
 	sig.S.SetBytes(sb)
 	asn1Sig, err := asn1.Marshal(sig)
 	if err != nil {
-		return nil, nil, status.Errorf(codes.Internal, "failed to marshal signature: %v", err)
+		return nil, nil, fmt.Errorf("failed to marshal signature: %v", err)
 	}
 
 	return asn1EcdsaPublicKey, asn1Sig, nil
