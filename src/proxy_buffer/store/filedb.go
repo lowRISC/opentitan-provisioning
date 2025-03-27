@@ -9,11 +9,17 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/connector"
+)
+
+const (
+	UNSYNCED = iota
+	SYNCED
 )
 
 type sqliteDB struct {
@@ -22,10 +28,12 @@ type sqliteDB struct {
 
 // deviceSchema represents the schema of the device table.
 type deviceSchema struct {
-	gorm.Model
-	DeviceID string
-	SKU      string
-	Device   []byte
+	DeviceID  string `gorm:"primarykey"`
+	SKU       string
+	Device    []byte
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	SyncState int
 }
 
 var writeMutex sync.Mutex
@@ -51,7 +59,7 @@ func (s *sqliteDB) Insert(ctx context.Context, key, sku string, value []byte) er
 	writeMutex.Lock()
 	defer writeMutex.Unlock()
 
-	r := s.db.Create(&deviceSchema{DeviceID: key, SKU: sku, Device: value})
+	r := s.db.Create(&deviceSchema{DeviceID: key, SKU: sku, Device: value, SyncState: UNSYNCED})
 	if r.Error != nil {
 		return fmt.Errorf("failed to insert data with key: %q, error: %v", key, r.Error)
 	}

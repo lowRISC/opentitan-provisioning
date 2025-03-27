@@ -248,6 +248,9 @@ func testOTRegisterDevice(ctx context.Context, numCalls int, skuName string, c *
 			log.Printf("error: client id: %d, error: %v", c.id, err)
 		}
 		c.results <- &callResult{id: c.id, err: err}
+		// Since the device IDs need to be unique, subsequent calls with the same ID will
+		// result in an already exists error. Increment to prevent that from happening. bg; p\c
+		request.DeviceData.DeviceId.HardwareOrigin.DeviceIdentificationNumber++
 		time.Sleep(c.delayPerCall)
 	}
 }
