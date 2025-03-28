@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"strconv"
 	"time"
@@ -231,7 +232,7 @@ func testOTRegisterDevice(ctx context.Context, numCalls int, skuName string, c *
 				HardwareOrigin: &dpb.HardwareOrigin{
 					SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
 					ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_Z1,
-					DeviceIdentificationNumber: uint64(c.id), // Each device ID must be unique.
+					DeviceIdentificationNumber: rand.Uint64(), // Each device ID must be unique.
 				},
 				SkuSpecific: make([]byte, dtd.DeviceIdSkuSpecificLenInBytes),
 			},
@@ -249,8 +250,8 @@ func testOTRegisterDevice(ctx context.Context, numCalls int, skuName string, c *
 		}
 		c.results <- &callResult{id: c.id, err: err}
 		// Since the device IDs need to be unique, subsequent calls with the same ID will
-		// result in an already exists error. Increment to prevent that from happening. bg; p\c
-		request.DeviceData.DeviceId.HardwareOrigin.DeviceIdentificationNumber++
+		// result in an already exists error.
+		request.DeviceData.DeviceId.HardwareOrigin.DeviceIdentificationNumber = rand.Uint64()
 		time.Sleep(c.delayPerCall)
 	}
 }
