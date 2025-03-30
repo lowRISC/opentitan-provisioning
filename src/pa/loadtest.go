@@ -118,41 +118,41 @@ func (c *clientTask) setup(ctx context.Context, skuName string) error {
 // service.
 type callFunc func(context.Context, int, string, *clientTask)
 
-// Executes the DeriveSymmetricKeys call for a `numCalls` total and
+// Executes the DeriveTokens call for a `numCalls` total and
 // produces a `callResult` which is sent to the `clientTask.results` channel.
-func testOTDeriveSymmetricKeys(ctx context.Context, numCalls int, skuName string, c *clientTask) {
+func testOTDeriveTokens(ctx context.Context, numCalls int, skuName string, c *clientTask) {
 	// Prepare request and auth token.
 	md := metadata.Pairs("user_id", strconv.Itoa(c.id), "authorization", c.auth_token)
 	client_ctx := metadata.NewOutgoingContext(ctx, md)
 
-	request := &pbp.DeriveSymmetricKeysRequest{
+	request := &pbp.DeriveTokensRequest{
 		Sku: skuName,
-		Params: []*pbp.SymmetricKeygenParams{
+		Params: []*pbp.TokenParams{
 			{
-				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_LOW_SECURITY,
-				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW,
-				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS,
+				Seed:        pbp.TokenSeed_TOKEN_SEED_LOW_SECURITY,
+				Type:        pbp.TokenType_TOKEN_TYPE_RAW,
+				Size:        pbp.TokenSize_TOKEN_SIZE_128_BITS,
 				Diversifier: "test_unlock",
 				WrapSeed:    false,
 			},
 			{
-				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_LOW_SECURITY,
-				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW,
-				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS,
+				Seed:        pbp.TokenSeed_TOKEN_SEED_LOW_SECURITY,
+				Type:        pbp.TokenType_TOKEN_TYPE_RAW,
+				Size:        pbp.TokenSize_TOKEN_SIZE_128_BITS,
 				Diversifier: "test_exit",
 				WrapSeed:    false,
 			},
 			{
-				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_KEYGEN,
-				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_HASHED_OT_LC_TOKEN,
-				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS,
+				Seed:        pbp.TokenSeed_TOKEN_SEED_KEYGEN,
+				Type:        pbp.TokenType_TOKEN_TYPE_HASHED_OT_LC_TOKEN,
+				Size:        pbp.TokenSize_TOKEN_SIZE_128_BITS,
 				Diversifier: "rma,device_id",
 				WrapSeed:    true,
 			},
 			{
-				Seed:        pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_HIGH_SECURITY,
-				Type:        pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW,
-				Size:        pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_256_BITS,
+				Seed:        pbp.TokenSeed_TOKEN_SEED_HIGH_SECURITY,
+				Type:        pbp.TokenType_TOKEN_TYPE_RAW,
+				Size:        pbp.TokenSize_TOKEN_SIZE_256_BITS,
 				Diversifier: "was,device_id",
 				WrapSeed:    false,
 			},
@@ -161,7 +161,7 @@ func testOTDeriveSymmetricKeys(ctx context.Context, numCalls int, skuName string
 
 	// Send request to PA.
 	for i := 0; i < numCalls; i++ {
-		_, err := c.client.DeriveSymmetricKeys(client_ctx, request)
+		_, err := c.client.DeriveTokens(client_ctx, request)
 		if err != nil {
 			log.Printf("error: client id: %d, error: %v", c.id, err)
 		}
@@ -335,8 +335,8 @@ func main() {
 	}{
 		{
 			skuName:  "sival",
-			testName: "OT:DeriveSymmetricKeys",
-			testFunc: testOTDeriveSymmetricKeys,
+			testName: "OT:DeriveTokens",
+			testFunc: testOTDeriveTokens,
 		},
 		{
 			skuName:  "sival",

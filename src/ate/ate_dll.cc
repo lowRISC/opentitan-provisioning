@@ -208,32 +208,14 @@ DLLEXPORT int CloseSession(ate_client_ptr client) {
 
 namespace {
 
-// Convert `symmetric_key_seed_t` to `SymmetricKeySeed`.
-int SymmetricKeySetSeedConfig(symmetric_key_seed_t seed_kind,
-                              pa::SymmetricKeygenParams *param) {
+// Convert `token_seed_t` to `TokenSeed`.
+int TokenSetSeedConfig(token_seed_t seed_kind, pa::TokenParams *param) {
   switch (seed_kind) {
-    case kSymmetricKeySeedSecurityLow:
-      param->set_seed(pa::SymmetricKeySeed::SYMMETRIC_KEY_SEED_LOW_SECURITY);
+    case kTokenSeedSecurityLow:
+      param->set_seed(pa::TokenSeed::TOKEN_SEED_LOW_SECURITY);
       break;
-    case kSymmetricKeySeedSecurityHigh:
-      param->set_seed(pa::SymmetricKeySeed::SYMMETRIC_KEY_SEED_HIGH_SECURITY);
-      break;
-    default:
-      return static_cast<int>(absl::StatusCode::kInvalidArgument);
-  }
-  return 0;
-}
-
-// Convert `symmetric_key_type_t` to `SymmetricKeyType`.
-int SymmetricKeySetKeyType(symmetric_key_type_t key_type,
-                           pa::SymmetricKeygenParams *param) {
-  switch (key_type) {
-    case kSymmetricKeyTypeRaw:
-      param->set_type(pa::SymmetricKeyType::SYMMETRIC_KEY_TYPE_RAW);
-      break;
-    case kSymmetricKeyTypHashedLcToken:
-      param->set_type(
-          pa::SymmetricKeyType::SYMMETRIC_KEY_TYPE_HASHED_OT_LC_TOKEN);
+    case kTokenSeedSecurityHigh:
+      param->set_seed(pa::TokenSeed::TOKEN_SEED_HIGH_SECURITY);
       break;
     default:
       return static_cast<int>(absl::StatusCode::kInvalidArgument);
@@ -241,15 +223,14 @@ int SymmetricKeySetKeyType(symmetric_key_type_t key_type,
   return 0;
 }
 
-// Convert `symmetric_key_size_t` to `SymmetricKeySize`.
-int SymmetricKeySetSize(symmetric_key_size_t key_size,
-                        pa::SymmetricKeygenParams *param) {
-  switch (key_size) {
-    case kSymmetricKeySize128:
-      param->set_size(pa::SymmetricKeySize::SYMMETRIC_KEY_SIZE_128_BITS);
+// Convert `token_type_t` to `TokenType`.
+int TokenSetType(token_type_t token_type, pa::TokenParams *param) {
+  switch (token_type) {
+    case kTokenTypeRaw:
+      param->set_type(pa::TokenType::TOKEN_TYPE_RAW);
       break;
-    case kSymmetricKeySize256:
-      param->set_size(pa::SymmetricKeySize::SYMMETRIC_KEY_SIZE_256_BITS);
+    case kTokenTypeHashedLcToken:
+      param->set_type(pa::TokenType::TOKEN_TYPE_HASHED_OT_LC_TOKEN);
       break;
     default:
       return static_cast<int>(absl::StatusCode::kInvalidArgument);
@@ -257,53 +238,67 @@ int SymmetricKeySetSize(symmetric_key_size_t key_size,
   return 0;
 }
 
-// Copy the symmetric keys and seeds from the response to the output buffers.
-int SymmetricKeysCopy(size_t keys_count,
-                      const pa::DeriveSymmetricKeysResponse &resp,
-                      symmetric_key_t *keys, wrapped_seed_t *seeds) {
-  if (keys == nullptr) {
+// Convert `token_size_t` to `TokenSize`.
+int TokenSetSize(token_size_t token_size, pa::TokenParams *param) {
+  switch (token_size) {
+    case kTokenSize128:
+      param->set_size(pa::TokenSize::TOKEN_SIZE_128_BITS);
+      break;
+    case kTokenSize256:
+      param->set_size(pa::TokenSize::TOKEN_SIZE_256_BITS);
+      break;
+    default:
+      return static_cast<int>(absl::StatusCode::kInvalidArgument);
+  }
+  return 0;
+}
+
+// Copy the tokens and seeds from the response to the output buffers.
+int TokensCopy(size_t count, const pa::DeriveTokensResponse &resp,
+               token_t *tokens, wrapped_seed_t *seeds) {
+  if (tokens == nullptr) {
     return static_cast<int>(absl::StatusCode::kInvalidArgument);
   }
 
-  if (resp.keys_size() == 0) {
+  if (resp.tokens_size() == 0) {
     return static_cast<int>(absl::StatusCode::kInternal);
   }
 
-  if (keys_count < resp.keys_size()) {
-    LOG(ERROR) << "DeriveSymmetricKeys failed- user allocaed buffer is too "
+  if (count < resp.tokens_size()) {
+    LOG(ERROR) << "DeriveTokens failed - user allocaed buffer is too "
                   "small. allocated: "
-               << keys_count << " , required: " << resp.keys_size();
+               << count << " , required: " << resp.tokens_size();
     return static_cast<int>(absl::StatusCode::kInvalidArgument);
   }
 
-  for (int i = 0; i < resp.keys_size(); i++) {
-    auto &sk = resp.keys(i);
-    auto &resp_key = keys[i];
-    auto key = sk.key();
+  for (int i = 0; i < resp.tokens_size(); i++) {
+    auto &sk = resp.tokens(i);
+    auto &resp_token = tokens[i];
+    auto token = sk.token();
 
-    if (key.size() > sizeof(resp_key.key)) {
-      LOG(ERROR) << "DeriveSymmetricKeys failed- key size is too big: "
-                 << key.size << " bytes. Key index: " << i;
+    if (token.size() > sizeof(resp_token.data)) {
+      LOG(ERROR) << "DeriveTokens failed- token size is too big: " << token.size
+                 << " bytes. token index: " << i;
       return static_cast<int>(absl::StatusCode::kInternal);
     }
 
-    resp_key.size = key.size();
-    memcpy(resp_key.key, key.c_str(), sizeof(resp_key.key));
+    resp_token.size = token.size();
+    memcpy(resp_token.data, token.c_str(), sizeof(resp_token.data));
 
     if (seeds != nullptr) {
       auto &s = sk.wrapped_seed();
       wrapped_seed_t &seed = seeds[i];
 
       if (s.size() == 0) {
-        LOG(ERROR) << "DeriveSymmetricKeys failed - seed size is 0 bytes. Seed "
+        LOG(ERROR) << "DeriveTokens failed - seed size is 0 bytes. Seed "
                       "index: "
                    << i;
         return static_cast<int>(absl::StatusCode::kInternal);
       }
 
       if (s.size() > sizeof(seed.seed)) {
-        LOG(ERROR) << "DeriveSymmetricKeys failed - seed size is too big: "
-                   << s.size << " bytes. Seed index: " << i;
+        LOG(ERROR) << "DeriveTokens failed - seed size is too big: " << s.size
+                   << " bytes. Seed index: " << i;
         return static_cast<int>(absl::StatusCode::kInternal);
       }
 
@@ -316,29 +311,29 @@ int SymmetricKeysCopy(size_t keys_count,
 
 }  // namespace
 
-DLLEXPORT int DeriveSymmetricKeys(
-    ate_client_ptr client, const char *sku, size_t keys_count,
-    const derive_symmetric_key_params_t *key_params, symmetric_key_t *keys) {
-  DLOG(INFO) << "DeriveSymmetricKeys";
+DLLEXPORT int DeriveTokens(ate_client_ptr client, const char *sku, size_t count,
+                           const derive_token_params_t *params,
+                           token_t *tokens) {
+  DLOG(INFO) << "DeriveTokens";
 
-  if (key_params == nullptr || keys == nullptr) {
+  if (params == nullptr || tokens == nullptr) {
     return static_cast<int>(absl::StatusCode::kInvalidArgument);
   }
 
-  pa::DeriveSymmetricKeysRequest req;
+  pa::DeriveTokensRequest req;
   req.set_sku(sku);
-  for (size_t i = 0; i < keys_count; ++i) {
+  for (size_t i = 0; i < count; ++i) {
     auto param = req.add_params();
-    auto &req_params = key_params[i];
-    int result = SymmetricKeySetSeedConfig(req_params.seed, param);
+    auto &req_params = params[i];
+    int result = TokenSetSeedConfig(req_params.seed, param);
     if (result != 0) {
       return result;
     }
-    result = SymmetricKeySetKeyType(req_params.type, param);
+    result = TokenSetType(req_params.type, param);
     if (result != 0) {
       return result;
     }
-    result = SymmetricKeySetSize(req_params.size, param);
+    result = TokenSetSize(req_params.size, param);
     if (result != 0) {
       return result;
     }
@@ -350,36 +345,36 @@ DLLEXPORT int DeriveSymmetricKeys(
 
   AteClient *ate = reinterpret_cast<AteClient *>(client);
 
-  pa::DeriveSymmetricKeysResponse resp;
-  auto status = ate->DeriveSymmetricKeys(req, &resp);
+  pa::DeriveTokensResponse resp;
+  auto status = ate->DeriveTokens(req, &resp);
   if (!status.ok()) {
-    LOG(ERROR) << "DeriveSymmetricKeys failed with " << status.error_code()
-               << ": " << status.error_message();
+    LOG(ERROR) << "DeriveTokens failed with " << status.error_code() << ": "
+               << status.error_message();
     return static_cast<int>(status.error_code());
   }
-  return SymmetricKeysCopy(keys_count, resp, keys, /*seeds=*/nullptr);
+  return TokensCopy(count, resp, tokens, /*seeds=*/nullptr);
 }
 
-DLLEXPORT int GenerateSymmetricKeys(
-    ate_client_ptr client, const char *sku, size_t keys_count,
-    const generate_symmetric_key_params_t *key_params, symmetric_key_t *keys,
-    wrapped_seed_t *seeds) {
-  DLOG(INFO) << "GenerateSymmetricKeys";
+DLLEXPORT int GenerateTokens(ate_client_ptr client, const char *sku,
+                             size_t count,
+                             const generate_token_params_t *params,
+                             token_t *tokens, wrapped_seed_t *seeds) {
+  DLOG(INFO) << "GenerateTokens";
 
-  if (key_params == nullptr || keys == nullptr || seeds == nullptr) {
+  if (params == nullptr || tokens == nullptr || seeds == nullptr) {
     return static_cast<int>(absl::StatusCode::kInvalidArgument);
   }
 
-  pa::DeriveSymmetricKeysRequest req;
+  pa::DeriveTokensRequest req;
   req.set_sku(sku);
-  for (size_t i = 0; i < keys_count; ++i) {
+  for (size_t i = 0; i < count; ++i) {
     auto param = req.add_params();
-    auto &req_params = key_params[i];
-    int result = SymmetricKeySetKeyType(req_params.type, param);
+    auto &req_params = params[i];
+    int result = TokenSetType(req_params.type, param);
     if (result != 0) {
       return result;
     }
-    result = SymmetricKeySetSize(req_params.size, param);
+    result = TokenSetSize(req_params.size, param);
     if (result != 0) {
       return result;
     }
@@ -388,21 +383,21 @@ DLLEXPORT int GenerateSymmetricKeys(
                     req_params.diversifier + sizeof(req_params.diversifier)));
 
     // The following parameters are set to request keygen and seed wrapping.
-    param->set_seed(pa::SymmetricKeySeed::SYMMETRIC_KEY_SEED_KEYGEN);
+    param->set_seed(pa::TokenSeed::TOKEN_SEED_KEYGEN);
     param->set_wrap_seed(true);
   }
 
   AteClient *ate = reinterpret_cast<AteClient *>(client);
 
-  pa::DeriveSymmetricKeysResponse resp;
-  auto status = ate->DeriveSymmetricKeys(req, &resp);
+  pa::DeriveTokensResponse resp;
+  auto status = ate->DeriveTokens(req, &resp);
   if (!status.ok()) {
-    LOG(ERROR) << "GenerateSymmetricKeys failed with " << status.error_code()
-               << ": " << status.error_message();
+    LOG(ERROR) << "GenerateTokens failed with " << status.error_code() << ": "
+               << status.error_message();
     return static_cast<int>(status.error_code());
   }
 
-  return SymmetricKeysCopy(keys_count, resp, keys, seeds);
+  return TokensCopy(count, resp, tokens, seeds);
 }
 
 DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,

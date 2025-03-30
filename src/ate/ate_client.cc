@@ -25,8 +25,8 @@ using grpc::ClientContext;
 using grpc::Status;
 using pa::CloseSessionRequest;
 using pa::CloseSessionResponse;
-using pa::DeriveSymmetricKeysRequest;
-using pa::DeriveSymmetricKeysResponse;
+using pa::DeriveTokensRequest;
+using pa::DeriveTokensResponse;
 using pa::EndorseCertsRequest;
 using pa::EndorseCertsResponse;
 using pa::InitSessionRequest;
@@ -121,17 +121,17 @@ Status AteClient::EndorseCerts(EndorseCertsRequest& request,
   return stub_->EndorseCerts(&context, request, reply);
 }
 
-Status AteClient::DeriveSymmetricKeys(DeriveSymmetricKeysRequest& request,
-                                      DeriveSymmetricKeysResponse* reply) {
-  LOG(INFO) << "AteClient::DeriveSymmetricKeys";
+Status AteClient::DeriveTokens(DeriveTokensRequest& request,
+                               DeriveTokensResponse* reply) {
+  LOG(INFO) << "AteClient::DeriveTokens";
 
   // Context for the client (It could be used to convey extra information to
   // the server and/or tweak certain RPC behaviors).
   ClientContext context;
   context.AddMetadata("authorization", sku_session_token_);
 
-  // The actual RPC - call the server's DeriveSymmetricKeys method.
-  return stub_->DeriveSymmetricKeys(&context, request, reply);
+  // The actual RPC - call the server's DeriveTokens method.
+  return stub_->DeriveTokens(&context, request, reply);
 }
 
 Status AteClient::RegisterDevice(RegistrationRequest& request,

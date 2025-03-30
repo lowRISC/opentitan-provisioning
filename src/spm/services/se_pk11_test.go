@@ -53,17 +53,17 @@ func MakeHSM(t *testing.T) (*HSM, []byte, []byte) {
 	ts.Check(t, s.Login(pk11.NormalUser, ts.UserPin))
 
 	// Initialize HSM with KHsks.
-	hs := sha256.Sum256([]byte("high security KDF seed"))
-	hsKeySeed := hs[:]
-	hsks, err := s.ImportGenericSecret(hsKeySeed, &pk11.KeyOptions{Extractable: false})
+	hs := sha256.Sum256([]byte("high security seed"))
+	hsSeed := hs[:]
+	hsks, err := s.ImportGenericSecret(hsSeed, &pk11.KeyOptions{Extractable: false})
 	ts.Check(t, err)
 	hsksUID, err := hsks.UID()
 	ts.Check(t, err)
 
 	// Initialize HSM with KLsks.
-	ls := sha256.Sum256([]byte("low security KDF seed"))
-	lsKeySeed := ls[:]
-	lsks, err := s.ImportGenericSecret(lsKeySeed, &pk11.KeyOptions{Extractable: false})
+	ls := sha256.Sum256([]byte("low security seed"))
+	lsSeed := ls[:]
+	lsks, err := s.ImportGenericSecret(lsSeed, &pk11.KeyOptions{Extractable: false})
 	ts.Check(t, err)
 	lsksUID, err := lsks.UID()
 	ts.Check(t, err)
@@ -106,83 +106,81 @@ func MakeHSM(t *testing.T) (*HSM, []byte, []byte) {
 			},
 			sessions: sessions,
 		},
-		hsKeySeed,
-		lsKeySeed
+		hsSeed,
+		lsSeed
 }
 
 func TestGenerateSymmKeys(t *testing.T) {
-	hsm, hsKeySeed, lsKeySeed := MakeHSM(t)
+	hsm, hsSeed, lsSeed := MakeHSM(t)
 
-	// Symmetric keygen parameters.
 	// test unlock token
-	testUnlockTokenParams := SymmetricKeygenParams{
+	testUnlockTokenParams := TokenParams{
 		SeedLabel:   "LowSecKdfSeed",
-		KeyType:     SymmetricKeyTypeSecurityLo,
-		KeyOp:       SymmetricKeyOpRaw,
+		Type:        TokenTypeSecurityLo,
+		Op:          TokenOpRaw,
 		SizeInBits:  128,
 		Sku:         "test sku",
 		Diversifier: "test_unlock",
 		Wrap:        WrappingMechanismNone,
 	}
 	// test exit token
-	testExitTokenParams := SymmetricKeygenParams{
+	testExitTokenParams := TokenParams{
 		SeedLabel:   "LowSecKdfSeed",
-		KeyType:     SymmetricKeyTypeSecurityLo,
-		KeyOp:       SymmetricKeyOpRaw,
+		Type:        TokenTypeSecurityLo,
+		Op:          TokenOpRaw,
 		SizeInBits:  128,
 		Sku:         "test sku",
 		Diversifier: "test_exit",
 		Wrap:        WrappingMechanismNone,
 	}
-	// wafer authentication secret
-	wasParams := SymmetricKeygenParams{
+	// wafer authentication token
+	wasParams := TokenParams{
 		SeedLabel:   "HighSecKdfSeed",
-		KeyType:     SymmetricKeyTypeSecurityHi,
-		KeyOp:       SymmetricKeyOpRaw,
+		Type:        TokenTypeSecurityHi,
+		Op:          TokenOpRaw,
 		SizeInBits:  256,
 		Sku:         "test sku",
 		Diversifier: "was",
 		Wrap:        WrappingMechanismNone,
 	}
-	params := []*SymmetricKeygenParams{
+	params := []*TokenParams{
 		&testUnlockTokenParams,
 		&testExitTokenParams,
 		&wasParams,
 	}
 
-	// Generate the actual keys (using the HSM).
-	res, err := hsm.GenerateSymmetricKeys(params)
+	// Generate the actual tokens (using the HSM).
+	res, err := hsm.GenerateTokens(params)
 	ts.Check(t, err)
-	keys := make([][]byte, len(res))
+	tokens := make([][]byte, len(res))
 	for i, r := range res {
-		keys[i] = r.Key
+		tokens[i] = r.Token
 	}
 
-	// Check actual keys match those generated using the go crypto package.
+	// Check actual tokens match those generated using the go crypto package.
 	for i, p := range params {
-
-		// Generate expected key.
-		var k []byte
-		if p.KeyType == SymmetricKeyTypeSecurityHi {
-			k = hsKeySeed
+		// Generate expected token.
+		var seed []byte
+		if p.Type == TokenTypeSecurityHi {
+			seed = hsSeed
 		} else {
-			k = lsKeySeed
+			seed = lsSeed
 		}
-		h2 := hmac.New(sha256.New, k)
+		h2 := hmac.New(sha256.New, seed)
 		h2.Write([]byte(p.Sku + p.Diversifier))
-		expected_key := h2.Sum(nil)[:p.SizeInBits/8]
+		expected_token := h2.Sum(nil)[:p.SizeInBits/8]
 
-		if p.KeyOp == SymmetricKeyOpHashedOtLcToken {
+		if p.Op == TokenOpHashedOtLcToken {
 			hasher := sha3.NewCShake128([]byte(""), []byte("LC_CTRL"))
-			hasher.Write(expected_key)
-			hasher.Read(expected_key)
+			hasher.Write(expected_token)
+			hasher.Read(expected_token)
 		}
 
-		// Check the actual and expected keys are equal.
-		log.Printf("Actual   Key: %q", hex.EncodeToString(keys[i]))
-		log.Printf("Expected Key: %q", hex.EncodeToString(expected_key))
-		if !bytes.Equal(keys[i], expected_key) {
-			t.Fatal("symmetric keygen failed")
+		// Check the actual and expected tokens are equal.
+		log.Printf("Actual   Token: %q", hex.EncodeToString(tokens[i]))
+		log.Printf("Expected Token: %q", hex.EncodeToString(expected_token))
+		if !bytes.Equal(tokens[i], expected_token) {
+			t.Fatal("token generation failed")
 		}
 	}
 }
@@ -191,34 +189,30 @@ func TestGenerateSymmKeysWrap(t *testing.T) {
 	hsm, _, _ := MakeHSM(t)
 
 	// RMA token
-	rmaParams := SymmetricKeygenParams{
-		KeyType:      SymmetricKeyTypeKeyGen,
-		KeyOp:        SymmetricKeyOpHashedOtLcToken,
+	rmaParams := TokenParams{
+		Type:         TokenTypeKeyGen,
+		Op:           TokenOpHashedOtLcToken,
 		SizeInBits:   128,
 		Sku:          "test sku",
 		Diversifier:  "rma: device_id",
 		Wrap:         WrappingMechanismRSAPCKS,
 		WrapKeyLabel: "TokenWrappingKey",
 	}
-	params := []*SymmetricKeygenParams{
+	params := []*TokenParams{
 		&rmaParams,
 	}
 
-	// Generate the actual keys (using the HSM).
-	res, err := hsm.GenerateSymmetricKeys(params)
+	// Generate the actual tokens (using the HSM).
+	res, err := hsm.GenerateTokens(params)
 	ts.Check(t, err)
 	if len(res) != 1 {
-		t.Fatal("expected 1 key, got", len(res))
-	}
-
-	if len(res) != 1 {
-		t.Fatal("expected 1 key, got", len(res))
+		t.Fatal("expected 1 token, got", len(res))
 	}
 	r := res[0]
 
-	// Unwrap the key using the HSM and check that the unwrapped key matches
-	// the expected key.
-	expected_key := func() []byte {
+	// Unwrap the token using the HSM and check that the unwrapped token matches
+	// the expected one.
+	expected_token := func() []byte {
 		s, release := hsm.sessions.getHandle()
 		defer release()
 
@@ -229,20 +223,20 @@ func TestGenerateSymmKeysWrap(t *testing.T) {
 		seed, err := s.UnwrapGenSecret(r.WrappedKey, pk, pk11.GenSecretWrapMechanismRsaPcks, &pk11.KeyOptions{Extractable: true})
 		ts.Check(t, err)
 
-		keyBytes, err := seed.SignHMAC256([]byte(rmaParams.Sku + rmaParams.Diversifier))
+		tBytes, err := seed.SignHMAC256([]byte(rmaParams.Sku + rmaParams.Diversifier))
 		ts.Check(t, err)
-		keyBytes = keyBytes[:rmaParams.SizeInBits/8]
+		tBytes = tBytes[:rmaParams.SizeInBits/8]
 
 		hasher := sha3.NewCShake128([]byte(""), []byte("LC_CTRL"))
-		hasher.Write(keyBytes)
-		hasher.Read(keyBytes)
-		return keyBytes
+		hasher.Write(tBytes)
+		hasher.Read(tBytes)
+		return tBytes
 	}()
 
-	log.Printf("Actual   Key: %q", hex.EncodeToString(r.Key))
-	log.Printf("Expected Key: %q", hex.EncodeToString(expected_key))
-	if !bytes.Equal(r.Key, expected_key) {
-		t.Fatal("symmetric keygen failed")
+	log.Printf("Actual   Token: %q", hex.EncodeToString(r.Token))
+	log.Printf("Expected Token: %q", hex.EncodeToString(expected_token))
+	if !bytes.Equal(r.Token, expected_token) {
+		t.Fatal("generate token failed")
 	}
 }
 

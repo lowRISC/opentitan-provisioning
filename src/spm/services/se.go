@@ -38,36 +38,37 @@ type EndorseCertParams struct {
 	SignatureAlgorithm x509.SignatureAlgorithm
 }
 
-// SymmetricKeyOp specifies the operation to perform on the key.
-type SymmetricKeyOp int
+// TokenOp specifies the operation to perform on the token.
+type TokenOp int
 
 const (
-	// SymmetricKeyOpRaw indicates that the key should be generated as a raw key.
-	SymmetricKeyOpRaw SymmetricKeyOp = iota
-	// SymmetricKeyOpHashedOtLcToken indicates that the key should be generated
+	// TokenOpRaw indicates that the token should be generated as a raw token.
+	TokenOpRaw TokenOp = iota
+	// TokenOpHashedOtLcToken indicates that the token should be generated
 	// as a hashed OT/LC token.
-	SymmetricKeyOpHashedOtLcToken
+	TokenOpHashedOtLcToken
 )
 
-// SymmetricKeyType specifies the type of the key to generate.
-type SymmetricKeyType int
+// TokenType specifies the type of the token to generate.
+type TokenType int
 
 const (
-	// SymmetricKeyTypeSecurityHi indicates that the key should be a high
-	// security key.
-	SymmetricKeyTypeSecurityHi SymmetricKeyType = iota
-	// SymmetricKeyTypeSecurityLo indicates that the key should be a low
-	// security key.
-	SymmetricKeyTypeSecurityLo
-	// SymmetricKeyTypeKeyGen indicates that the key should be a new key.
-	SymmetricKeyTypeKeyGen
+	// TokenTypeSecurityHi indicates that the token should be derived from a
+	//  high security seed.
+	TokenTypeSecurityHi TokenType = iota
+	// TokenTypeSecurityLo indicates that the token should be derived from a
+	// low security seed.
+	TokenTypeSecurityLo
+	// TokenTypeKeyGen indicates that the token should be derived from a new
+	// seed.
+	TokenTypeKeyGen
 )
 
-// Parameters for GenerateSymmetricKeys().
-type SymmetricKeygenParams struct {
+// Parameters for GenerateTokens().
+type TokenParams struct {
 	Diversifier  string
-	KeyOp        SymmetricKeyOp
-	KeyType      SymmetricKeyType
+	Op           TokenOp
+	Type         TokenType
 	SeedLabel    string
 	SizeInBits   uint
 	Sku          string
@@ -75,8 +76,8 @@ type SymmetricKeygenParams struct {
 	WrapKeyLabel string
 }
 
-type SymmetricKeyResult struct {
-	Key         []byte
+type TokenResult struct {
+	Token       []byte
 	WrappedKey  []byte
 	Diversifier string
 }
@@ -87,14 +88,14 @@ type SymmetricKeyResult struct {
 // An SE provides privileged access to cryptographic operations using high-value
 // assets, such as long-lived root secrets.
 type SE interface {
-	// Generates symmetric keys.
+	// Generates tokens.
 	//
-	// These keys are generated via the HKDF mechanism and may be used as:
-	//   - Wafer Authentication Secrets, or
-	//   - Lifecycle Tokens.
+	// These tokens may be used as:
+	//   - Wafer Authentication tokens, or
+	//   - Lifecycle tokens.
 	//
-	// Returns: slice of `SymmetricKeyResult` objects.
-	GenerateSymmetricKeys(params []*SymmetricKeygenParams) ([]SymmetricKeyResult, error)
+	// Returns: slice of `TokenResult` objects.
+	GenerateTokens(params []*TokenParams) ([]TokenResult, error)
 
 	// Endorses a certificate.
 	//

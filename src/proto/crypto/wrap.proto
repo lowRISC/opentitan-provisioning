@@ -25,7 +25,7 @@ enum WrappingMode {
 
 // Wrapping key parameters.
 message WrappingKeyParams {
-  // Symmetric key Secure Provisioning Module (SPM) handle. Required.
+  // Token  Secure Provisioning Module (SPM) handle. Required.
   // The key is expected to be provisioned in the SPM.
   bytes key_handle = 1;
 
@@ -36,7 +36,7 @@ message WrappingKeyParams {
 // Wrapped key.
 // Next ID: 7
 message WrappedKey {
-  // Symmetric key Secure Provisioning Module (SPM) handle.
+  // Token  Secure Provisioning Module (SPM) handle.
   // The key is expected to be provisioned in the SPM. It is available in this
   // message to provide a mechanism to track which encryption key was used to
   // wrap the secret.

@@ -66,9 +66,9 @@ class AteClient {
   grpc::Status EndorseCerts(pa::EndorseCertsRequest& request,
                             pa::EndorseCertsResponse* reply);
 
-  // Calls the server's DeriveSymmetricKeys method and returns its reply.
-  grpc::Status DeriveSymmetricKeys(pa::DeriveSymmetricKeysRequest& request,
-                                   pa::DeriveSymmetricKeysResponse* reply);
+  // Calls the server's DeriveTokens method and returns its reply.
+  grpc::Status DeriveTokens(pa::DeriveTokensRequest& request,
+                            pa::DeriveTokensResponse* reply);
 
   // Calls the server's RegisterDevice method and returns its reply.
   grpc::Status RegisterDevice(pa::RegistrationRequest& request,

@@ -14,8 +14,8 @@ privateKeys:
 publicKeys:
     - name: sku-sival-rsa-rma-v0
 attributes:
-    KdfSecHi: sival-kdf-hisec-v0
-    KdfSecLo: sival-kdf-losec-v0
+    SeedSecHi: sival-kdf-hisec-v0
+    SeedSecLo: sival-kdf-losec-v0
     WrappingMechanism: RsaPkcs
     WrappingKeyLabel: sku-sival-rsa-rma-v0
     SigningKey/Dice/v0: sival-dice-key-p256-v0

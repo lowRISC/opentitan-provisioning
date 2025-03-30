@@ -183,8 +183,7 @@ func (s *server) InitSession(ctx context.Context, request *pbp.InitSessionReques
 	}, nil
 }
 
-// DeriveSymmetricKeys generates a symmetric key from a seed and diversification string.
-func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSymmetricKeysRequest) (*pbp.DeriveSymmetricKeysResponse, error) {
+func (s *server) DeriveTokens(ctx context.Context, request *pbp.DeriveTokensRequest) (*pbp.DeriveTokensResponse, error) {
 	// Acquire mutex before accessing SKU configuration.
 	s.muSKU.RLock()
 	defer s.muSKU.RUnlock()
@@ -193,31 +192,31 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.Sku)
 	}
 
-	sLabelHi, err := sku.config.GetAttribute(skucfg.AttrNameKdfSecHi)
+	sLabelHi, err := sku.config.GetAttribute(skucfg.AttrNameSeedSecHi)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "could not fetch seed label %q: %v", skucfg.AttrNameKdfSecHi, err)
+		return nil, status.Errorf(codes.Internal, "could not fetch seed label %q: %v", skucfg.AttrNameSeedSecHi, err)
 	}
 
-	sLabelLo, err := sku.config.GetAttribute(skucfg.AttrNameKdfSecLo)
+	sLabelLo, err := sku.config.GetAttribute(skucfg.AttrNameSeedSecLo)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "could not fetch seed label %q: %v", skucfg.AttrNameKdfSecLo, err)
+		return nil, status.Errorf(codes.Internal, "could not fetch seed label %q: %v", skucfg.AttrNameSeedSecLo, err)
 	}
 
 	// Build parameter list for all keygens requested.
-	var keygenParams []*se.SymmetricKeygenParams
+	var keygenParams []*se.TokenParams
 	for _, p := range request.Params {
-		params := new(se.SymmetricKeygenParams)
+		params := new(se.TokenParams)
 
 		// Retrieve seed configuration.
 		switch p.Seed {
-		case pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_HIGH_SECURITY:
-			params.KeyType = se.SymmetricKeyTypeSecurityHi
+		case pbp.TokenSeed_TOKEN_SEED_HIGH_SECURITY:
+			params.Type = se.TokenTypeSecurityHi
 			params.SeedLabel = sLabelHi
-		case pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_LOW_SECURITY:
-			params.KeyType = se.SymmetricKeyTypeSecurityLo
+		case pbp.TokenSeed_TOKEN_SEED_LOW_SECURITY:
+			params.Type = se.TokenTypeSecurityLo
 			params.SeedLabel = sLabelLo
-		case pbp.SymmetricKeySeed_SYMMETRIC_KEY_SEED_KEYGEN:
-			params.KeyType = se.SymmetricKeyTypeKeyGen
+		case pbp.TokenSeed_TOKEN_SEED_KEYGEN:
+			params.Type = se.TokenTypeKeyGen
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "invalid key seed requested: %d", p.Seed)
 		}
@@ -246,9 +245,9 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 		}
 
 		// Retrieve key size.
-		if p.Size == pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_128_BITS {
+		if p.Size == pbp.TokenSize_TOKEN_SIZE_128_BITS {
 			params.SizeInBits = 128
-		} else if p.Size == pbp.SymmetricKeySize_SYMMETRIC_KEY_SIZE_256_BITS {
+		} else if p.Size == pbp.TokenSize_TOKEN_SIZE_256_BITS {
 			params.SizeInBits = 256
 		} else {
 			return nil, status.Errorf(codes.InvalidArgument,
@@ -256,10 +255,10 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 		}
 
 		// Retrieve key type.
-		if p.Type == pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_RAW {
-			params.KeyOp = se.SymmetricKeyOpRaw
-		} else if p.Type == pbp.SymmetricKeyType_SYMMETRIC_KEY_TYPE_HASHED_OT_LC_TOKEN {
-			params.KeyOp = se.SymmetricKeyOpHashedOtLcToken
+		if p.Type == pbp.TokenType_TOKEN_TYPE_RAW {
+			params.Op = se.TokenOpRaw
+		} else if p.Type == pbp.TokenType_TOKEN_TYPE_HASHED_OT_LC_TOKEN {
+			params.Op = se.TokenOpHashedOtLcToken
 		} else {
 			return nil, status.Errorf(codes.InvalidArgument, "invalid key type requested: %d", p.Type)
 		}
@@ -271,21 +270,21 @@ func (s *server) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSym
 	}
 
 	// Generate the symmetric keys.
-	res, err := sku.seHandle.GenerateSymmetricKeys(keygenParams)
+	res, err := sku.seHandle.GenerateTokens(keygenParams)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not generate symmetric key: %s", err)
 	}
 
-	keys := make([]*pbp.SymmetricKey, len(res))
+	tokens := make([]*pbp.Token, len(res))
 	for i, r := range res {
-		keys[i] = &pbp.SymmetricKey{
-			Key:         r.Key,
+		tokens[i] = &pbp.Token{
+			Token:       r.Token,
 			WrappedSeed: r.WrappedKey,
 		}
 	}
 
-	return &pbp.DeriveSymmetricKeysResponse{
-		Keys: keys,
+	return &pbp.DeriveTokensResponse{
+		Tokens: tokens,
 	}, nil
 }
 

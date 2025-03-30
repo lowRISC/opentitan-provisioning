@@ -21,8 +21,8 @@ service ProvisioningApplianceService {
     returns (CloseSessionResponse) {}
   rpc EndorseCerts(EndorseCertsRequest)
     returns (EndorseCertsResponse) {}
-  rpc DeriveSymmetricKeys(DeriveSymmetricKeysRequest)
-    returns (DeriveSymmetricKeysResponse) {}
+  rpc DeriveTokens(DeriveTokensRequest)
+    returns (DeriveTokensResponse) {}
   rpc GetStoredTokens(GetStoredTokensRequest)
     returns (GetStoredTokensResponse) {}
   rpc RegisterDevice(RegistrationRequest)
@@ -51,86 +51,86 @@ message EndorseCertsResponse {
   repeated crypto.cert.Certificate certs = 1;
 }
 
-// Symmetric key seed type (seed is provisioned into HSM).
-enum SymmetricKeySeed {
+// Token seed type (seed is provisioned into HSM).
+enum TokenSeed {
   // Unspecified.
-  SYMMETRIC_KEY_SEED_UNSPECIFIED = 0;
+  TOKEN_SEED_UNSPECIFIED = 0;
   // Low Security: seed is rotated infrequently.
-  SYMMETRIC_KEY_SEED_LOW_SECURITY = 1;
+  TOKEN_SEED_LOW_SECURITY = 1;
   // High Security: seed is rotated frequently.
-  SYMMETRIC_KEY_SEED_HIGH_SECURITY = 2;
-  // Keygen: seed is a new generic key seed. The SPM does not store the seed in
-  // non-volatile memory.
-  SYMMETRIC_KEY_SEED_KEYGEN = 3;
+  TOKEN_SEED_HIGH_SECURITY = 2;
+  // Keygen: seed is a new generic token seed. The SPM does not store the seed
+  // in non-volatile memory.
+  TOKEN_SEED_KEYGEN = 3;
 }
 
-// Symmetric key type.
-enum SymmetricKeyType {
+// Token type.
+enum TokenType {
   // Unspecified.
-  SYMMETRIC_KEY_TYPE_UNSPECIFIED = 0;
+  TOKEN_TYPE_UNSPECIFIED = 0;
   // Raw.
   //
   // This format is used when the raw plaintext key must be generated.
-  SYMMETRIC_KEY_TYPE_RAW = 1;
+  TOKEN_TYPE_RAW = 1;
   // Hashed.
   //
   // This format is used when the cSHAKE128 hashed (with "LC_CTRL" customization
-  // string) form of the key needs to be generated. This type supports
+  // string) form of the token needs to be generated. This type supports
   // provisioning of OpenTitan lifecycle tokens, which are programmed into a
   // device's OTP memory in this form.
   //
   // protolint:disable:next MAX_LINE_LENGTH
   // See https://opentitan.org/book/hw/ip/lc_ctrl/doc/theory_of_operation.html#token-hashing-mechanism
   // for more details.
-  SYMMETRIC_KEY_TYPE_HASHED_OT_LC_TOKEN = 2;
+  TOKEN_TYPE_HASHED_OT_LC_TOKEN = 2;
 }
 
-// Symmetric key size.
-enum SymmetricKeySize {
+// Token size.
+enum TokenSize {
   // Unspecified.
-  SYMMETRIC_KEY_SIZE_UNSPECIFIED = 0;
+  TOKEN_SIZE_UNSPECIFIED = 0;
   // 128 bits.
-  SYMMETRIC_KEY_SIZE_128_BITS = 1;
+  TOKEN_SIZE_128_BITS = 1;
   // 256 bits.
-  SYMMETRIC_KEY_SIZE_256_BITS = 2;
+  TOKEN_SIZE_256_BITS = 2;
 }
 
-message SymmetricKeygenParams{
-  // Symmetric key seed to use. Required.
-  SymmetricKeySeed seed = 1;
-  // Symmetric key type to generate. Required.
-  SymmetricKeyType type = 2;
-  // Symmetric key size. Required.
-  SymmetricKeySize size = 3;
-  // Diversifier string to use in KDF operation. Required.
+message TokenParams{
+  // Token seed to use. Required.
+  TokenSeed seed = 1;
+  // Token type to generate. Required.
+  TokenType type = 2;
+  // Token size. Required.
+  TokenSize size = 3;
+  // Diversifier string to use in token derivation. Required.
   string diversifier = 4;
   // Returned wrapped seed in the response. Required.
   // The seed is wrapped with a public key associated with the SKU. The client
-  // can use this seed to derive symmetric keys in the future. Set to true if
-  // using `SYMMETRIC_KEY_SEED_KEYGEN`.
+  // can use this seed to derive tokens in the future. Set to true if
+  // using `TOKEN_SEED_KEYGEN`.
   bool wrap_seed = 5;
 }
 
-// Derive symmetric keys request.
-message DeriveSymmetricKeysRequest{
+// Derive tokens request.
+message DeriveTokensRequest{
   // SKU identifier. Required.
   string sku = 1;
-  // Key generation parameters. Required.
-  repeated SymmetricKeygenParams params = 2;
+  // Token parameters. Required.
+  repeated TokenParams params = 2;
 }
 
-// Symmetric key.
-message SymmetricKey {
-  // Key. Size is provided in the request.
-  bytes key = 1;
+// Token.
+message Token {
+  // Token. Size is provided in the request.
+  bytes token = 1;
   // Wrapped seed. Required if `wrap_seed` is set in the request.
   bytes wrapped_seed = 2;
 }
 
-// Derive symmetric keys response.
-message DeriveSymmetricKeysResponse{
+// Derive tokens response.
+message DeriveTokensResponse{
   // Keys. Size is provided in the request.
-  repeated SymmetricKey keys = 1;
+  repeated Token tokens = 1;
 }
 
 // Get stored tokens response.
@@ -162,7 +162,7 @@ message InitSessionResponse {
   // to the authentication layer in the future.
   string sku_session_token = 1;
   // PA endpoint. The client should select connections to this client to issue
-  // any provisioning calls (e.g. DeriveSymmetricKeys).
+  // any provisioning calls (e.g. DeriveTokens).
   string pa_endpoint = 2;
   // List of authenticate methods. Required.
   repeated string auth_methods = 3;

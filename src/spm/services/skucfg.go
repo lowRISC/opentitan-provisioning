@@ -13,8 +13,8 @@ import (
 type AttrName string
 
 const (
-	AttrNameKdfSecHi          AttrName = "KdfSecHi"
-	AttrNameKdfSecLo                   = "KdfSecLo"
+	AttrNameSeedSecHi         AttrName = "SeedSecHi"
+	AttrNameSeedSecLo                  = "SeedSecLo"
 	AttrNameWrappingKeyLabel           = "WrappingKeyLabel"
 	AttrNameWrappingMechanism          = "WrappingMechanism"
 )

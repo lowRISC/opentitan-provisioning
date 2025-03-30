@@ -74,7 +74,7 @@ type initSessionResponse struct {
 }
 
 type deriveSymmetricKeysResponse struct {
-	response *pbp.DeriveSymmetricKeysResponse
+	response *pbp.DeriveTokensResponse
 	err      error
 }
 
@@ -97,7 +97,7 @@ func (c *fakeSpmClient) InitSession(ctx context.Context, request *pbp.InitSessio
 	return c.initSession.response, c.initSession.err
 }
 
-func (c *fakeSpmClient) DeriveSymmetricKeys(ctx context.Context, request *pbp.DeriveSymmetricKeysRequest, opts ...grpc.CallOption) (*pbp.DeriveSymmetricKeysResponse, error) {
+func (c *fakeSpmClient) DeriveTokens(ctx context.Context, request *pbp.DeriveTokensRequest, opts ...grpc.CallOption) (*pbp.DeriveTokensResponse, error) {
 	return c.deriveSymmetricKeys.response, c.deriveSymmetricKeys.err
 }
 
@@ -127,9 +127,9 @@ func TestDeriveSymmetricKey(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		request     *pbp.DeriveSymmetricKeysRequest
+		request     *pbp.DeriveTokensRequest
 		expCode     codes.Code
-		spmResponse *pbp.DeriveSymmetricKeysResponse
+		spmResponse *pbp.DeriveTokensResponse
 		spmError    error
 	}{
 		{
@@ -138,16 +138,16 @@ func TestDeriveSymmetricKey(t *testing.T) {
 			// logic added to the PA service.
 			name:        "ok",
 			expCode:     codes.OK,
-			request:     &pbp.DeriveSymmetricKeysRequest{},
-			spmResponse: &pbp.DeriveSymmetricKeysResponse{},
+			request:     &pbp.DeriveTokensRequest{},
+			spmResponse: &pbp.DeriveTokensResponse{},
 			spmError:    nil,
 		},
 		{
 			// SPM errors are converted to code.Internal.
 			name:        "spm_error",
 			expCode:     codes.Internal,
-			request:     &pbp.DeriveSymmetricKeysRequest{},
-			spmResponse: &pbp.DeriveSymmetricKeysResponse{},
+			request:     &pbp.DeriveTokensRequest{},
+			spmResponse: &pbp.DeriveTokensResponse{},
 			spmError:    status.Errorf(codes.InvalidArgument, "invalid argument"),
 		},
 	}
@@ -157,7 +157,7 @@ func TestDeriveSymmetricKey(t *testing.T) {
 			spmClient.deriveSymmetricKeys.response = tt.spmResponse
 			spmClient.deriveSymmetricKeys.err = tt.spmError
 
-			got, err := client.DeriveSymmetricKeys(ctx, tt.request)
+			got, err := client.DeriveTokens(ctx, tt.request)
 			s, ok := status.FromError(err)
 			if !ok {
 				t.Fatal("unable to extract status code from error")
@@ -215,7 +215,7 @@ func TestEndorseCerts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			spmClient.deriveSymmetricKeys.response = &pbp.DeriveSymmetricKeysResponse{}
+			spmClient.deriveSymmetricKeys.response = &pbp.DeriveTokensResponse{}
 			spmClient.deriveSymmetricKeys.err = nil
 
 			spmClient.endorseCerts.response = tt.spmResponse
