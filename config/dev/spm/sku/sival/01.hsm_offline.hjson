@@ -63,6 +63,25 @@
     }
     {
         "command": "ecdsa-generate",
+        "label": "opentitan-ca-root-v0",
+        "curve": "1.2.840.10045.3.1.7",
+        "wrapping": false,
+        "extractable": false,
+        "public_template": {
+            CKA_LABEL: "opentitan-ca-root-v0.pub",
+            CKA_VERIFY: true,
+            CKA_TOKEN: true,
+        },
+        "private_template": {
+            CKA_LABEL: "opentitan-ca-root-v0.priv",
+            CKA_SIGN: true,
+            CKA_TOKEN: true,
+            CKA_EXTRACTABLE: true,
+            CKA_SENSITIVE: true,
+        }
+    }
+    {
+        "command": "ecdsa-generate",
         "label": "sival-dice-key-p256-v0"
         "curve": "1.2.840.10045.3.1.7",
         "wrapping": false,
@@ -107,44 +126,44 @@
         "label": "sival-aes-wrap-v0",
         "wrap": "spm-rsa-wrap-v0",
         "wrap_mechanism": "RsaPkcs",
-        "output": "sival-aes-wrap-v0.bin"
+        "output": "hsm/sival-aes-wrap-v0.bin"
     }
     {
         "command": "rsa-export",
         "label": "sku-sival-rsa-rma-v0.pub",
         "private": false,
         "format": "Pem",
-        "filename": "sku-sival-rsa-rma-v0.pub.pem"
+        "filename": "pub/sku-sival-rsa-rma-v0.pub.pem"
     }
     {
         "command": "ecdsa-export",
         "label": "sival-dice-key-p256-v0.pub",
         "private": false,
         "format": "Pem",
-        "filename": "sival-dice-key-p256-v0.pub.pem"
+        "filename": "pub/sival-dice-key-p256-v0.pub.pem"
     }
     {
         "command": "ecdsa-export",
         "label": "sival-dice-key-p256-v0.priv",
         "private": true,
-        "format": "Pem",
+        "format": "Der",
         "wrap": "sival-aes-wrap-v0",
         "wrap_mechanism": "AesKeyWrap",
-        "filename": "sival-dice-key-p256-v0.pem"
+        "filename": "hsm/sival-dice-key-p256-v0.wrapped.bin"
     }
     {
         "command": "kdf-export",
         "label": "sival-kdf-hisec-v0",
         "wrap": "sival-aes-wrap-v0",
         "wrap_mechanism": "AesKeyWrap",
-        "output": "sival-kdf-hisec-v0.bin"
+        "output": "hsm/sival-kdf-hisec-v0.bin"
     }
     {
         "command": "kdf-export",
         "label": "sival-kdf-losec-v0",
         "wrap": "sival-aes-wrap-v0",
         "wrap_mechanism": "AesKeyWrap",
-        "output": "sival-kdf-losec-v0.bin"
+        "output": "hsm/sival-kdf-losec-v0.bin"
     }
 ]
 

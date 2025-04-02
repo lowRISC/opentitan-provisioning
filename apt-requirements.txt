@@ -17,6 +17,7 @@ g++
 git
 gnupg
 golang
+libengine-pkcs11-openssl
 libftdi1-2
 libftdi1-dev
 libncursesw5
