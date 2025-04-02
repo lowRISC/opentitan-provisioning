@@ -53,6 +53,6 @@
         "label": "spm-rsa-wrap-v0",
         "private": false,
         "format": "Pem",
-        "filename": "spm-rsa-wrap-v0.pem"
+        "filename": "pub/spm-rsa-wrap-v0.pem"
     }
 ]

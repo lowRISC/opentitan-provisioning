@@ -1,0 +1,14 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+
+pkg_tar(
+    name = "spm_init",
+    srcs = [
+        ":hsm_spm_init.hjson",
+        ":hsm_spm_init.sh",
+    ],
+    extension = "tar.gz",
+)

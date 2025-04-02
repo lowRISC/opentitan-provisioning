@@ -1,0 +1,23 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+
+pkg_tar(
+    name = "sival_offline_hsm",
+    srcs = [
+        ":01.hsm_offline.hjson",
+        ":ca_int_dice.conf",
+        ":ca_root.conf",
+        ":hsm_offline_init.sh",
+    ],
+)
+
+pkg_tar(
+    name = "sival_spm_hsm",
+    srcs = [
+        ":02.hsm_spm.hjson",
+        ":hsm_spm_init.sh",
+    ],
+)

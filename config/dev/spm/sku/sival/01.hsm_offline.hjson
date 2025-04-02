@@ -21,7 +21,7 @@
             CKA_WRAP: true,
             CKA_TOKEN: true,
         },
-        "filename": "../spm-rsa-wrap-v0.pem"
+        "filename": "pub/spm-rsa-wrap-v0.pem"
     }
 
     // Key generation commands.
