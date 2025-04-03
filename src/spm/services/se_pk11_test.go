@@ -120,7 +120,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 		Op:          TokenOpRaw,
 		SizeInBits:  128,
 		Sku:         "test sku",
-		Diversifier: "test_unlock",
+		Diversifier: []byte("test_unlock"),
 		Wrap:        WrappingMechanismNone,
 	}
 	// test exit token
@@ -130,7 +130,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 		Op:          TokenOpRaw,
 		SizeInBits:  128,
 		Sku:         "test sku",
-		Diversifier: "test_exit",
+		Diversifier: []byte("test_exit"),
 		Wrap:        WrappingMechanismNone,
 	}
 	// wafer authentication token
@@ -140,7 +140,7 @@ func TestGenerateSymmKeys(t *testing.T) {
 		Op:          TokenOpRaw,
 		SizeInBits:  256,
 		Sku:         "test sku",
-		Diversifier: "was",
+		Diversifier: []byte("was"),
 		Wrap:        WrappingMechanismNone,
 	}
 	params := []*TokenParams{
@@ -167,7 +167,8 @@ func TestGenerateSymmKeys(t *testing.T) {
 			seed = lsSeed
 		}
 		h2 := hmac.New(sha256.New, seed)
-		h2.Write([]byte(p.Sku + p.Diversifier))
+		h2.Write([]byte(p.Sku))
+		h2.Write(p.Diversifier)
 		expected_token := h2.Sum(nil)[:p.SizeInBits/8]
 
 		if p.Op == TokenOpHashedOtLcToken {
@@ -194,7 +195,7 @@ func TestGenerateSymmKeysWrap(t *testing.T) {
 		Op:           TokenOpHashedOtLcToken,
 		SizeInBits:   128,
 		Sku:          "test sku",
-		Diversifier:  "rma: device_id",
+		Diversifier:  []byte("rma: device_id"),
 		Wrap:         WrappingMechanismRSAPCKS,
 		WrapKeyLabel: "TokenWrappingKey",
 	}
@@ -223,7 +224,9 @@ func TestGenerateSymmKeysWrap(t *testing.T) {
 		seed, err := s.UnwrapGenSecret(r.WrappedKey, pk, pk11.GenSecretWrapMechanismRsaPcks, &pk11.KeyOptions{Extractable: true})
 		ts.Check(t, err)
 
-		tBytes, err := seed.SignHMAC256([]byte(rmaParams.Sku + rmaParams.Diversifier))
+		data := [][]byte{[]byte(rmaParams.Sku), rmaParams.Diversifier}
+		joinedData := bytes.Join(data, nil)
+		tBytes, err := seed.SignHMAC256(joinedData)
 		ts.Check(t, err)
 		tBytes = tBytes[:rmaParams.SizeInBits/8]
 

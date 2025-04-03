@@ -182,8 +182,11 @@ typedef struct derive_token_params {
   token_type_t type;
   /** Token size. */
   token_size_t size;
-  /** Diversifier used during token calculation. */
-  uint8_t diversifier[32];
+  /**
+   * Diversifier used during token calculation. Unused bytes should be filled
+   * with zeroes.
+   */
+  uint8_t diversifier[48];
 } derive_token_params_t;
 
 /**
@@ -194,8 +197,11 @@ typedef struct generate_token_params {
   token_type_t type;
   /** Token size. */
   token_size_t size;
-  /** Diversifier used during token calculation. */
-  uint8_t diversifier[32];
+  /**
+   * Diversifier used during token calculation. Unused bytes should be filled
+   * with zeroes.
+   */
+  uint8_t diversifier[48];
 } generate_token_params_t;
 
 /**

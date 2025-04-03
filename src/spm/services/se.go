@@ -66,7 +66,7 @@ const (
 
 // Parameters for GenerateTokens().
 type TokenParams struct {
-	Diversifier  string
+	Diversifier  []byte
 	Op           TokenOp
 	Type         TokenType
 	SeedLabel    string
@@ -79,7 +79,7 @@ type TokenParams struct {
 type TokenResult struct {
 	Token       []byte
 	WrappedKey  []byte
-	Diversifier string
+	Diversifier []byte
 }
 
 // SE is an interface representing a secure element, which may be implemented

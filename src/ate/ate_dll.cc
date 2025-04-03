@@ -337,9 +337,8 @@ DLLEXPORT int DeriveTokens(ate_client_ptr client, const char *sku, size_t count,
     if (result != 0) {
       return result;
     }
-    param->set_diversifier(
-        std::string(req_params.diversifier,
-                    req_params.diversifier + sizeof(req_params.diversifier)));
+    param->set_diversifier(req_params.diversifier,
+                           sizeof(req_params.diversifier));
     param->set_wrap_seed(false);
   }
 
@@ -378,9 +377,8 @@ DLLEXPORT int GenerateTokens(ate_client_ptr client, const char *sku,
     if (result != 0) {
       return result;
     }
-    param->set_diversifier(
-        std::string(req_params.diversifier,
-                    req_params.diversifier + sizeof(req_params.diversifier)));
+    param->set_diversifier(req_params.diversifier,
+                           sizeof(req_params.diversifier));
 
     // The following parameters are set to request keygen and seed wrapping.
     param->set_seed(pa::TokenSeed::TOKEN_SEED_KEYGEN);

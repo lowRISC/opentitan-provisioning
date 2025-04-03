@@ -103,7 +103,7 @@ message TokenParams{
   // Token size. Required.
   TokenSize size = 3;
   // Diversifier string to use in token derivation. Required.
-  string diversifier = 4;
+  bytes diversifier = 4;
   // Returned wrapped seed in the response. Required.
   // The seed is wrapped with a public key associated with the SKU. The client
   // can use this seed to derive tokens in the future. Set to true if
@@ -133,7 +133,7 @@ message DeriveTokensResponse{
   repeated Token tokens = 1;
 }
 
-// Get stored tokens response.
+// Get stored tokens request.
 message GetStoredTokensRequest{
   // SKU identifier. Required.
   string sku = 1;
