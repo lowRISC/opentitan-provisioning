@@ -18,4 +18,10 @@ type Connector interface {
 	// Get returns a value associated with a given `key`.
 	// It should respect context cancellation and timeout.
 	Get(ctx context.Context, key string) ([]byte, error)
+
+	// GetUnsynced returns up to `numRecords` UNSYNCED records.
+	GetUnsynced(ctx context.Context, numRecords int) ([][]byte, error)
+
+	// MarkAsSynced marks all records in `keys` as SYNCED.
+	MarkAsSynced(ctx context.Context, keys []string) error
 }

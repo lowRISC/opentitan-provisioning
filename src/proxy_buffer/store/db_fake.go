@@ -19,6 +19,19 @@ type versionedKey struct {
 	version uint32
 }
 
+const (
+	recordStatusUnsynced = iota
+	recordStatusSynced
+)
+
+// record contains data about a record and its sync state
+type record struct {
+	// value is the raw data of a record
+	value []byte
+	// status indicates the record's sync status
+	status int
+}
+
 // fakeDB is a fake database implementation. It implements the
 // `connector.Connector` interface.
 type fakeDB struct {
@@ -27,16 +40,16 @@ type fakeDB struct {
 	// version number.
 	keyVersions map[string]uint32
 
-	// db is a map of versioned keys to string values. This is the main
+	// db is a map of versioned keys to record values. This is the main
 	// database storage container.
-	db map[versionedKey][]byte
+	db map[versionedKey]record
 }
 
 // New creates a database connector.
 func New() connector.Connector {
 	return &fakeDB{
 		keyVersions: map[string]uint32{},
-		db:          map[versionedKey][]byte{},
+		db:          map[versionedKey]record{},
 	}
 }
 
@@ -48,7 +61,10 @@ func (c *fakeDB) Insert(ctx context.Context, key, sku string, value []byte) erro
 		verK.version = ver + 1
 	}
 	c.keyVersions[key] = verK.version
-	c.db[verK] = value
+	c.db[verK] = record{
+		value:  value,
+		status: recordStatusUnsynced,
+	}
 	return nil
 }
 
@@ -60,5 +76,37 @@ func (c *fakeDB) Get(ctx context.Context, key string) ([]byte, error) {
 		return nil, fmt.Errorf("record not found key: %q", key)
 	}
 	verK.version = ver
-	return c.db[verK], nil
+	return c.db[verK].value, nil
+}
+
+// GetUnsynced returns up to `numRecords` UNSYNCED records.
+func (c *fakeDB) GetUnsynced(ctx context.Context, numRecords int) ([][]byte, error) {
+	records := make([][]byte, 0)
+	processedUnsyncedCount := 0
+	for _, record := range c.db {
+		if processedUnsyncedCount == numRecords {
+			break
+		}
+		if record.status == recordStatusUnsynced {
+			records = append(records, record.value)
+			processedUnsyncedCount += 1
+		}
+	}
+	return records, nil
+}
+
+// MarkAsSynced marks all records in `keys` as SYNCED.
+func (c *fakeDB) MarkAsSynced(ctx context.Context, keys []string) error {
+	for _, key := range keys {
+		verK := versionedKey{key: key}
+		ver, found := c.keyVersions[key]
+		if !found {
+			return fmt.Errorf("record not found key: %q", key)
+		}
+		verK.version = ver
+		record := c.db[verK]
+		record.status = recordStatusSynced
+		c.db[verK] = record
+	}
+	return nil
 }

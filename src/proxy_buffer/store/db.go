@@ -50,3 +50,23 @@ func (d *DB) GetDevice(ctx context.Context, di string) (*rpb.RegistryRecord, err
 	}
 	return record, nil
 }
+
+func (d *DB) GetUnsyncedDevices(ctx context.Context, numDevices int) ([]*rpb.RegistryRecord, error) {
+	raw_records, err := d.conn.GetUnsynced(ctx, numDevices)
+	if err != nil {
+		return nil, err
+	}
+	records := make([]*rpb.RegistryRecord, len(raw_records))
+	for i, rr_bytes := range raw_records {
+		record := &rpb.RegistryRecord{}
+		if err := proto.Unmarshal(rr_bytes, record); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal registry record: %v", err)
+		}
+		records[i] = record
+	}
+	return records, nil
+}
+
+func (d *DB) MarkDevicesAsSynced(ctx context.Context, dis []string) error {
+	return d.conn.MarkAsSynced(ctx, dis)
+}

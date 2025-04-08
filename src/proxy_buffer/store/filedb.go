@@ -7,7 +7,9 @@ package filedb
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -53,6 +55,22 @@ func New(db_path string) (connector.Connector, error) {
 	return &sqliteDB{db: db}, nil
 }
 
+// Close closes a sqlite connector.
+func Close(c connector.Connector) error {
+	sDB, ok := c.(*sqliteDB)
+	if !ok {
+		return errors.New("connector type is not a SQLite object")
+	}
+	dbObject, err := sDB.db.DB()
+	if err != nil {
+		return fmt.Errorf("failed to access DB object: %v", err)
+	}
+	if err := dbObject.Close(); err != nil {
+		return fmt.Errorf("failed to close DB: %v", err)
+	}
+	return nil
+}
+
 // Insert adds a `key` `value` pair to the database. Multiple calls with the
 // same key will fail. Multiple calss with the same key will succeed.
 func (s *sqliteDB) Insert(ctx context.Context, key, sku string, value []byte) error {
@@ -74,4 +92,36 @@ func (s *sqliteDB) Get(ctx context.Context, key string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to get data associated with key: %q, error: %v", key, r.Error)
 	}
 	return device.Device, nil
+}
+
+func (s *sqliteDB) GetUnsynced(ctx context.Context, numRecords int) ([][]byte, error) {
+	devices := make([]*deviceSchema, 0)
+	r := s.db.Limit(numRecords).Where("sync_state = ?", UNSYNCED).Find(&devices)
+	if r.Error != nil {
+		return nil, fmt.Errorf("failed to get all unsynced devices: %v", r.Error)
+	}
+	results := make([][]byte, len(devices))
+	for i, device := range devices {
+		results[i] = device.Device
+	}
+	return results, nil
+}
+
+func (s *sqliteDB) MarkAsSynced(ctx context.Context, keys []string) error {
+	writeMutex.Lock()
+	defer writeMutex.Unlock()
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		failed := make([]string, 0)
+		for _, key := range keys {
+			var device deviceSchema
+			if err := tx.Model(&device).Where("device_id = ?", key).Update("sync_state", SYNCED).Error; err != nil {
+				failed = append(failed, key)
+			}
+		}
+		if len(failed) > 0 {
+			return fmt.Errorf("failed to mark devices as synced: %s", strings.Join(failed, ", "))
+		}
+		return nil
+	})
 }
