@@ -9,15 +9,15 @@ symmetricKeys:
   - name: sival-kdf-hisec-v0
   - name: sival-kdf-losec-v0
 privateKeys:
-    - name: sival-dice-key-p256-v0
+    - name: sival-dice-key-p256-v0.priv
     - name: spm-hsm-id-v0.priv
 publicKeys:
-    - name: sku-sival-rsa-rma-v0
+    - name: sku-sival-rsa-rma-v0.pub
 attributes:
     SeedSecHi: sival-kdf-hisec-v0
     SeedSecLo: sival-kdf-losec-v0
     KdfMechanism: HKDF
     WrappingMechanism: RsaPkcs
-    WrappingKeyLabel: sku-sival-rsa-rma-v0
-    SigningKey/Dice/v0: sival-dice-key-p256-v0
+    WrappingKeyLabel: sku-sival-rsa-rma-v0.pub
+    SigningKey/Dice/v0: sival-dice-key-p256-v0.priv
     SigningKey/Identity/v0: spm-hsm-id-v0.priv

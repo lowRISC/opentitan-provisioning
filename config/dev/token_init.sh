@@ -5,7 +5,13 @@
 
 set -e
 
-CONFIG_DIR="$(realpath "$(dirname "$0")")"
+
+if [[ -z "${CONFIG_SUBDIR}" ]]; then
+  echo "Error: CONFIG_SUBDIR environment variable is not set."
+  exit 1
+fi
+
+CONFIG_DIR="${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}"
 
 source "${CONFIG_DIR}/env/spm.env"
 
@@ -52,27 +58,41 @@ function run_hsm_init() {
 }
 
 # Run the HSM initialization script for SPM.
-run_hsm_init "${CONFIG_DIR}/spm/sku/hsm_spm_init.sh" \
+run_hsm_init "${CONFIG_DIR}/spm/sku/spm_init.bash" \
+  -m "${HSMTOOL_MODULE}" \
+  -t "${SPM_HSM_TOKEN_SPM}" \
+  -s "${SOFTHSM2_CONF_SPM}" \
+  -p "${HSMTOOL_PIN}"
+
+run_hsm_init "${CONFIG_DIR}/spm/sku/spm_export.bash" \
+  -m "${HSMTOOL_MODULE}" \
+  -t "${SPM_HSM_TOKEN_SPM}" \
+  -s "${SOFTHSM2_CONF_SPM}" \
+  -p "${HSMTOOL_PIN}" \
   -o "${CONFIG_DIR}/spm/sku/spm_hsm_init.tar.gz"
 
 # Run the SKU initilization script in the offline HSM partition.
-run_hsm_init "${CONFIG_DIR}/spm/sku/sival/hsm_offline_init.sh" \
+run_hsm_init "${CONFIG_DIR}/spm/sku/sival/offline_init.bash" \
+  -m "${HSMTOOL_MODULE}" \
+  -t "${SPM_HSM_TOKEN_OFFLINE}" \
+  -s "${SOFTHSM2_CONF_OFFLINE}" \
+  -p "${HSMTOOL_PIN}"
+
+run_hsm_init "${CONFIG_DIR}/spm/sku/sival/offline_export.bash" \
+  -m "${HSMTOOL_MODULE}" \
+  -t "${SPM_HSM_TOKEN_OFFLINE}" \
+  -s "${SOFTHSM2_CONF_OFFLINE}" \
+  -p "${HSMTOOL_PIN}" \
   -i "${CONFIG_DIR}/spm/sku/spm_hsm_init.tar.gz" \
   -o "${CONFIG_DIR}/spm/sku/sival/hsm_offline_init.tar.gz"
 
 # Run the SKU initialization script in the SPM partition.
-run_hsm_init "${CONFIG_DIR}/spm/sku/sival/hsm_spm_init.sh" \
+run_hsm_init "${CONFIG_DIR}/spm/sku/sival/spm_sku_init.bash" \
+  -m "${HSMTOOL_MODULE}" \
+  -t "${SPM_HSM_TOKEN_SPM}" \
+  -s "${SOFTHSM2_CONF_SPM}" \
+  -p "${HSMTOOL_PIN}" \
   -i "${CONFIG_DIR}/spm/sku/sival/hsm_offline_init.tar.gz" \
   -o "${CONFIG_DIR}/spm/sku/sival/hsm_sival_sku.tar.gz"
-
-for filename in "${SKU_CONFIG_FILES[@]}"; do
-  echo "Processing file: ${filename}"
-  run_hsm_init "${filename}"
-  if [ "$?" -ne 0 ]; then
-    echo "Error processing file: ${filename}."
-    exit 1
-  fi
-  echo "-------------------------"
-done
 
 echo "HSM initialization complete."
