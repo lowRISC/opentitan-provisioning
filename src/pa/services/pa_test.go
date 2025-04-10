@@ -46,7 +46,8 @@ func bufferDialer(t *testing.T, spmClient pbs.SpmServiceClient, pbClient pbr.Pro
 }
 
 type fakePbClient struct {
-	registerDevice registerDeviceResponse
+	registerDevice      registerDeviceResponse
+	batchRegisterDevice batchRegisterDeviceResponse
 }
 
 type registerDeviceResponse struct {
@@ -54,8 +55,17 @@ type registerDeviceResponse struct {
 	err      error
 }
 
+type batchRegisterDeviceResponse struct {
+	response *pbr.BatchDeviceRegistrationResponse
+	err      error
+}
+
 func (c *fakePbClient) RegisterDevice(ctx context.Context, request *pbr.DeviceRegistrationRequest, opts ...grpc.CallOption) (*pbr.DeviceRegistrationResponse, error) {
 	return c.registerDevice.response, c.registerDevice.err
+}
+
+func (c *fakePbClient) BatchRegisterDevice(ctx context.Context, request *pbr.BatchDeviceRegistrationRequest, opts ...grpc.CallOption) (*pbr.BatchDeviceRegistrationResponse, error) {
+	return c.batchRegisterDevice.response, c.batchRegisterDevice.err
 }
 
 // fakeSpmClient provides a fake client interface to the SPM server. Test

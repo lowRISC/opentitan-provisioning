@@ -26,6 +26,7 @@ go_test(
     deps = [
         ":proxybuffer",
         "//src/proto:device_testdata",
+        "//src/proto:registry_record_go_pb",
         "//src/proxy_buffer/proto:proxy_buffer_go_pb",
         "//src/proxy_buffer/store:db",
         "//src/proxy_buffer/store:db_fake",

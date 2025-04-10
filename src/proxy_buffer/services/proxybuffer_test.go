@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	dtd "github.com/lowRISC/opentitan-provisioning/src/proto/device_testdata"
+	rpb "github.com/lowRISC/opentitan-provisioning/src/proto/registry_record_go_pb"
 	pbp "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/proto/proxy_buffer_go_pb"
 	"github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/services/proxybuffer"
 	"github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/db"
@@ -113,5 +114,53 @@ func TestRegisterDevice(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func buildRequest(record rpb.RegistryRecord) *pbp.DeviceRegistrationRequest {
+	return &pbp.DeviceRegistrationRequest{
+		Record: &record,
+	}
+}
+
+func buildResponse(record rpb.RegistryRecord, status pbp.DeviceRegistrationStatus, rpcStatus codes.Code) *pbp.DeviceRegistrationResponse {
+	return &pbp.DeviceRegistrationResponse{
+		DeviceId:  record.DeviceId,
+		Status:    status,
+		RpcStatus: uint32(rpcStatus),
+	}
+}
+
+func TestBatchRegisterDevice(t *testing.T) {
+	ctx := context.Background()
+	db_conn := db_fake.New()
+	database := db.New(db_conn)
+	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(bufferDialer(t, database)))
+	if err != nil {
+		t.Fatalf("failed to connect to test server: %v", err)
+	}
+	defer conn.Close()
+
+	client := pbp.NewProxyBufferServiceClient(conn)
+	request := &pbp.BatchDeviceRegistrationRequest{
+		Requests: []*pbp.DeviceRegistrationRequest{
+			buildRequest(dtd.RegistryRecordOk),
+			buildRequest(dtd.RegistryRecordEmptyDeviceId),
+			buildRequest(dtd.RegistryRecordEmptySku),
+			buildRequest(dtd.RegistryRecordEmptyData),
+		}}
+	expResponse := &pbp.BatchDeviceRegistrationResponse{
+		Responses: []*pbp.DeviceRegistrationResponse{
+			buildResponse(dtd.RegistryRecordOk, pbp.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_SUCCESS, codes.OK),
+			buildResponse(dtd.RegistryRecordEmptyDeviceId, pbp.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_BAD_REQUEST, codes.InvalidArgument),
+			buildResponse(dtd.RegistryRecordEmptySku, pbp.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_BAD_REQUEST, codes.InvalidArgument),
+			buildResponse(dtd.RegistryRecordEmptyData, pbp.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_BAD_REQUEST, codes.InvalidArgument),
+		}}
+	response, err := client.BatchRegisterDevice(ctx, request)
+	if err != nil {
+		t.Errorf("expected nil error, got %v", err)
+	}
+	if diff := cmp.Diff(response, expResponse, protocmp.Transform()); diff != "" {
+		t.Errorf("response diff (-want +got):\n%s", diff)
 	}
 }

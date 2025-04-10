@@ -16,6 +16,10 @@ service ProxyBufferService {
   // Registers a device.
   rpc RegisterDevice(DeviceRegistrationRequest)
     returns (DeviceRegistrationResponse) {}
+  
+  // Batch registers multiple devices.
+  rpc BatchRegisterDevice(BatchDeviceRegistrationRequest)
+    returns (BatchDeviceRegistrationResponse) {}
 }
 
 enum DeviceRegistrationStatus {
@@ -35,4 +39,13 @@ message DeviceRegistrationRequest {
 message DeviceRegistrationResponse {
   DeviceRegistrationStatus status = 1;
   string device_id = 2;
+  uint32 rpc_status = 3;
+}
+
+message BatchDeviceRegistrationRequest {
+  repeated DeviceRegistrationRequest requests = 1;
+}
+
+message BatchDeviceRegistrationResponse {
+  repeated DeviceRegistrationResponse responses = 1;
 }
