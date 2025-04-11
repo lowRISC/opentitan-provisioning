@@ -35,4 +35,13 @@ message DeviceRegistrationRequest {
 message DeviceRegistrationResponse {
   DeviceRegistrationStatus status = 1;
   string device_id = 2;
+  uint32 rpc_code = 3;
+}
+
+message BatchDeviceRegistrationRequest {
+  repeated DeviceRegistrationRequest requests = 1;
+}
+
+message BatchDeviceRegistrationResponse {
+  repeated DeviceRegistrationResponse responses = 1;
 }

@@ -21,6 +21,7 @@ import (
 // Every registry service frontend must implement the `RegistryDevice` function.
 type Registry interface {
 	RegisterDevice(ctx context.Context, request *pbp.DeviceRegistrationRequest, opts ...grpc.CallOption) (*pbp.DeviceRegistrationResponse, error)
+	BatchRegisterDevice(ctx context.Context, request *pbp.BatchDeviceRegistrationRequest, opts ...grpc.CallOption) (*pbp.BatchDeviceRegistrationResponse, error)
 }
 
 // server is the server object.
