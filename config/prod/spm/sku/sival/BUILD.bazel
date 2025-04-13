@@ -1,0 +1,251 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load(
+    "//rules:hsm.bzl",
+    "hsm_certgen",
+    "hsm_config_tar",
+    "hsm_key_template",
+)
+load(
+    "//rules:hsmtool.bzl",
+    "HSMTOOL_CONST",
+    "hsmtool_aes_keygen",
+    "hsmtool_ecdsa_keygen",
+    "hsmtool_generic_keygen",
+    "hsmtool_pk11_attrs",
+    "hsmtool_rsa_keygen",
+)
+
+package(default_visibility = ["//visibility:public"])
+
+hsm_key_template(
+    name = "sival-aes-wrap-v0",
+    import_template = hsmtool_pk11_attrs({
+        "CKA_DECRYPT": True,
+        "CKA_ENCRYPT": False,
+        "CKA_SENSITIVE": True,
+        "CKA_TOKEN": True,
+        "CKA_UNWRAP": True,
+        "CKA_WRAP": False,
+        "CKA_EXTRACTABLE": False,
+    }),
+    keygen_params = hsmtool_aes_keygen(
+        label = "sival-aes-wrap-v0",
+        template = {
+            "CKA_ENCRYPT": True,
+            "CKA_DECRYPT": True,
+            "CKA_WRAP": True,
+            "CKA_UNWRAP": True,
+            "CKA_SENSITIVE": True,
+            "CKA_EXTRACTABLE": True,
+            "CKA_TOKEN": True,
+        },
+    ),
+    type = "aes",
+    wrapping_key = "//config/dev/spm/sku:spm-rsa-wrap-v0",
+    wrapping_mechanism = "RsaPkcsOaep",
+)
+
+hsm_key_template(
+    name = "sku-sival-rsa-rma-v0",
+    export_public_only = True,
+    import_template_public = hsmtool_pk11_attrs({
+        "CKA_ENCRYPT": True,
+        "CKA_TOKEN": True,
+        "CKA_WRAP": True,
+    }),
+    keygen_params = hsmtool_rsa_keygen(
+        extractable = False,
+        key_length = 3072,
+        label = "sku-sival-rsa-rma-v0",
+        private_template = {
+            "CKA_CLASS": "CKO_PRIVATE_KEY",
+            "CKA_LABEL": "sku-sival-rsa-rma-v0.priv",
+            "CKA_DECRYPT": True,
+            "CKA_SIGN": True,
+            "CKA_TOKEN": True,
+            "CKA_EXTRACTABLE": True,
+        },
+        public_exponent = 65537,
+        public_template = {
+            "CKA_CLASS": "CKO_PUBLIC_KEY",
+            "CKA_LABEL": "sku-sival-rsa-rma-v0.pub",
+            "CKA_ENCRYPT": True,
+            "CKA_VERIFY": True,
+            "CKA_TOKEN": True,
+        },
+        wrapping = True,
+    ),
+    type = "rsa",
+)
+
+hsm_key_template(
+    name = "opentitan-ca-root-v0",
+    export_public_only = True,
+    keygen_params = hsmtool_ecdsa_keygen(
+        curve = HSMTOOL_CONST.ECC_CURVE.PRIME256V1,
+        extractable = False,
+        label = "opentitan-ca-root-v0",
+        private_template = {
+            "CKA_LABEL": "opentitan-ca-root-v0.priv",
+            "CKA_SIGN": True,
+            "CKA_TOKEN": True,
+            "CKA_EXTRACTABLE": True,
+            "CKA_SENSITIVE": True,
+        },
+        public_template = {
+            "CKA_LABEL": "opentitan-ca-root-v0.pub",
+            "CKA_VERIFY": True,
+            "CKA_TOKEN": True,
+        },
+        wrapping = False,
+    ),
+    type = "ecdsa",
+)
+
+hsm_key_template(
+    name = "sival-dice-key-p256-v0",
+    import_template_private = hsmtool_pk11_attrs({
+        "CKA_SENSITIVE": True,
+        "CKA_SIGN": True,
+        "CKA_TOKEN": True,
+    }),
+    import_template_public = hsmtool_pk11_attrs({
+        "CKA_VERIFY": True,
+        "CKA_TOKEN": True,
+    }),
+    keygen_params = hsmtool_ecdsa_keygen(
+        curve = HSMTOOL_CONST.ECC_CURVE.PRIME256V1,
+        extractable = False,
+        label = "sival-dice-key-p256-v0",
+        private_template = {
+            "CKA_LABEL": "sival-dice-key-p256-v0.priv",
+            "CKA_SIGN": True,
+            "CKA_TOKEN": True,
+            "CKA_EXTRACTABLE": True,
+            "CKA_SENSITIVE": True,
+        },
+        public_template = {
+            "CKA_LABEL": "sival-dice-key-p256-v0.pub",
+            "CKA_VERIFY": True,
+            "CKA_TOKEN": True,
+        },
+        wrapping = False,
+    ),
+    type = "ecdsa",
+    wrapping_key = ":sival-aes-wrap-v0",
+    wrapping_mechanism = "VendorThalesAesKwp",
+)
+
+hsm_key_template(
+    name = "sival-kdf-hisec-v0",
+    import_template = hsmtool_pk11_attrs({
+        "CKA_DERIVE": True,
+        "CKA_SENSITIVE": True,
+        "CKA_SIGN": True,
+        "CKA_TOKEN": True,
+        "CKA_EXTRACTABLE": False,
+    }),
+    keygen_params = hsmtool_generic_keygen(
+        label = "sival-kdf-hisec-v0",
+        template = {
+            "CKA_DERIVE": True,
+            "CKA_SENSITIVE": True,
+            "CKA_EXTRACTABLE": True,
+            "CKA_TOKEN": True,
+        },
+    ),
+    type = "generic",
+    wrapping_key = ":sival-aes-wrap-v0",
+    wrapping_mechanism = "VendorThalesAesKwp",
+)
+
+hsm_key_template(
+    name = "sival-kdf-losec-v0",
+    import_template = hsmtool_pk11_attrs({
+        "CKA_DERIVE": True,
+        "CKA_SENSITIVE": True,
+        "CKA_SIGN": True,
+        "CKA_TOKEN": True,
+        "CKA_EXTRACTABLE": False,
+    }),
+    keygen_params = hsmtool_generic_keygen(
+        label = "sival-kdf-losec-v0",
+        template = {
+            "CKA_DERIVE": True,
+            "CKA_SENSITIVE": True,
+            "CKA_EXTRACTABLE": True,
+            "CKA_TOKEN": True,
+        },
+    ),
+    type = "generic",
+    wrapping_key = ":sival-aes-wrap-v0",
+    wrapping_mechanism = "VendorThalesAesKwp",
+)
+
+hsm_certgen(
+    name = "ca_root",
+    config = ":ca_root.conf",
+    key = ":opentitan-ca-root-v0",
+    root_cert = True,
+)
+
+hsm_certgen(
+    name = "ca_int_dice",
+    ca_key = ":opentitan-ca-root-v0",
+    config = ":ca_int_dice.conf",
+    key = ":sival-dice-key-p256-v0",
+)
+
+hsm_config_tar(
+    name = "offline_init",
+    hsmtool_sequence = {
+        ":sival-aes-wrap-v0": "keygen",
+        ":sku-sival-rsa-rma-v0": "keygen",
+        ":opentitan-ca-root-v0": "keygen",
+        ":sival-dice-key-p256-v0": "keygen",
+        ":sival-kdf-hisec-v0": "keygen",
+        ":sival-kdf-losec-v0": "keygen",
+    },
+)
+
+hsm_config_tar(
+    name = "offline_export",
+    certgen = [
+        ":ca_root",
+        ":ca_int_dice",
+    ],
+    hsmtool_sequence = {
+        "//config/dev/spm/sku:spm-rsa-wrap-v0": "import",
+        ":sival-aes-wrap-v0": "export",
+        ":sku-sival-rsa-rma-v0": "export",
+        ":sival-dice-key-p256-v0": "export",
+        ":sival-kdf-hisec-v0": "export",
+        ":sival-kdf-losec-v0": "export",
+    },
+)
+
+hsm_config_tar(
+    name = "spm_sku_init",
+    hsmtool_sequence = {
+        ":sival-aes-wrap-v0": "import",
+        ":sku-sival-rsa-rma-v0": "import",
+        ":sival-dice-key-p256-v0": "import",
+        ":sival-kdf-hisec-v0": "import",
+        ":sival-kdf-losec-v0": "import",
+    },
+)
+
+pkg_tar(
+    name = "release",
+    srcs = [
+        ":offline_export",
+        ":offline_init",
+        ":spm_sku_init",
+    ],
+    extension = "tar.gz",
+    include_runfiles = True,
+)
