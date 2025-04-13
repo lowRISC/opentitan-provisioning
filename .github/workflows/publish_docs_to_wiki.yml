@@ -1,0 +1,40 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Publish docs to Wiki
+
+on:
+  push:
+    # Trigger only when docs folder changes on the main branch.
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+
+jobs:
+  publish-wiki:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Push docs to Wiki
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+
+        git clone https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.wiki.git wiki_temp
+        rm -rf wiki_temp/*
+        cp -R docs/* wiki_temp/
+
+        # Commit and push changes
+        cd wiki_temp
+        git config user.email "github-actions@github.com"
+        git config user.name "GitHub Actions"
+        git add .
+        if git diff-index --quiet HEAD; then
+          echo "No changes to the wiki detected. Skipping commit."
+        else
+          git commit -m "Update wiki from docs folder [CI]"
+          git push origin master
+        fi
