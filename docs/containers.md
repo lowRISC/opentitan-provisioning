@@ -78,4 +78,4 @@ The following topics will be covered in the future:
 
 ## Read More
 
-* [Documentation index](README.md)
+* [Documentation index](https://github.com/lowRISC/opentitan-provisioning/wiki/README.md)

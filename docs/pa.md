@@ -2,10 +2,10 @@
 
 The Provisioning Service is used for securely (wrapped) storing SKU material
 (e.g. SKU keys, leaf CA keys and certificate template) generated and packed
-in an offline HSM and provisioning the SKU material into the [SPM](spm.md).
+in an offline HSM and provisioning the SKU material into the [SPM](https://github.com/lowRISC/opentitan-provisioning/wiki/spm).
 
 The Provisioning Appliance Service definition is defined in a protobuf file
-under [`src/pa/proto/pa.proto`](../src/pa/proto/pa.proto).
+under [`src/pa/proto/pa.proto`](https://github.com/lowRISC/opentitan-provisioning/blob/main/src/pa/proto/pa.proto).
 
 ## Developer Notes
 
@@ -29,8 +29,8 @@ $ bazel-bin/src/proxy_buffer/pb_server_/pb_server \
 
 Run the following steps before proceeding.
 
-* Generate [enpoint certificates](auth.md#endpoint-certificates).
-* Start [SPM server](spm.md#start-spm-server).
+* Generate [enpoint certificates](https://github.com/lowRISC/opentitan-provisioning/wiki/auth#endpoint-certificates).
+* Start [SPM server](https://github.com/lowRISC/opentitan-provisioning/wiki/spm#start-spm-server).
 
 Start the server with mTLS enabled. The Provisioning Appliance (PA) connects to the
 SPM at startup time.
@@ -68,5 +68,5 @@ $ bazel run //src/pa:loadtest -- \
 
 ## Read More
 
-* [Secure Provisioning Module](spm.md)
-* [Documentation index](README.md)
+* [Secure Provisioning Module](https://github.com/lowRISC/opentitan-provisioning/wiki/spm)
+* [Documentation index](https://github.com/lowRISC/opentitan-provisioning/wiki/Home)

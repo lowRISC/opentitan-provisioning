@@ -4,7 +4,7 @@ Standard ATE is used in various silicion manufacturing stages, as well as
 for device provisioning. The ATE system generally runs on a PC system running
 the Windows operating system.
 
-The ATE client connects to the [Provisioning Appliance](pa.md) to perform
+The ATE client connects to the [Provisioning Appliance](https://github.com/lowRISC/opentitan-provisioning/wiki/pa) to perform
 provisioning operations.
 
 ## Developer Notes
@@ -13,8 +13,8 @@ provisioning operations.
 
 Run the following steps before proceeding.
 
-* Generate [enpoint certificates](auth.md#endpoint-certificates).
-* Start [PA server](pa.md#start-pa-server).
+* Generate [enpoint certificates](https://github.com/lowRISC/opentitan-provisioning/wiki/auth#endpoint-certificates).
+* Start [PA server](https://github.com/lowRISC/opentitan-provisioning/wiki/pa#start-pa-server).
 
 Take note of the PA server target address and port number. In the following
 command we start the client pointing to `localhost:5001`.
@@ -31,5 +31,5 @@ bazel-bin/src/ate/ate_main \
 
 ## Read More
 
-* [Provisioning Appliance](pa.md)
-* [Documentation index](README.md)
+* [Provisioning Appliance](https://github.com/lowRISC/opentitan-provisioning/wiki/pa)
+* [Documentation index](https://github.com/lowRISC/opentitan-provisioning/wiki/Home)

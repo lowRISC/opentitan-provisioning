@@ -49,4 +49,4 @@ capture the rationale behind the process.
 
 ## Read More
 
-* [Documentation index](README.md)
+* [Documentation index](./README.md)

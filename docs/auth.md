@@ -6,7 +6,7 @@ data exchanged between clients and servers.
 In addition, a token based authentication layer is implemented
 to authenticate client requests at the call level. The provisioning
 system manages credentials mapping allowed service calls to SKU/client
-credentials. Such credentials will be provided by [ATE](ate.md) clients.
+credentials. Such credentials will be provided by [ATE](https://github.com/lowRISC/opentitan-provisioning/wiki/ate.md) clients.
 
 ## References
 
@@ -24,7 +24,7 @@ credentials. Such credentials will be provided by [ATE](ate.md) clients.
 
 The following command generates keys and certificates for all endpoints. The
 `SubjectAltName` is set to `localhost`. All clients should connect using this
-address. See the [script](../config/dev/certs/gen_certs.sh) implementation for
+address. See the [script](https://github.com/lowRISC/opentitan-provisioning/blob/main/config/dev/certs/gen_certs.sh) implementation for
 more details.
 
 ```console
@@ -36,4 +36,4 @@ servers and clients.
 
 ## Read More
 
-* [Documentation index](README.md)
+* [Documentation index](https://github.com/lowRISC/opentitan-provisioning/wiki/Home)

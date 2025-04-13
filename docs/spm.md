@@ -1,13 +1,13 @@
 # Secure Provisioning Module (SPM)
 
 The Secure Provisioning Module (SPM) is part of the
-[Provisioning Appliance](pa.md) (PA), and is responsible for implementing
+[Provisioning Appliance](https://github.com/lowRISC/opentitan-provisioning/wiki/pa) (PA), and is responsible for implementing
 secure operations (e.g. signing with a private manufacturer key). The SPM may
 interface to an HSM or a Secure Element (SE), used to implement physical
 protection.
 
 The SPM exposes a service interface to the PA defined in protobuf format.
-See [`src/pa/services/pa.go`](../src/pa/proto/pa.proto) for more details.
+See [`src/pa/services/pa.go`](https://github.com/lowRISC/opentitan-provisioning/blob/main/src/pa/proto/pa.proto) for more details.
 
 ## Configuration Files
 
@@ -28,7 +28,7 @@ All files referenced by any configuration file must be relative to the
 
 The SPM source code does not contain any secrets, and HSM credentials are
 configured using environment variables. See
-[spm.env](../config/dev/env/spm.env) for details. The following secrets are
+[spm.env](https://github.com/lowRISC/opentitan-provisioning/blob/main/config/dev/env/spm.env) for details. The following secrets are
 required by the SPM binary:
 
 * `SPM_HSM_PIN_ADMIN`: The HSM Security Officer (SO) pin.
@@ -110,7 +110,7 @@ $ config/dev/token_init.sh
 
 Run the following steps before proceeding.
 
-* Generate [enpoint certificates](auth.md#endpoint-certificates).
+* Generate [enpoint certificates](https://github.com/lowRISC/opentitan-provisioning/wiki/auth#endpoint-certificates).
 * Initialize the [softHSM2 token](#configure-softhsm2).
 
 Start the SPM server after setting the SoftHSM2 envars with mTLS enabled.
@@ -131,6 +131,6 @@ YYYY/mm/DD HH:MM:DD Server is now listening on port: 5000
 
 ## Read More
 
-* [HSM Configuration](hsm.md)
-* [Provisioning Appliance](pa.md)
-* [Documentation index](README.md)
+* [HSM Configuration](https://github.com/lowRISC/opentitan-provisioning/wiki/hsm)
+* [Provisioning Appliance](https://github.com/lowRISC/opentitan-provisioning/wiki/pa)
+* [Documentation index](https://github.com/lowRISC/opentitan-provisioning/wiki/Home)
