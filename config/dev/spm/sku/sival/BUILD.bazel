@@ -6,7 +6,7 @@ load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load(
     "//rules:hsm.bzl",
     "hsm_certgen",
-    "hsm_config_script",
+    "hsm_config_tar",
     "hsm_key_template",
 )
 load(
@@ -200,7 +200,7 @@ hsm_certgen(
     key = ":sival-dice-key-p256-v0",
 )
 
-hsm_config_script(
+hsm_config_tar(
     name = "offline_init",
     hsmtool_sequence = {
         ":sival-aes-wrap-v0": "keygen",
@@ -212,17 +212,7 @@ hsm_config_script(
     },
 )
 
-pkg_tar(
-    name = "offline_init_pkg",
-    srcs = [
-        ":offline_init",
-    ],
-    extension = "tar.gz",
-    include_runfiles = True,
-    visibility = ["//visibility:public"],
-)
-
-hsm_config_script(
+hsm_config_tar(
     name = "offline_export",
     certgen = [
         ":ca_root",
@@ -238,16 +228,7 @@ hsm_config_script(
     },
 )
 
-pkg_tar(
-    name = "offline_export_pkg",
-    srcs = [
-        ":offline_export",
-    ],
-    extension = "tar.gz",
-    include_runfiles = True,
-)
-
-hsm_config_script(
+hsm_config_tar(
     name = "spm_sku_init",
     hsmtool_sequence = {
         ":sival-aes-wrap-v0": "import",
@@ -256,15 +237,6 @@ hsm_config_script(
         ":sival-kdf-hisec-v0": "import",
         ":sival-kdf-losec-v0": "import",
     },
-)
-
-pkg_tar(
-    name = "spm_sku_init_pkg",
-    srcs = [
-        ":spm_sku_init",
-    ],
-    extension = "tar.gz",
-    include_runfiles = True,
 )
 
 pkg_tar(

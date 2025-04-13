@@ -5,7 +5,7 @@
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load(
     "//rules:hsm.bzl",
-    "hsm_config_script",
+    "hsm_config_tar",
     "hsm_key_template",
 )
 load(
@@ -80,7 +80,7 @@ hsm_key_template(
     type = "ecdsa",
 )
 
-hsm_config_script(
+hsm_config_tar(
     name = "spm_init",
     hsmtool_sequence = {
         ":spm-rsa-wrap-v0": "keygen",
@@ -88,30 +88,12 @@ hsm_config_script(
     },
 )
 
-pkg_tar(
-    name = "spm_init_pkg",
-    srcs = [
-        ":spm_init",
-    ],
-    extension = "tar.gz",
-    include_runfiles = True,
-)
-
-hsm_config_script(
+hsm_config_tar(
     name = "spm_export",
     hsmtool_sequence = {
         ":spm-rsa-wrap-v0": "export",
         ":spm-hsm-id-v0": "export",
     },
-)
-
-pkg_tar(
-    name = "spm_export_pkg",
-    srcs = [
-        ":spm_export",
-    ],
-    extension = "tar.gz",
-    include_runfiles = True,
 )
 
 pkg_tar(

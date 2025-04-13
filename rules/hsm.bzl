@@ -5,6 +5,7 @@
 """Rules for HSM provisioning."""
 
 load("@bazel_skylib//lib:shell.bzl", "shell")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load(
     "//rules:hsmtool.bzl",
     "hsmtool_aes_export",
@@ -603,3 +604,27 @@ hsm_config_script = rule(
     },
     executable = True,
 )
+
+def hsm_config_tar(name, hsmtool_sequence, certgen = [], **kwargs):
+    """Creates a tarball with the HSM configuration.
+
+    Args:
+        name: The name of the tarball.
+        hsmtool_sequence: The sequence of commands to run.
+        certgen: The certificate generation parameters.
+        **kwargs: Additional attributes to pass to the rule.
+    """
+    hsm_config_script(
+        name = name,
+        hsmtool_sequence = hsmtool_sequence,
+        certgen = certgen,
+        **kwargs
+    )
+    pkg_tar(
+        name = name + "_pkg",
+        srcs = [
+            ":" + name,
+        ],
+        extension = "tar.gz",
+        include_runfiles = True,
+    )
