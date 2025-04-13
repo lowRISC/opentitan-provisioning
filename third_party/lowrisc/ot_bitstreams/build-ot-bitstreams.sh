@@ -3,12 +3,12 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-# This script make it easy to build an check-in OT FPGA bitstreams for E2E
+# This script makes it easy to build and check-in OT FPGA bitstreams for E2E
 # testing.
 #
 # This script should be run from the root of this repo on a machine that also
-# has the https://github.com/lowRISC/opentitan repo cloned and their system
-# configured to build bitstreams.
+# has the https://github.com/lowRISC/opentitan repo cloned and is configured to
+# build bitstreams.
 
 set -e
 
