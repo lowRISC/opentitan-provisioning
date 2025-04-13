@@ -42,6 +42,18 @@ class DutLib {
    * Calls opentitanlib test util to send a message over the SPI console.
    */
   void DutConsoleTx(std::string& msg);
+  /**
+   * Calls opentitanlib methods to send a CP provisioning data UJSON payload
+   * over the SPI console to the DUT.
+   */
+  void DutTxCpProvisioningData(std::string* was, std::string* test_unlock_token,
+                               std::string* test_exit_token,
+                               uint64_t timeout_ms);
+  /**
+   * Calls opentitanlib methods to receive the CP device ID UJSON payload over
+   * the SPI console from the DUT.
+   */
+  std::string DutRxCpDeviceId(bool quiet, uint64_t timeout_ms);
 
  private:
   // Must match the opentitanlib UartConsole buffer size defined here:

@@ -21,6 +21,13 @@ void OtLibConsoleWaitForRx(void* transport, const char* msg,
 void OtLibConsoleRx(void* transport, bool quiet, uint64_t timeout_ms,
                     uint8_t* msg, size_t* msg_size);
 void OtLibConsoleTx(void* transport, const char* msg);
+void OtLibTxCpProvisioningData(void* transport, const char* was,
+                               const char* test_unlock_token,
+                               const char* test_exit_token,
+                               uint64_t timeout_ms);
+void OtLibRxCpDeviceId(void* transport, bool quiet, uint64_t timeout_ms,
+                       uint8_t* cp_device_id_str,
+                       size_t* cp_device_id_str_size);
 }
 
 std::unique_ptr<DutLib> DutLib::Create(const std::string& fpga) {
@@ -58,6 +65,28 @@ std::string DutLib::DutConsoleRx(bool quiet, uint64_t timeout_ms) {
 void DutLib::DutConsoleTx(std::string& msg) {
   LOG(INFO) << "in DutLib::DutConsoleTx";
   OtLibConsoleTx(transport_, msg.c_str());
+}
+
+void DutLib::DutTxCpProvisioningData(std::string* was,
+                                     std::string* test_unlock_token,
+                                     std::string* test_exit_token,
+                                     uint64_t timeout_ms) {
+  LOG(INFO) << "in DutLib::DutTxCpProvisioningData";
+  OtLibTxCpProvisioningData(transport_, was->c_str(),
+                            test_unlock_token->c_str(),
+                            test_exit_token->c_str(), timeout_ms);
+}
+
+std::string DutLib::DutRxCpDeviceId(bool quiet, uint64_t timeout_ms) {
+  LOG(INFO) << "in DutLib::DutRxCpDeviceId";
+  size_t cp_device_id_str_size = kMaxRxMsgSizeInBytes;
+  std::string cp_device_id_str(kMaxRxMsgSizeInBytes, '\0');
+  OtLibRxCpDeviceId(
+      transport_, quiet, timeout_ms,
+      reinterpret_cast<uint8_t*>(const_cast<char*>(cp_device_id_str.data())),
+      &cp_device_id_str_size);
+  cp_device_id_str.resize(cp_device_id_str_size);
+  return cp_device_id_str;
 }
 
 }  // namespace test_programs

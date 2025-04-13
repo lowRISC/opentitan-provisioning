@@ -15,6 +15,9 @@ rust_library(
         "@crate_index//:anyhow",
         "@crate_index//:crc",
         "@crate_index//:regex",
+        "@crate_index//:zerocopy",
         "@lowrisc_opentitan//sw/host/opentitanlib",
+        "@lowrisc_opentitan//sw/host/provisioning/ujson_lib",
+        "@lowrisc_opentitan//sw/host/provisioning/util_lib",
     ],
 )

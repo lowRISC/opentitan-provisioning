@@ -12,6 +12,7 @@ use std::time::Duration;
 use anyhow::Result;
 use crc::{Crc, CRC_32_ISO_HDLC};
 use regex::Regex;
+use zerocopy::AsBytes;
 
 use opentitanlib::app::TransportWrapper;
 use opentitanlib::backend;
@@ -27,7 +28,10 @@ use opentitanlib::test_utils::load_bitstream::LoadBitstream;
 use opentitanlib::test_utils::load_sram_program::{
     ExecutionMode, ExecutionResult, SramProgramParams,
 };
+use opentitanlib::test_utils::rpc::{ConsoleRecv, ConsoleSend};
 use opentitanlib::uart::console::{ExitStatus, UartConsole};
+use ujson_lib::provisioning_data::{ManufCpProvisioningData, ManufCpProvisioningDataOut};
+use util_lib::{hash_lc_token, hex_string_to_u32_arrayvec};
 
 #[no_mangle]
 pub extern "C" fn OtLibFpgaTransportInit(fpga: *mut c_char) -> *const TransportWrapper {
@@ -179,9 +183,7 @@ pub extern "C" fn OtLibConsoleWaitForRx(
     let msg = msg_cstr.to_str().unwrap();
 
     // Wait for message to be received over the console.
-    println!("Waiting for \"{}\" message over console ...", msg);
     let _ = UartConsole::wait_for(&spi_console, msg, Duration::from_millis(timeout_ms)).unwrap();
-    println!("Message received.");
 }
 
 fn check_console_crc(json_str: &str, crc_str: &str) -> Result<()> {
@@ -279,4 +281,92 @@ pub extern "C" fn OtLibConsoleTx(transport: *const TransportWrapper, c_msg: *mut
 
     // Send string to console.
     spi_console.console_write(msg.as_bytes()).unwrap();
+}
+
+#[no_mangle]
+pub extern "C" fn OtLibTxCpProvisioningData(
+    transport: *const TransportWrapper,
+    c_was: *mut c_char,
+    c_test_unlock_token: *mut c_char,
+    c_test_exit_token: *mut c_char,
+    timeout_ms: u64,
+) {
+    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
+    // the call to `OtLibFpgaTransportInit(...)` above.
+    let transport: &TransportWrapper = unsafe { &*transport };
+
+    // Unpack input strings.
+    // SAFETY: The expected input strings must be set by the caller and be valid.
+    let was_cstr = unsafe { CStr::from_ptr(c_was) };
+    let was = was_cstr.to_str().unwrap();
+    let test_unlock_token_str = unsafe { CStr::from_ptr(c_test_unlock_token) };
+    let test_unlock_token = test_unlock_token_str.to_str().unwrap();
+    let test_exit_token_str = unsafe { CStr::from_ptr(c_test_exit_token) };
+    let test_exit_token = test_exit_token_str.to_str().unwrap();
+
+    // Get handle to SPI console.
+    let spi = transport.spi("BOOTSTRAP").unwrap();
+    let spi_console = SpiConsoleDevice::new(&*spi).unwrap();
+
+    // Send the UJSON CP data payload to the DUT over the console.
+    let _ = UartConsole::wait_for(
+        &spi_console,
+        r"Waiting for CP provisioning data ...",
+        Duration::from_millis(timeout_ms),
+    );
+    let provisioning_data = ManufCpProvisioningData {
+        wafer_auth_secret: hex_string_to_u32_arrayvec::<8>(was).unwrap(),
+        test_unlock_token_hash: hash_lc_token(
+            hex_string_to_u32_arrayvec::<4>(test_unlock_token)
+                .unwrap()
+                .as_bytes(),
+        )
+        .unwrap(),
+        test_exit_token_hash: hash_lc_token(
+            hex_string_to_u32_arrayvec::<4>(test_exit_token)
+                .unwrap()
+                .as_bytes(),
+        )
+        .unwrap(),
+    };
+    provisioning_data.send(&spi_console).unwrap();
+}
+
+#[no_mangle]
+pub extern "C" fn OtLibRxCpDeviceId(
+    transport: *const TransportWrapper,
+    quiet: bool,
+    timeout_ms: u64,
+    cp_device_id_str: *mut u8,
+    cp_device_id_str_size: *mut usize,
+) {
+    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
+    // the call to `OtLibFpgaTransportInit(...)` above.
+    let transport: &TransportWrapper = unsafe { &*transport };
+
+    // Get handle to SPI console.
+    let spi = transport.spi("BOOTSTRAP").unwrap();
+    let spi_console = SpiConsoleDevice::new(&*spi).unwrap();
+
+    // Receive the CP device ID string from DUT.
+    let timeout = Duration::from_millis(timeout_ms);
+    let _ = UartConsole::wait_for(&spi_console, r"Exporting CP device ID ...", timeout);
+    let cp_dev_id_string = ManufCpProvisioningDataOut::recv(&spi_console, timeout, quiet)
+        .unwrap()
+        .cp_device_id
+        .iter()
+        .rev()
+        .map(|v| format!("{v:08X}"))
+        .collect::<Vec<String>>()
+        .join("");
+    let cp_dev_id = cp_dev_id_string.as_str();
+    // SAFETY: data_size should be a valid pointer to memory allocated by the caller.
+    let cp_device_id_str_size = unsafe { &mut *cp_device_id_str_size };
+    // SAFETY: data should be a valid pointer to memory allocated by the caller.
+    let cp_device_id_str =
+        unsafe { std::slice::from_raw_parts_mut(cp_device_id_str, *cp_device_id_str_size) };
+    cp_device_id_str[..cp_dev_id.len()].copy_from_slice(cp_dev_id.as_bytes());
+    *cp_device_id_str_size = cp_dev_id.len();
+
+    let _ = UartConsole::wait_for(&spi_console, r"CP provisioning done.", timeout);
 }
