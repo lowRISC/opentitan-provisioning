@@ -591,7 +591,7 @@ hsm_config_script = rule(
             providers = [CertGenInfo],
         ),
         "_runner_general": attr.label(
-            default = "//rules/scripts:hsm_init.template.sh",
+            default = "//rules/scripts:hsmtool_runner.template.sh",
             allow_single_file = True,
         ),
         "_hsmtool": attr.label(
