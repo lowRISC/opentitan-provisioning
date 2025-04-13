@@ -5,7 +5,7 @@ following table summarizes all the assets managed across HSMs.
 
 Asset | Offline | SPM | Type | Description
 ------|---------|-----|------|------------
-`spm-<id>-rsa-wrap`, `spm-rsa-unwrap` | Public | Private |  RSA 3072bit-F4 key pair | Key used to wrap `<sku>-aes-wrap`. `<id>` is used to identify the SPM HSM.
+`spm-rsa-wrap.pub`, `spm-rsa-wrap.priv` | Public | Private |  RSA 3072bit-F4 key pair | Key used to wrap `<sku>-aes-wrap`.
 `spm-hsm-id` | Public | Private | ECDSA P-384 key pair | Key used to attest SPM operations, e.g. Device records are signed with this key to attest their provenance.
 `<sku>-aes-wrap` | Yes | Yes | AES 256-bit key | Key used to wrap SKU specific assets. `<sku>` is used to identify the SKU.
 `<sku>-endorse-cert-<application>-key` | Private | Private | ECDSA key pair | Keys used in `EndorseCert` operations. `<sku>` is used to identify the SKU, `<application>` is used to track the certificate type.
@@ -21,8 +21,8 @@ assets are then provisioned into the HSM to enable SKU operations.
 
 Asset | Type | Description
 ------|------|------------
-`spm-<id>-rsa-wrap`, `spm-rsa-unwrap` | Public | Private |  RSA 3072bit-F4 key pair | Key used to wrap `<sku>-aes-wrap`. `<id>` is used to identify the SPM HSM.
-`spm-hsm-id` | ECDSA P-384 key pair | Key used to attest SPM operations, e.g. Device records are signed with this key to attest their provenance.
+`spm-rsa-wrap.pub`, `spm-rsa-wrap.priv` | Public | Private |  RSA 3072bit-F4 key pair | Key used to wrap `<sku>-aes-wrap`.
+`spm-hsm-id` | ECDSA P-256 key pair | Key used to attest SPM operations, e.g. Device records are signed with this key to attest their provenance.
 
 ## Offline HSM Initialization
 
@@ -38,7 +38,7 @@ key belongs to an HSM approved by the product owner.
 Asset | Type | Description
 ------|------|------------
 `<sku>-aes-wrap` | AES 256-bit key | Key used to wrap SKU specific assets. `<sku>` is used to identify the SKU.
-`spm-<id>-rsa-wrap` | RSA 3072bit-F3 public key | Key used to wrap `<sku>-aes-wrap`. `<id>` is used to identify the SPM HSM.
+`spm-rsa-wrap` | RSA 3072bit-F3 public key | Key used to wrap `<sku>-aes-wrap`.
 
 Example:
 

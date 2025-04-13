@@ -20,6 +20,7 @@ load(
     "hsmtool_generic_import",
     "hsmtool_generic_keygen",
     "hsmtool_object_destroy",
+    "hsmtool_pk11_attrs",
     "hsmtool_rsa_export_pub",
     "hsmtool_rsa_import_pub",
     "hsmtool_rsa_keygen",
@@ -627,4 +628,251 @@ def hsm_config_tar(name, hsmtool_sequence, certgen = [], **kwargs):
         ],
         extension = "tar.gz",
         include_runfiles = True,
+    )
+
+def hsm_spm_wrapping_key(name):
+    """Creates a wrapping key for SPM.
+
+    Args:
+        name: The name of the wrapping key.
+    """
+    hsm_key_template(
+        name = name,
+        export_public_only = True,
+        import_template_public = hsmtool_pk11_attrs({
+            "CKA_ENCRYPT": True,
+            "CKA_VERIFY": True,
+            "CKA_WRAP": True,
+            "CKA_TOKEN": True,
+        }),
+        keygen_params = hsmtool_rsa_keygen(
+            extractable = False,
+            key_length = 3072,
+            label = name,
+            private_template = {
+                "CKA_CLASS": "CKO_PRIVATE_KEY",
+                "CKA_LABEL": name + ".priv",
+                "CKA_DECRYPT": True,
+                "CKA_SIGN": True,
+                "CKA_TOKEN": True,
+                "CKA_SENSITIVE": True,
+            },
+            public_exponent = 65537,
+            public_template = {
+                "CKA_CLASS": "CKO_PUBLIC_KEY",
+                "CKA_LABEL": name + ".pub",
+                "CKA_ENCRYPT": True,
+                "CKA_VERIFY": True,
+                "CKA_TOKEN": True,
+            },
+            wrapping = True,
+        ),
+        type = "rsa",
+    )
+
+def hsm_spm_identity_key(name, curve):
+    """Creates an identity key for SPM.
+
+    Args:
+        name: The name of the identity key.
+        curve: The curve to use for the key.
+    """
+    hsm_key_template(
+        name = name,
+        export_public_only = True,
+        import_template_public = hsmtool_pk11_attrs({
+            "CKA_VERIFY": True,
+            "CKA_TOKEN": True,
+        }),
+        keygen_params = hsmtool_ecdsa_keygen(
+            curve = curve,
+            extractable = False,
+            label = name,
+            private_template = {
+                "CKA_LABEL": name + ".priv",
+                "CKA_SIGN": True,
+                "CKA_TOKEN": True,
+                "CKA_EXTRACTABLE": False,
+            },
+            public_template = {
+                "CKA_LABEL": name + ".pub",
+                "CKA_VERIFY": True,
+                "CKA_TOKEN": True,
+            },
+            wrapping = False,
+        ),
+        type = "ecdsa",
+    )
+
+def hsm_sku_wrapping_key(name, wrapping_key, wrapping_mechanism):
+    """Creates a wrapping key for SKU.
+
+    Args:
+        name: The name of the wrapping key.
+        wrapping_key: The key used to wrap the key.
+        wrapping_mechanism: The mechanism used to wrap the key.
+    """
+    hsm_key_template(
+        name = name,
+        import_template = hsmtool_pk11_attrs({
+            "CKA_DECRYPT": True,
+            "CKA_ENCRYPT": False,
+            "CKA_SENSITIVE": True,
+            "CKA_TOKEN": True,
+            "CKA_UNWRAP": True,
+            "CKA_WRAP": False,
+            "CKA_EXTRACTABLE": False,
+        }),
+        keygen_params = hsmtool_aes_keygen(
+            label = name,
+            template = {
+                "CKA_ENCRYPT": True,
+                "CKA_DECRYPT": True,
+                "CKA_WRAP": True,
+                "CKA_UNWRAP": True,
+                "CKA_SENSITIVE": True,
+                "CKA_EXTRACTABLE": True,
+                "CKA_TOKEN": True,
+            },
+        ),
+        type = "aes",
+        wrapping_key = wrapping_key,
+        wrapping_mechanism = wrapping_mechanism,
+    )
+
+def hsm_sku_rma_key(name):
+    """Creates an RMA token wrapping key for SKU.
+
+    Args:
+        name: The name of the wrapping key.
+    """
+    hsm_key_template(
+        name = name,
+        export_public_only = True,
+        import_template_public = hsmtool_pk11_attrs({
+            "CKA_ENCRYPT": True,
+            "CKA_TOKEN": True,
+            "CKA_WRAP": True,
+        }),
+        keygen_params = hsmtool_rsa_keygen(
+            extractable = False,
+            key_length = 3072,
+            label = name,
+            private_template = {
+                "CKA_CLASS": "CKO_PRIVATE_KEY",
+                "CKA_LABEL": name + ".priv",
+                "CKA_DECRYPT": True,
+                "CKA_SIGN": False,
+                "CKA_TOKEN": True,
+                "CKA_EXTRACTABLE": False,
+            },
+            public_exponent = 65537,
+            public_template = {
+                "CKA_CLASS": "CKO_PUBLIC_KEY",
+                "CKA_LABEL": name + ".pub",
+                "CKA_ENCRYPT": True,
+                "CKA_VERIFY": False,
+                "CKA_TOKEN": True,
+            },
+            wrapping = True,
+        ),
+        type = "rsa",
+    )
+
+def hsm_certificate_authority_root(name, curve):
+    """Creates a root certificate authority key.
+
+    Args:
+        name: The name of the certificate authority key.
+        curve: The curve to use for the key.
+    """
+    hsm_key_template(
+        name = name,
+        export_public_only = True,
+        keygen_params = hsmtool_ecdsa_keygen(
+            curve = curve,
+            extractable = False,
+            label = name,
+            private_template = {
+                "CKA_LABEL": name + ".priv",
+                "CKA_SIGN": True,
+                "CKA_TOKEN": True,
+                "CKA_EXTRACTABLE": False,
+                "CKA_SENSITIVE": True,
+            },
+            public_template = {
+                "CKA_LABEL": name + ".pub",
+                "CKA_VERIFY": True,
+                "CKA_TOKEN": True,
+            },
+            wrapping = False,
+        ),
+        type = "ecdsa",
+    )
+
+def hsm_certificate_authority_intermediate(name, curve, wrapping_key, wrapping_mechanism):
+    hsm_key_template(
+        name = name,
+        import_template_private = hsmtool_pk11_attrs({
+            "CKA_SENSITIVE": True,
+            "CKA_SIGN": True,
+            "CKA_TOKEN": True,
+            "CKA_EXTRACTABLE": False,
+        }),
+        import_template_public = hsmtool_pk11_attrs({
+            "CKA_VERIFY": True,
+            "CKA_TOKEN": True,
+        }),
+        keygen_params = hsmtool_ecdsa_keygen(
+            curve = curve,
+            extractable = False,
+            label = name,
+            private_template = {
+                "CKA_LABEL": name + ".priv",
+                "CKA_SIGN": True,
+                "CKA_TOKEN": True,
+                "CKA_EXTRACTABLE": True,
+                "CKA_SENSITIVE": True,
+            },
+            public_template = {
+                "CKA_LABEL": name + ".pub",
+                "CKA_VERIFY": True,
+                "CKA_TOKEN": True,
+            },
+            wrapping = False,
+        ),
+        type = "ecdsa",
+        wrapping_key = wrapping_key,
+        wrapping_mechanism = wrapping_mechanism,
+    )
+
+def hsm_generic_secret(name, wrapping_key, wrapping_mechanism):
+    """Creates a generic secret key.
+
+    Args:
+        name: The name of the generic secret key.
+        wrapping_key: The key used to wrap the key.
+        wrapping_mechanism: The mechanism used to wrap the key.
+    """
+    hsm_key_template(
+        name = name,
+        import_template = hsmtool_pk11_attrs({
+            "CKA_DERIVE": True,
+            "CKA_SENSITIVE": True,
+            "CKA_SIGN": True,
+            "CKA_TOKEN": True,
+            "CKA_EXTRACTABLE": False,
+        }),
+        keygen_params = hsmtool_generic_keygen(
+            label = name,
+            template = {
+                "CKA_DERIVE": True,
+                "CKA_SENSITIVE": True,
+                "CKA_EXTRACTABLE": True,
+                "CKA_TOKEN": True,
+            },
+        ),
+        type = "generic",
+        wrapping_key = wrapping_key,
+        wrapping_mechanism = wrapping_mechanism,
     )

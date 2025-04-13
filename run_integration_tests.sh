@@ -30,6 +30,8 @@ if [[ -n "${OT_PROV_PROD_EN}" ]]; then
   CONFIG_SUBDIR="prod"
 fi
 
+export OPENTITAN_VAR_DIR=${OPENTITAN_VAR_DIR:-$(pwd)/.ot${CONFIG_SUBDIR}}
+
 DEPLOYMENT_DIR="${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}"
 
 # SPM_PID_FILE is used to store the process ID of the SPM server process.

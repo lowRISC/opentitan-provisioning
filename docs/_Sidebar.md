@@ -11,6 +11,7 @@
 * [Containers](https://github.com/lowRISC/opentitan-provisioning/wiki/containers)
 * [Deployment Guide](https://github.com/lowRISC/opentitan-provisioning/wiki/deployment)
 * [HSM Configuration](https://github.com/lowRISC/opentitan-provisioning/wiki/hsm)
+  * [Key Policies](https://github.com/lowRISC/opentitan-provisioning/wiki/KeyPolicies)
 
 ## 🚀 Resources
 
