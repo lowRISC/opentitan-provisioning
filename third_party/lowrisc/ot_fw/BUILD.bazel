@@ -5,7 +5,7 @@
 package(default_visibility = ["//visibility:public"])
 
 genrule(
-    name = "orchestrator_zip",
+    name = "orchestrator_unzip",
     srcs = ["orchestrator.zip"],
     outs = ["orchestrator"],
     cmd = "unzip $< -d $@",
