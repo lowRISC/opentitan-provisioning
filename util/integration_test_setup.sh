@@ -75,6 +75,14 @@ trap shutdown_callback EXIT
 
 . ${DEPLOYMENT_DIR}/env/spm.env
 
+# Unpack firmware and OpenOCD binaries.
+bazelisk build //third_party/lowrisc/ot_fw:orchestrator_unzip
+DEPLOYMENT_BIN_DIR="${OPENTITAN_VAR_DIR}/bin"
+BUILD_BIN_DIR="bazel-bin/third_party/lowrisc/ot_fw/orchestrator/runfiles/lowrisc_opentitan"
+cp "${BUILD_BIN_DIR}"/sw/device/silicon_creator/manuf/base/sram_cp_provision*.elf "${DEPLOYMENT_BIN_DIR}"
+cp "${BUILD_BIN_DIR}"/third_party/openocd/build_openocd/bin/openocd "${DEPLOYMENT_BIN_DIR}"
+chmod +x "${DEPLOYMENT_BIN_DIR}"/openocd
+
 if [[ -n "${OT_PROV_PROD_EN}" ]]; then
   # Spawn the SPM server as a process and store its process ID.
   echo "Launching SPM server outside of container"

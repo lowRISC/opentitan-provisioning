@@ -40,7 +40,11 @@ for fpga in "${_FPGAS[@]}"; do
       --//hw/bitstream/universal:otp=//hw/ip/otp_ctrl/data/earlgrey_skus/"$sku":otp_img_test_unlocked0_manuf_empty \
       --//hw/bitstream/universal:env=//hw/top_earlgrey:fpga_"$fpga"_rom_with_fake_keys \
       //hw/bitstream/universal:splice
-    cp -f "${_BITSTREAM_PATH}" "${_PROVISIONING_REPO_TOP}/third_party/lowrisc/ot_bitstreams/cp_${fpga}.bit"
+    if [[ "$fpga" == "cw340" ]]; then
+      cp -f "${_BITSTREAM_PATH}" "${_PROVISIONING_REPO_TOP}/third_party/lowrisc/ot_bitstreams/cp_hyper340.bit"
+    else
+      cp -f "${_BITSTREAM_PATH}" "${_PROVISIONING_REPO_TOP}/third_party/lowrisc/ot_bitstreams/cp_${fpga}.bit"
+    fi
     chmod -x "${_PROVISIONING_REPO_TOP}/third_party/lowrisc/ot_bitstreams/cp_${fpga}.bit"
   done
 done

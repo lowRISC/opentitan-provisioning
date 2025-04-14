@@ -41,25 +41,23 @@ jobs:
           path: artifacts/*
       - name: Test everything
         # Skip running lint tests as those are run in a previous stage.
-        run: bazel test --test_tag_filters=-lint //...
+        run: bazel test --test_tag_filters=-lint,-fpga //...
 
   # Run integration tests.
-  integration_tests_softhsm:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - name: Prepare environment
-        uses: ./.github/actions/prepare-env
-      - name: Run PA loadtest (in containers)
-        run: OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./run_integration_tests.sh
-
-  integration_tests_hsm:
+  integration_tests:
     runs-on: ot-provisioning-self-hosted
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Run PA loadtest
+        with:
+          lfs: true
+      # TODO(timothytrippel): It is unclear why the `lfs: true` configuration
+      # above is not sufficient on self hosted runners.
+      - name: Initialize LFS objects
+        run: git lfs pull
+      - name: Run integration tests (SoftHSM2)
+        run: OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./run_integration_tests.sh
+      - name: Run integration tests (Thales HSM)
         run: OPENTITAN_VAR_DIR=$(pwd)/.otvar-prod ./run_integration_tests.sh --prod
 
   # Test airgapped build.
