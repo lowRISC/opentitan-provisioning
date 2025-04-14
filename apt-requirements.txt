@@ -15,6 +15,7 @@ doxygen
 flex
 g++
 git
+git-lfs
 gnupg
 golang
 libengine-pkcs11-openssl
