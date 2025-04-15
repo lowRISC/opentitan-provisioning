@@ -139,3 +139,12 @@ func NewDeviceIdBadOrigin() *dpb.DeviceId {
 		SkuSpecific:    make([]byte, DeviceIdSkuSpecificLenInBytes),
 	}
 }
+
+func NewRegistryRecordOk(deviceID *dpb.DeviceId) rpb.RegistryRecord {
+	return rpb.RegistryRecord{
+		DeviceId: diu.DeviceIdToHexString(deviceID),
+		Sku:      "sival",
+		Version:  0,
+		Data:     make([]byte, 1000),
+	}
+}
