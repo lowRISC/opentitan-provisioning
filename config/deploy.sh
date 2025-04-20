@@ -88,6 +88,16 @@ if [ "${CONFIG_SUBDIR}" == "dev" ]; then
         "${OPENTITAN_VAR_DIR}" \
         "${SPM_HSM_TOKEN_OFFLINE}"
 
+    # Add write permissions to directories so they can be removed by the self
+    # hosted GitHub runner between test runs.
+    chmod +w ${DEPLOYMENT_DIR}/softhsm2/softhsm2/bin
+    chmod +w ${DEPLOYMENT_DIR}/softhsm2/softhsm2/lib
+    chmod +w ${DEPLOYMENT_DIR}/softhsm2/softhsm2/lib/softhsm
+    chmod +w ${DEPLOYMENT_DIR}/softhsm2/softhsm2/share
+    chmod +w ${DEPLOYMENT_DIR}/softhsm2/softhsm2/share/man
+    chmod +w ${DEPLOYMENT_DIR}/softhsm2/softhsm2/share/man/man1
+    chmod +w ${DEPLOYMENT_DIR}/softhsm2/softhsm2/share/man/man5
+
     echo "Done."
 fi
 
