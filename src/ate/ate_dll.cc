@@ -283,7 +283,7 @@ int TokensCopy(size_t count, const pa::DeriveTokensResponse &resp,
     }
 
     resp_token.size = token.size();
-    memcpy(resp_token.data, token.c_str(), sizeof(resp_token.data));
+    memcpy(resp_token.data, token.data(), resp_token.size);
 
     if (seeds != nullptr) {
       auto &s = sk.wrapped_seed();
@@ -303,7 +303,7 @@ int TokensCopy(size_t count, const pa::DeriveTokensResponse &resp,
       }
 
       seed.size = s.size();
-      memcpy(seed.seed, s.c_str(), sizeof(seed.seed));
+      memcpy(seed.seed, s.data(), seed.size);
     }
   }
   return 0;
@@ -486,7 +486,7 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
     }
 
     resp_cert.size = c.blob().size();
-    memcpy(resp_cert.cert, c.blob().c_str(), c.blob().size());
+    memcpy(resp_cert.cert, c.blob().data(), c.blob().size());
   }
   return 0;
 }
