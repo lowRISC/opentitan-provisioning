@@ -22,7 +22,7 @@ extern "C" {
 enum {
   /** Maximum number of bytes allowed in the SKU specific section of the Device
      Identifier.  */
-  kSkuSpecificSize = 128,
+  kSkuSpecificSize = 16,
   /** Maximum token size in bytes. This is equivalent to 256 bits. */
   kTokenMaxSize = 32,
   /** Maximum wrapped seed size in bytes. This is equivalent to the size of a
