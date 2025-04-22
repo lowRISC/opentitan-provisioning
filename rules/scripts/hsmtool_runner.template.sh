@@ -138,23 +138,37 @@ certgen () {
     PKCS11_MODULE_PATH="${FLAGS_HSMTOOL_MODULE}"
   )
 
-  # Generate the CA certificate for the root CA.
   env "${certvars[@]}" \
   openssl req -new -engine pkcs11 -keyform engine \
     -config "${config_basename}.conf" \
-    -out "${OUTDIR_CA}/${config_basename}.csr" \
+    -out "${OUTDIR_CA}/${ca_key}.csr" \
     -key "pkcs11:pin-value=${HSMTOOL_PIN};object=${ca_key};token=${FLAGS_HSMTOOL_TOKEN}"
 
-  env "${certvars[@]}" \
-  openssl x509 -req -engine pkcs11 -keyform engine \
-    -in "${OUTDIR_CA}/${config_basename}.csr" \
-    -out "${OUTDIR_CA}/${config_basename}.pem" \
-    -days 3650 \
-    -extfile "${config_basename}.conf" \
-    -extensions v3_ca \
-    -signkey "pkcs11:pin-value=${HSMTOOL_PIN};object=${endorsing_key};token=${FLAGS_HSMTOOL_TOKEN}"
 
-  rm "${OUTDIR_CA}/${config_basename}.csr"
+  if [[ "${ca_key}" == "${endorsing_key}" ]]; then
+    echo "Generating root CA certificate for ${ca_key}"
+    env "${certvars[@]}" \
+    openssl x509 -req -engine pkcs11 -keyform engine \
+      -in "${OUTDIR_CA}/${ca_key}.csr" \
+      -out "${OUTDIR_CA}/${ca_key}.pem" \
+      -days 3650 \
+      -extfile "${config_basename}.conf" \
+      -extensions v3_ca \
+      -signkey "pkcs11:pin-value=${HSMTOOL_PIN};object=${endorsing_key};token=${FLAGS_HSMTOOL_TOKEN}"
+  else
+    echo "Generating certificate for ${ca_key} signed by ${endorsing_key}"
+    env "${certvars[@]}" \
+    openssl x509 -req -engine pkcs11 -keyform engine \
+      -in "${OUTDIR_CA}/${ca_key}.csr" \
+      -out "${OUTDIR_CA}/${ca_key}.pem" \
+      -days 3650 \
+      -extfile "${config_basename}.conf" \
+      -extensions v3_ca \
+      -CA "${OUTDIR_CA}/${endorsing_key}.pem" \
+      -CAkeyform engine \
+      -CAkey "pkcs11:pin-value=${HSMTOOL_PIN};object=${endorsing_key};token=${FLAGS_HSMTOOL_TOKEN}"
+  fi
+  rm "${OUTDIR_CA}/${ca_key}.csr"
 }
 
 # Create output directory for HSM exported files.

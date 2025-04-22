@@ -539,15 +539,35 @@ def _hsmtool_genscripts(ctx):
 def _certgen_params(ctx):
     """Returns the certificate generation parameters.
 
+    This function processes the certificate generation parameters
+    and returns the templates, keys, and endorsing keys.
+
+    Root certificates are added before non-root certificates, this
+    is to ensure that the root certificate is always generated first.
+
     Args:
         ctx: The rule context.
     """
     templates, keys, endorsing_keys = [], [], []
+
+    # First pass: Add root certs.
     for cg in ctx.attr.certgen:
         cg = cg[CertGenInfo]
+        if not cg.root_cert:
+            continue
         templates.append(shell.quote(cg.config))
         keys.append(shell.quote(cg.key))
         endorsing_keys.append(shell.quote(cg.ca_key))
+
+    # Second pass: Add non-root certs.
+    for cg in ctx.attr.certgen:
+        cg = cg[CertGenInfo]
+        if cg.root_cert:
+            continue
+        templates.append(shell.quote(cg.config))
+        keys.append(shell.quote(cg.key))
+        endorsing_keys.append(shell.quote(cg.ca_key))
+
     return templates, keys, endorsing_keys
 
 def _hsm_config_script_impl(ctx):
