@@ -712,15 +712,19 @@ def hsm_sku_wrapping_key(name, wrapping_key, wrapping_mechanism):
         wrapping_key: The key used to wrap the key.
         wrapping_mechanism: The mechanism used to wrap the key.
     """
+
+    # TODO(moidx): Remove WRAP and ENCRYPT from import template
+    # once `hsmtool` is updated to support querying based on
+    # unwrap attributes.
     hsm_key_template(
         name = name,
         import_template = hsmtool_pk11_attrs({
             "CKA_DECRYPT": True,
-            "CKA_ENCRYPT": False,
+            "CKA_ENCRYPT": True,
             "CKA_SENSITIVE": True,
             "CKA_TOKEN": True,
             "CKA_UNWRAP": True,
-            "CKA_WRAP": False,
+            "CKA_WRAP": True,
             "CKA_EXTRACTABLE": False,
         }),
         keygen_params = hsmtool_aes_keygen(
