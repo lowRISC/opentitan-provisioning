@@ -51,6 +51,7 @@ go_binary(
         "//src/proto/crypto:ecdsa_go_pb",
         "//src/spm/proto:spm_go_pb",
         "//src/transport:grpconn",
+        "//src/utils:devid",
         "@io_bazel_rules_go//go/tools/bazel",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//metadata",

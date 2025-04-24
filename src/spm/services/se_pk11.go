@@ -8,6 +8,8 @@ package se
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/hmac"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -284,7 +286,7 @@ func (h *HSM) GenerateTokens(params []*TokenParams) ([]TokenResult, error) {
 		}
 
 		// Generate token from seed and extract.
-		rawData := append([]byte(p.Sku), []byte(p.Diversifier)...)
+		rawData := append([]byte(p.Sku), p.Diversifier...)
 		tBytes, err := seed.SignHMAC256(rawData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to hash seed: %v", err)
@@ -500,4 +502,33 @@ func (h *HSM) EndorseData(data []byte, params EndorseCertParams) ([]byte, []byte
 	}
 
 	return asn1EcdsaPublicKey, asn1Sig, nil
+}
+
+func (h *HSM) VerifyWASSignature(params VerifyWASParams) error {
+	session, release := h.sessions.getHandle()
+	defer release()
+
+	wsUID, ok := h.SymmetricKeys[params.Seed]
+	if !ok {
+		return fmt.Errorf("failed to find %q key UID", params.Seed)
+	}
+	ws, err := session.FindSecretKey(wsUID)
+	if err != nil {
+		return fmt.Errorf("failed to find %q key object: %v", params.Seed, err)
+	}
+
+	dev := append([]byte(params.Sku), append([]byte("was"), params.DeviceID...)...)
+	was, err := ws.SignHMAC256(dev)
+	if err != nil {
+		return fmt.Errorf("failed to hash seed: %v", err)
+	}
+
+	mac := hmac.New(sha256.New, was)
+	mac.Write(params.Data)
+	sig := mac.Sum(nil)
+
+	if !hmac.Equal(sig, params.Signature) {
+		return fmt.Errorf("failed to verify signature: %x, got %x", params.Signature, sig)
+	}
+	return nil
 }

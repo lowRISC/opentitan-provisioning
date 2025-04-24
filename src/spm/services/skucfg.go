@@ -17,6 +17,7 @@ const (
 	AttrNameSeedSecLo                  = "SeedSecLo"
 	AttrNameWrappingKeyLabel           = "WrappingKeyLabel"
 	AttrNameWrappingMechanism          = "WrappingMechanism"
+	AttrNameWASKeyLabel                = "WASKeyLabel"
 )
 
 // WrappingMechanism provides the wrapping method for symmetric keys.

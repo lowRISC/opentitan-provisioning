@@ -21,11 +21,11 @@ import (
 	"github.com/lowRISC/opentitan-provisioning/src/spm/services/skucfg"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/auth_service/session_token"
 	"github.com/lowRISC/opentitan-provisioning/src/utils"
-
-	pbc "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/cert_go_pb"
-	pbcommon "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/common_go_pb"
+	"github.com/lowRISC/opentitan-provisioning/src/utils/devid"
 
 	pbp "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
+	pbc "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/cert_go_pb"
+	pbcommon "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/common_go_pb"
 	pbs "github.com/lowRISC/opentitan-provisioning/src/spm/proto/spm_go_pb"
 )
 
@@ -316,6 +316,40 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 	sku, ok := s.skus[request.Sku]
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.Sku)
+	}
+
+	wasData := []byte{}
+	for _, cert := range request.Bundles {
+		if cert.Tbs != nil {
+			wasData = append(wasData, cert.Tbs...)
+		}
+	}
+	if len(wasData) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "no data to endorse")
+	}
+	deviceID, err := devid.FromRawBytes(request.DeviceId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid device ID: %v", err)
+	}
+	hwID, err := devid.HardwareOriginToRawBytes(deviceID.HardwareOrigin)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid hardware origin: %v", err)
+	}
+
+	wasLabel, err := sku.config.GetAttribute(skucfg.AttrNameWASKeyLabel)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "could not get WAS key label: %s", err)
+	}
+
+	err = sku.seHandle.VerifyWASSignature(se.VerifyWASParams{
+		Signature: request.Signature,
+		Data:      wasData,
+		DeviceID:  hwID,
+		Sku:       request.Sku,
+		Seed:      wasLabel,
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "could not verify WAS signature: %s", err)
 	}
 
 	var certs []*pbc.Certificate

@@ -7,6 +7,8 @@ package main
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"flag"
 	"fmt"
 	"log"
@@ -27,6 +29,7 @@ import (
 	dpb "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_go_pb"
 	dtd "github.com/lowRISC/opentitan-provisioning/src/proto/device_testdata"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/grpconn"
+	"github.com/lowRISC/opentitan-provisioning/src/utils/devid"
 )
 
 const (
@@ -171,13 +174,15 @@ func testOTDeriveTokens(ctx context.Context, numCalls int, skuName string, c *cl
 	}
 }
 
-func testOTEndorseCerts(ctx context.Context, numCalls int, skuName string, c *clientTask, tbs []byte) {
+func testOTEndorseCerts(ctx context.Context, numCalls int, skuName string, c *clientTask, tbs, dID, signature []byte) {
 	// Prepare request and auth token.
 	md := metadata.Pairs("user_id", strconv.Itoa(c.id), "authorization", c.auth_token)
 	client_ctx := metadata.NewOutgoingContext(ctx, md)
 
 	request := &pbp.EndorseCertsRequest{
-		Sku: skuName,
+		Sku:       skuName,
+		DeviceId:  dID,
+		Signature: signature,
 		Bundles: []*pbp.EndorseCertBundle{
 			{
 				KeyParams: &pbc.SigningKeyParams{
@@ -213,8 +218,57 @@ func NewEndorseCertTest() callFunc {
 	if err != nil {
 		log.Fatalf("unable to load file: %q, error: %v", filename, err)
 	}
+
+	d := &dpb.DeviceId{
+		HardwareOrigin: &dpb.HardwareOrigin{
+			SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
+			ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_A1,
+			DeviceIdentificationNumber: rand.Uint64(), // Each device ID must be unique.
+		},
+		SkuSpecific: make([]byte, dtd.DeviceIdSkuSpecificLenInBytes),
+	}
+	dBytes, err := devid.DeviceIDToRawBytes(d)
+	if err != nil {
+		log.Fatalf("unable to convert device ID to raw bytes: %v", err)
+	}
+
 	return callFunc(func(ctx context.Context, numCalls int, skuName string, c *clientTask) {
-		testOTEndorseCerts(ctx, numCalls, skuName, c, diceTBS)
+		// Obtain the WAS token and calculate the signature over the TBS,
+		// emulating the behavior of the device.
+		hwID, err := devid.HardwareOriginToRawBytes(d.HardwareOrigin)
+		if err != nil {
+			log.Fatalf("unable to convert hardware origin to raw bytes: %v", err)
+		}
+		diversifier := append([]byte("was"), hwID...)
+
+		// Prepare request and auth token.
+		md := metadata.Pairs("user_id", strconv.Itoa(c.id), "authorization", c.auth_token)
+		client_ctx := metadata.NewOutgoingContext(ctx, md)
+
+		result, err := c.client.DeriveTokens(client_ctx, &pbp.DeriveTokensRequest{
+			Sku: skuName,
+			Params: []*pbp.TokenParams{
+				{
+					Seed:        pbp.TokenSeed_TOKEN_SEED_HIGH_SECURITY,
+					Type:        pbp.TokenType_TOKEN_TYPE_RAW,
+					Size:        pbp.TokenSize_TOKEN_SIZE_256_BITS,
+					Diversifier: diversifier,
+					WrapSeed:    false,
+				},
+			},
+		})
+		if err != nil {
+			log.Fatalf("failed to get WAS token: %v", err)
+		}
+		if len(result.Tokens) != 1 {
+			log.Fatalf("expected 1 token, got %d", len(result.Tokens))
+		}
+		mac := hmac.New(sha256.New, result.Tokens[0].Token)
+		mac.Write(diceTBS)
+		sig := mac.Sum(nil)
+		fmt.Printf("Signature: %x\n", sig)
+
+		testOTEndorseCerts(ctx, numCalls, skuName, c, diceTBS, dBytes, sig)
 	})
 }
 

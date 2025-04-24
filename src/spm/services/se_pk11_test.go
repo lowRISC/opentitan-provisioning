@@ -24,6 +24,7 @@ import (
 
 	"github.com/lowRISC/opentitan-provisioning/src/pk11"
 	ts "github.com/lowRISC/opentitan-provisioning/src/pk11/test_support"
+	"github.com/lowRISC/opentitan-provisioning/src/utils"
 )
 
 const (
@@ -110,7 +111,7 @@ func MakeHSM(t *testing.T) (*HSM, []byte, []byte) {
 		lsSeed
 }
 
-func TestGenerateSymmKeys(t *testing.T) {
+func TestGenerateTokens(t *testing.T) {
 	hsm, hsSeed, lsSeed := MakeHSM(t)
 
 	// test unlock token
@@ -365,4 +366,33 @@ func TestEndorseData(t *testing.T) {
 	if !verfied {
 		t.Errorf("signature failed to verify")
 	}
+}
+
+func TestVerifyWASSignature(t *testing.T) {
+	hsm, hsSeed, _ := MakeHSM(t)
+
+	data, err := utils.GenerateRandom(4096)
+	ts.Check(t, err)
+
+	devID, err := utils.GenerateRandom(16)
+	ts.Check(t, err)
+
+	dev := append([]byte("sival"), append([]byte("was"), devID...)...)
+
+	mac := hmac.New(sha256.New, hsSeed)
+	mac.Write(dev)
+	was := mac.Sum(nil)
+
+	mac = hmac.New(sha256.New, was)
+	mac.Write(data)
+	sig := mac.Sum(nil)
+
+	err = hsm.VerifyWASSignature(VerifyWASParams{
+		Data:      data,
+		DeviceID:  devID,
+		Sku:       "sival",
+		Seed:      "HighSecKdfSeed",
+		Signature: sig,
+	})
+	ts.Check(t, err)
 }
