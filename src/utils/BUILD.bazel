@@ -2,9 +2,28 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 package(default_visibility = ["//visibility:public"])
+
+go_library(
+    name = "devid",
+    srcs = ["devid.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/utils/devid",
+    deps = [
+        "//src/proto:device_id_go_pb",
+        "//src/proto:validators",
+    ],
+)
+
+go_test(
+    name = "devid_test",
+    srcs = ["devid_test.go"],
+    embed = [":devid"],
+    deps = [
+        "//src/proto:device_id_go_pb",
+    ],
+)
 
 go_library(
     name = "utils",

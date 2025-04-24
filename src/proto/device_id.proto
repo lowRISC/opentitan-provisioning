@@ -58,6 +58,8 @@ message HardwareOrigin {
   //
   // A unique number given to each device within a Hardware Origin domain.
   fixed64 device_identification_number = 3;
+  // Reserved for future use. Allocated so that we can observe the value.
+  fixed32 cp_reserved = 4;
 };
 
 // OpenTitan Device ID.
