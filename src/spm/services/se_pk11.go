@@ -285,9 +285,12 @@ func (h *HSM) GenerateTokens(params []*TokenParams) ([]TokenResult, error) {
 			return nil, fmt.Errorf("unsupported key type: %v", p.Type)
 		}
 
+		if len(p.Diversifier) == 0 {
+			return nil, fmt.Errorf("invalid diversifier length: %d, expected > 0", len(p.Diversifier))
+		}
+
 		// Generate token from seed and extract.
-		rawData := append([]byte(p.Sku), p.Diversifier...)
-		tBytes, err := seed.SignHMAC256(rawData)
+		tBytes, err := seed.SignHMAC256(p.Diversifier)
 		if err != nil {
 			return nil, fmt.Errorf("failed to hash seed: %v", err)
 		}
@@ -517,7 +520,7 @@ func (h *HSM) VerifyWASSignature(params VerifyWASParams) error {
 		return fmt.Errorf("failed to find %q key object: %v", params.Seed, err)
 	}
 
-	dev := append([]byte(params.Sku), append([]byte("was"), params.DeviceID...)...)
+	dev := append([]byte("was"), params.DeviceID...)
 	was, err := ws.SignHMAC256(dev)
 	if err != nil {
 		return fmt.Errorf("failed to hash seed: %v", err)

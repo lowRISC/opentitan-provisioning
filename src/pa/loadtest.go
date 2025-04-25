@@ -266,7 +266,6 @@ func NewEndorseCertTest() callFunc {
 		mac := hmac.New(sha256.New, result.Tokens[0].Token)
 		mac.Write(diceTBS)
 		sig := mac.Sum(nil)
-		fmt.Printf("Signature: %x\n", sig)
 
 		testOTEndorseCerts(ctx, numCalls, skuName, c, diceTBS, dBytes, sig)
 	})

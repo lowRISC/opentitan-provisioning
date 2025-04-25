@@ -168,7 +168,6 @@ func TestGenerateTokens(t *testing.T) {
 			seed = lsSeed
 		}
 		h2 := hmac.New(sha256.New, seed)
-		h2.Write([]byte(p.Sku))
 		h2.Write(p.Diversifier)
 		expected_token := h2.Sum(nil)[:p.SizeInBits/8]
 
@@ -225,9 +224,7 @@ func TestGenerateSymmKeysWrap(t *testing.T) {
 		seed, err := s.UnwrapGenSecret(r.WrappedKey, pk, pk11.GenSecretWrapMechanismRsaPcks, &pk11.KeyOptions{Extractable: true})
 		ts.Check(t, err)
 
-		data := [][]byte{[]byte(rmaParams.Sku), rmaParams.Diversifier}
-		joinedData := bytes.Join(data, nil)
-		tBytes, err := seed.SignHMAC256(joinedData)
+		tBytes, err := seed.SignHMAC256(rmaParams.Diversifier)
 		ts.Check(t, err)
 		tBytes = tBytes[:rmaParams.SizeInBits/8]
 
@@ -377,7 +374,7 @@ func TestVerifyWASSignature(t *testing.T) {
 	devID, err := utils.GenerateRandom(16)
 	ts.Check(t, err)
 
-	dev := append([]byte("sival"), append([]byte("was"), devID...)...)
+	dev := append([]byte("was"), devID...)
 
 	mac := hmac.New(sha256.New, hsSeed)
 	mac.Write(dev)
