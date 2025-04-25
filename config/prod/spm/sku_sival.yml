@@ -17,7 +17,7 @@ attributes:
     SeedSecHi: sival-kdf-hisec-v0
     SeedSecLo: sival-kdf-losec-v0
     WASKeyLabel: sival-kdf-hisec-v0
-    WrappingMechanism: RsaPkcs
+    WrappingMechanism: RsaOaep
     WrappingKeyLabel: sku-sival-rsa-rma-v0.pub
     SigningKey/Dice/v0: sival-dice-key-p256-v0.priv
     SigningKey/Identity/v0: spm-hsm-id-v0.priv
