@@ -38,3 +38,27 @@ go_test(
         "@org_golang_google_protobuf//testing/protocmp",
     ],
 )
+
+go_library(
+    name = "http_registry",
+    srcs = ["http_registry.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/services/httpregistry",
+    deps = [
+        "//src/proxy_buffer/proto:proxy_buffer_go_pb",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "http_registry_test",
+    srcs = ["http_registry_test.go"],
+    deps = [
+        ":http_registry",
+        "//src/proto:device_testdata",
+        "//src/proxy_buffer/proto:proxy_buffer_go_pb",
+        "@com_github_google_go_cmp//cmp",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_protobuf//testing/protocmp",
+    ],
+)
