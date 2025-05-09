@@ -15,7 +15,7 @@ import (
 
 	pbp "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
 	"github.com/lowRISC/opentitan-provisioning/src/pa/services/pa"
-	pbr "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/proto/proxy_buffer_go_pb"
+	rs "github.com/lowRISC/opentitan-provisioning/src/pa/services/registry_shim"
 	pbs "github.com/lowRISC/opentitan-provisioning/src/spm/proto/spm_go_pb"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/auth_service"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/grpconn"
@@ -23,18 +23,18 @@ import (
 )
 
 var (
-	port              = flag.Int("port", 0, "the port to bind the server on; required")
-	spmAddress        = flag.String("spm_address", "", "the SPM server address to connect to; required")
-	enableProxyBuffer = flag.Bool("enable_pb", false, "Enable connectivity to the ProxyBuffer server; optional")
-	pbAddress         = flag.String("pb_address", "", "the ProxyBuffer server address to connect to; required")
-	enableTLS         = flag.Bool("enable_tls", false, "Enable mTLS secure channel; optional")
-	serviceKey        = flag.String("service_key", "", "File path to the PEM encoding of the server's private key")
-	serviceCert       = flag.String("service_cert", "", "File path to the PEM encoding of the server's certificate chain")
-	caRootCerts       = flag.String("ca_root_certs", "", "File path to the PEM encoding of the CA root certificates")
-	version           = flag.Bool("version", false, "Print version information and exit")
+	port            = flag.Int("port", 0, "the port to bind the server on; required")
+	spmAddress      = flag.String("spm_address", "", "the SPM server address to connect to; required")
+	enableRegistry  = flag.Bool("enable_registry", false, "Enable connectivity to the Registry server; optional")
+	registryAddress = flag.String("registry_address", "", "the Registry (Buffer) server address to connect to; required")
+	enableTLS       = flag.Bool("enable_tls", false, "Enable mTLS secure channel; optional")
+	serviceKey      = flag.String("service_key", "", "File path to the PEM encoding of the server's private key")
+	serviceCert     = flag.String("service_cert", "", "File path to the PEM encoding of the server's certificate chain")
+	caRootCerts     = flag.String("ca_root_certs", "", "File path to the PEM encoding of the CA root certificates")
+	version         = flag.Bool("version", false, "Print version information and exit")
 )
 
-func startPAServer(spmClient pbs.SpmServiceClient, pbClient pbr.ProxyBufferServiceClient) (*grpc.Server, error) {
+func startPAServer(spmClient pbs.SpmServiceClient) (*grpc.Server, error) {
 	opts := []grpc.ServerOption{}
 	auth_service.NewAuthControllerInstance(*enableTLS)
 	if *enableTLS {
@@ -47,7 +47,7 @@ func startPAServer(spmClient pbs.SpmServiceClient, pbClient pbr.ProxyBufferServi
 	interceptor := auth_service.NewAuthInterceptor(*enableTLS)
 	opts = append(opts, grpc.UnaryInterceptor(interceptor.Unary))
 	server := grpc.NewServer(opts...)
-	pbp.RegisterProvisioningApplianceServiceServer(server, pa.NewProvisioningApplianceServer(spmClient, pbClient))
+	pbp.RegisterProvisioningApplianceServiceServer(server, pa.NewProvisioningApplianceServer(spmClient))
 	return server, nil
 }
 
@@ -67,24 +67,6 @@ func startSPMClient() (pbs.SpmServiceClient, error) {
 		return nil, err
 	}
 	return pbs.NewSpmServiceClient(conn), nil
-}
-
-// startProxyBufferClient starts the RegisterBuffer gRPC client.
-func startProxyBufferClient() (pbr.ProxyBufferServiceClient, error) {
-	opts := grpc.WithInsecure()
-	if *enableTLS {
-		credentials, err := grpconn.LoadClientCredentials(*caRootCerts, *serviceCert, *serviceKey)
-		if err != nil {
-			return nil, err
-		}
-		opts = grpc.WithTransportCredentials(credentials)
-	}
-
-	conn, err := grpc.Dial(*pbAddress, opts, grpc.WithBlock())
-	if err != nil {
-		return nil, err
-	}
-	return pbr.NewProxyBufferServiceClient(conn), nil
 }
 
 func main() {
@@ -114,23 +96,22 @@ func main() {
 		log.Fatalf("failed to initialize SPM client: %v", err)
 	}
 
-	// Start ProxyBuffer client.
-	var pbClient pbr.ProxyBufferServiceClient
-	if *enableProxyBuffer {
-		if *pbAddress == "" {
-			log.Fatalf("`pb_address` parameter missing")
+	// Start Registry (or ProxyBuffer) client.
+	if *enableRegistry {
+		if *registryAddress == "" {
+			log.Fatalf("`registry_address` parameter missing")
 		}
-		log.Printf("starting ProxyBuffer client at address: %q", *pbAddress)
-		pbClient, err = startProxyBufferClient()
+		log.Printf("starting Registry client at address: %q", *registryAddress)
+		err = rs.StartRegistryBuffer(*registryAddress, *enableTLS, *caRootCerts, *serviceCert, *serviceKey)
 		if err != nil {
-			log.Fatalf("failed to initialize RegisterBuffer client: %v", err)
+			log.Fatalf("failed to initialize Registry client: %v", err)
 		}
 	} else {
-		log.Printf("ProxyBuffer service in not enabeld")
+		log.Printf("Registry service in not enabled")
 	}
 
 	// Start the PA gRPC server.
-	server, err := startPAServer(spmClient, pbClient)
+	server, err := startPAServer(spmClient)
 	if err != nil {
 		log.Fatalf("failed to start PA server: %v", err)
 	}

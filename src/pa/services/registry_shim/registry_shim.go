@@ -11,6 +11,7 @@ import (
 	"log"
 
 	"github.com/golang/protobuf/proto"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -23,14 +24,34 @@ import (
 	proxybufferpb "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/proto/proxy_buffer_go_pb"
 	proxybuffer "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/services/proxybuffer"
 	spmpb "github.com/lowRISC/opentitan-provisioning/src/spm/proto/spm_go_pb"
-	//spm "github.com/lowRISC/opentitan-provisioning/src/spm/services/spm"
+	"github.com/lowRISC/opentitan-provisioning/src/transport/grpconn"
 )
 
-func RegisterDevice(ctx context.Context, spmClient spmpb.SpmServiceClient, pbClient proxybuffer.Registry, request *papb.RegistrationRequest) (*papb.RegistrationResponse, error) {
+var registryClient proxybuffer.Registry
+
+func StartRegistryBuffer(registryBufferAddress string, enableTLS bool, caRootCerts string, serviceCert string, serviceKey string) error {
+	opts := grpc.WithInsecure()
+	if enableTLS {
+		credentials, err := grpconn.LoadClientCredentials(caRootCerts, serviceCert, serviceKey)
+		if err != nil {
+			return err
+		}
+		opts = grpc.WithTransportCredentials(credentials)
+	}
+
+	conn, err := grpc.Dial(registryBufferAddress, opts, grpc.WithBlock())
+	if err != nil {
+		return err
+	}
+	registryClient = proxybufferpb.NewProxyBufferServiceClient(conn)
+	return nil
+}
+
+func RegisterDevice(ctx context.Context, spmClient spmpb.SpmServiceClient, request *papb.RegistrationRequest) (*papb.RegistrationResponse, error) {
 	log.Printf("In PA - Received RegisterDevice request with DeviceID: %v", diu.DeviceIdToHexString(request.DeviceData.DeviceId))
 
 	// Check if ProxyBuffer client (i.e., ProxyBuffer) is valid.
-	if pbClient == nil {
+	if registryClient == nil {
 		return nil, status.Errorf(codes.Internal, "RegisterDevice ended with error, PA started without ProxyBuffer")
 	}
 
@@ -73,7 +94,7 @@ func RegisterDevice(ctx context.Context, spmClient spmpb.SpmServiceClient, pbCli
 	}
 
 	// Send record to the ProxyBuffer (the buffering front end of the registry service).
-	pbResponse, err := pbClient.RegisterDevice(ctx, pbRequest)
+	pbResponse, err := registryClient.RegisterDevice(ctx, pbRequest)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "RegisterDevice returned error: %v", err)
 	}

@@ -41,8 +41,8 @@ $ bazel build //src/pa:pa_server
 $ bazel-bin/src/pa/pa_server_/pa_server \
     --port=${OTPROV_PORT_PA} \
     --spm_address="${OTPROV_DNS_SPM}:${OTPROV_PORT_SPM}" \
-    --enable_pb \
-    --pb_address="${OTPROV_DNS_PB}:${OTPROV_PORT_PB}" \
+    --enable_registry \
+    --registry_address="${OTPROV_DNS_PB}:${OTPROV_PORT_PB}" \
     --enable_tls=true \
     --service_key=${OPENTITAN_VAR_DIR}/config/dev/certs/out/pa-service-key.pem \
     --service_cert=${OPENTITAN_VAR_DIR}/config/dev/certs/out/pa-service-cert.pem \

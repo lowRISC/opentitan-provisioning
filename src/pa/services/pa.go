@@ -17,7 +17,6 @@ import (
 
 	pap "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
 	rs "github.com/lowRISC/opentitan-provisioning/src/pa/services/registry_shim"
-	pbr "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/proto/proxy_buffer_go_pb"
 	pbs "github.com/lowRISC/opentitan-provisioning/src/spm/proto/spm_go_pb"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/auth_service"
 )
@@ -27,19 +26,15 @@ type server struct {
 	// SPM gRPC client.
 	spmClient pbs.SpmServiceClient
 
-	// ProxyBuffer gRPC client.
-	pbClient pbr.ProxyBufferServiceClient
-
 	// muSKU is a mutex use to arbitrate SKU initialization access.
 	muSKU sync.RWMutex
 }
 
 // NewProvisioningApplianceServer returns an implementation of the
 // ProvisioningAppliance gRPC server.
-func NewProvisioningApplianceServer(spmClient pbs.SpmServiceClient, pbClient pbr.ProxyBufferServiceClient) pap.ProvisioningApplianceServiceServer {
+func NewProvisioningApplianceServer(spmClient pbs.SpmServiceClient) pap.ProvisioningApplianceServiceServer {
 	return &server{
 		spmClient: spmClient,
-		pbClient:  pbClient,
 	}
 }
 
@@ -148,5 +143,5 @@ func (s *server) GetStoredTokens(ctx context.Context, request *pap.GetStoredToke
 // interface with their registry service(s), an overrideable shim layer is used
 // to implement this RPC.
 func (s *server) RegisterDevice(ctx context.Context, request *pap.RegistrationRequest) (*pap.RegistrationResponse, error) {
-	return rs.RegisterDevice(ctx, s.spmClient, s.pbClient, request)
+	return rs.RegisterDevice(ctx, s.spmClient, request)
 }
