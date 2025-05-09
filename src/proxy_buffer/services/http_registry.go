@@ -6,6 +6,7 @@
 package httpregistry
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -13,6 +14,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
 
 	pbp "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/proto/proxy_buffer_go_pb"
 
@@ -20,15 +23,58 @@ import (
 	"google.golang.org/grpc"
 )
 
+// RegistryConfig holds the configuration for an HTTP registry
 type RegistryConfig struct {
-	RegisterDeviceURL      string
+	// RegisterDeviceURL is the HTTP URL to call when registering a single device
+	RegisterDeviceURL string
+	// BatchRegisterDeviceURL is the HTTP URL to call when registering multiple devices
 	BatchRegisterDeviceURL string
-	Headers                map[string]string
+	// HeadersFilepath is the path to a file containing all headers to be used
+	// when calling the registry. If empty, no headers will be used.
+	//
+	// Each line in the file should contain a header in the format:
+	// `Header-Name: headerValue`
+	HeadersFilepath string
 }
 
+// Registry is an implementation of proxybuffer.Registry that runs over HTTP.
 type Registry struct {
 	RegistryConfig
 	client *http.Client
+}
+
+func parseHeadersFile(filepath string) (map[string]string, error) {
+	if filepath == "" {
+		return map[string]string{}, nil
+	}
+	file, err := os.Open(filepath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open headers file %s: %v", filepath, err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	headers := make(map[string]string)
+	lineCount := 0
+	for scanner.Scan() {
+		lineCount += 1
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("failed to parse header in file, line %d", lineCount)
+		}
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		headers[key] = value
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error while reading headers file: %v", err)
+	}
+	return headers, nil
 }
 
 // New creates a new HTTP registry that implements the proxybuffer.Registry interface
@@ -39,6 +85,9 @@ func New(config *RegistryConfig) (*Registry, error) {
 	if _, err := url.Parse(config.BatchRegisterDeviceURL); err != nil {
 		return nil, fmt.Errorf("failed to parse config.BatchRegisterDeviceURL: %v", err)
 	}
+	if _, err := parseHeadersFile(config.HeadersFilepath); err != nil {
+		return nil, fmt.Errorf("failed to parse headers file: %v", err)
+	}
 	return &Registry{
 		RegistryConfig: *config,
 		client:         http.DefaultClient,
@@ -46,9 +95,9 @@ func New(config *RegistryConfig) (*Registry, error) {
 }
 
 type callConfig struct {
-	url        string
-	headers    map[string]string
-	httpClient *http.Client
+	url             string
+	headersFilepath string
+	httpClient      *http.Client
 }
 
 // Types used for call
@@ -85,7 +134,11 @@ func call[RequestMessage proto.Message, ResponseMessage any](ctx context.Context
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %v", err)
 	}
-	for headerName, headerValue := range config.headers {
+	headers, err := parseHeadersFile(config.headersFilepath)
+	if err != nil {
+		return fmt.Errorf("failed to parse headers file: %v", err)
+	}
+	for headerName, headerValue := range headers {
 		rawReq.Header.Add(headerName, headerValue)
 	}
 	rawReq.Header.Add("Content-Type", "application/json")
@@ -119,9 +172,9 @@ func serverResponseToPBResponse(resp *registerResponse) *pbp.DeviceRegistrationR
 // RegisterDevice registers a device.
 func (r *Registry) RegisterDevice(ctx context.Context, request *pbp.DeviceRegistrationRequest, _ ...grpc.CallOption) (*pbp.DeviceRegistrationResponse, error) {
 	config := callConfig{
-		url:        r.RegisterDeviceURL,
-		headers:    r.Headers,
-		httpClient: r.client,
+		url:             r.RegisterDeviceURL,
+		headersFilepath: r.HeadersFilepath,
+		httpClient:      r.client,
 	}
 	response := &registerResponse{}
 	err := call(ctx, config, request, response)
@@ -136,9 +189,9 @@ func (r *Registry) RegisterDevice(ctx context.Context, request *pbp.DeviceRegist
 // BatchRegisterDevice registers multiple devices.
 func (r *Registry) BatchRegisterDevice(ctx context.Context, request *pbp.BatchDeviceRegistrationRequest, _ ...grpc.CallOption) (*pbp.BatchDeviceRegistrationResponse, error) {
 	config := callConfig{
-		url:        r.BatchRegisterDeviceURL,
-		headers:    r.Headers,
-		httpClient: r.client,
+		url:             r.BatchRegisterDeviceURL,
+		headersFilepath: r.HeadersFilepath,
+		httpClient:      r.client,
 	}
 	response := &batchRegisterResponse{}
 	err := call(ctx, config, request, response)

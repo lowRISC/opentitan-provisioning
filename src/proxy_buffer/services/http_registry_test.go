@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	dtd "github.com/lowRISC/opentitan-provisioning/src/proto/device_testdata"
@@ -80,6 +82,11 @@ var (
 }`, dtd.RegistryRecordOk.DeviceId, dtd.RegistryRecordOk.DeviceId)
 )
 
+const (
+	customHeaderName  = "X-My-Custom-Header"
+	customHeaderValue = "mycustomheadervalue"
+)
+
 func registerDeviceSuccess(w http.ResponseWriter, _ *http.Request) {
 	w.Write([]byte(registerDeviceSuccessBody))
 }
@@ -94,6 +101,14 @@ func registerDeviceError(w http.ResponseWriter, _ *http.Request) {
 	w.Write([]byte("Internal server error"))
 }
 
+func registerDeviceSuccessWithHeader(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get(customHeaderName) != customHeaderValue {
+		registerDeviceError(w, r)
+		return
+	}
+	registerDeviceSuccess(w, r)
+}
+
 func batchRegisterDeviceSuccess(w http.ResponseWriter, _ *http.Request) {
 	w.Write([]byte(batchRegisterDeviceSuccessBody))
 }
@@ -103,13 +118,34 @@ func batchRegisterDeviceError(w http.ResponseWriter, _ *http.Request) {
 	w.Write([]byte("Internal server error"))
 }
 
+func batchRegisterDeviceSuccessWithHeader(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get(customHeaderName) != customHeaderValue {
+		batchRegisterDeviceError(w, r)
+		return
+	}
+	batchRegisterDeviceSuccess(w, r)
+}
+
+func createHeadersFile(t *testing.T) string {
+	t.Helper()
+	filename := filepath.Join(t.TempDir(), "headers.txt")
+	file, err := os.Create(filename)
+	if err != nil {
+		t.Fatalf("Failed to create temp headers file: %v", err)
+	}
+	file.Write([]byte(fmt.Sprintf("%s: %s\n", customHeaderName, customHeaderValue)))
+	file.Close()
+	return filename
+}
+
 func TestHTTPRegistryRegisterDevice(t *testing.T) {
 	tcs := []struct {
-		Name             string
-		RegistryHandler  http.HandlerFunc
-		Request          *pbp.DeviceRegistrationRequest
-		ExpectedResponse *pbp.DeviceRegistrationResponse
-		ExpectAnError    bool
+		Name               string
+		RegistryHandler    http.HandlerFunc
+		IncludeHeadersFile bool
+		Request            *pbp.DeviceRegistrationRequest
+		ExpectedResponse   *pbp.DeviceRegistrationResponse
+		ExpectAnError      bool
 	}{
 		{
 			Name:             "Success",
@@ -129,15 +165,33 @@ func TestHTTPRegistryRegisterDevice(t *testing.T) {
 			Request:         &deviceRegistrationRequest,
 			ExpectAnError:   true,
 		},
+		{
+			Name:               "SuccessWithHeaders",
+			RegistryHandler:    registerDeviceSuccessWithHeader,
+			IncludeHeadersFile: true,
+			Request:            &deviceRegistrationRequest,
+			ExpectedResponse:   &deviceRegistrationResponseSuccess,
+		},
+		{
+			Name:               "FailureWithoutHeaders",
+			RegistryHandler:    registerDeviceSuccessWithHeader,
+			IncludeHeadersFile: false,
+			Request:            &deviceRegistrationRequest,
+			ExpectAnError:      true,
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
 			server := httptest.NewServer(tc.RegistryHandler)
 			defer server.Close()
-			r, err := httpregistry.New(&httpregistry.RegistryConfig{
+			registryConfig := &httpregistry.RegistryConfig{
 				RegisterDeviceURL:      server.URL,
 				BatchRegisterDeviceURL: server.URL,
-			})
+			}
+			if tc.IncludeHeadersFile {
+				registryConfig.HeadersFilepath = createHeadersFile(t)
+			}
+			r, err := httpregistry.New(registryConfig)
 			if err != nil {
 				t.Fatalf("unexpected error when creating new HTTP registry: %v", err)
 			}
@@ -163,33 +217,52 @@ func TestHTTPRegistryRegisterDevice(t *testing.T) {
 
 func TestHTTPRegistryBatchRegisterDevice(t *testing.T) {
 	tcs := []struct {
-		Name             string
-		RegistryHandler  http.HandlerFunc
-		Request          *pbp.BatchDeviceRegistrationRequest
-		ExpectedResponse *pbp.BatchDeviceRegistrationResponse
-		ExpectAnError    bool
+		Name                 string
+		BatchRegistryHandler http.HandlerFunc
+		IncludeHeadersFile   bool
+		Request              *pbp.BatchDeviceRegistrationRequest
+		ExpectedResponse     *pbp.BatchDeviceRegistrationResponse
+		ExpectAnError        bool
 	}{
 		{
-			Name:             "Success",
-			RegistryHandler:  batchRegisterDeviceSuccess,
-			Request:          &batchDeviceRegistrationRequest,
-			ExpectedResponse: &batchDeviceRegistrationResponseSuccess,
+			Name:                 "Success",
+			BatchRegistryHandler: batchRegisterDeviceSuccess,
+			Request:              &batchDeviceRegistrationRequest,
+			ExpectedResponse:     &batchDeviceRegistrationResponseSuccess,
 		},
 		{
-			Name:            "Error",
-			RegistryHandler: batchRegisterDeviceError,
-			Request:         &batchDeviceRegistrationRequest,
-			ExpectAnError:   true,
+			Name:                 "Error",
+			BatchRegistryHandler: batchRegisterDeviceError,
+			Request:              &batchDeviceRegistrationRequest,
+			ExpectAnError:        true,
+		},
+		{
+			Name:                 "SuccessWithHeaders",
+			BatchRegistryHandler: batchRegisterDeviceSuccessWithHeader,
+			IncludeHeadersFile:   true,
+			Request:              &batchDeviceRegistrationRequest,
+			ExpectedResponse:     &batchDeviceRegistrationResponseSuccess,
+		},
+		{
+			Name:                 "FailureWithoutHeaders",
+			BatchRegistryHandler: batchRegisterDeviceSuccessWithHeader,
+			IncludeHeadersFile:   false,
+			Request:              &batchDeviceRegistrationRequest,
+			ExpectAnError:        true,
 		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			server := httptest.NewServer(tc.RegistryHandler)
+			server := httptest.NewServer(tc.BatchRegistryHandler)
 			defer server.Close()
-			r, err := httpregistry.New(&httpregistry.RegistryConfig{
+			registryConfig := &httpregistry.RegistryConfig{
 				RegisterDeviceURL:      server.URL,
 				BatchRegisterDeviceURL: server.URL,
-			})
+			}
+			if tc.IncludeHeadersFile {
+				registryConfig.HeadersFilepath = createHeadersFile(t)
+			}
+			r, err := httpregistry.New(registryConfig)
 			if err != nil {
 				t.Fatalf("unexpected error when creating new HTTP registry: %v", err)
 			}
