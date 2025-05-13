@@ -26,9 +26,11 @@ container_push(
 
 PB_SERVER_DEPS = [
     "//src/proxy_buffer/proto:proxy_buffer_go_pb",
+    "//src/proxy_buffer/services:http_registry",
     "//src/proxy_buffer/services:proxybuffer",
     "//src/proxy_buffer/store:db",
     "//src/proxy_buffer/store:filedb",
+    "//src/proxy_buffer/syncer:syncer",
     "//src/transport:grpconn",
     "@org_golang_google_grpc//:go_default_library",
 ]
