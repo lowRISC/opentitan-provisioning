@@ -399,7 +399,7 @@ DLLEXPORT int GenerateTokens(ate_client_ptr client, const char *sku,
 }
 
 DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
-                           const device_id_bytes_t *device_id,
+                           const diversifier_bytes_t *diversifier,
                            const endorse_cert_signature_t *signature,
                            const size_t cert_count,
                            const endorse_cert_request_t *request,
@@ -455,8 +455,8 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
     }
   }
 
-  req.set_device_id(
-      std::string(device_id->raw, device_id->raw + sizeof(device_id->raw)));
+  req.set_diversifier(std::string(diversifier->raw,
+                                  diversifier->raw + sizeof(diversifier->raw)));
   req.set_signature(
       std::string(signature->raw, signature->raw + sizeof(signature->raw)));
 
