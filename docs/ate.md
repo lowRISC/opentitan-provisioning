@@ -29,6 +29,41 @@ bazel-bin/src/ate/ate_main \
     --ca_root_certs=$(pwd)/config/dev/certs/out/ca-cert.pem
 ```
 
+## Flows
+
+### Chip Probe (CP)
+
+```mermaid
+sequenceDiagram
+    participant PA
+    participant ATE
+    participant DUT
+    autonumber
+
+    DUT->>ATE: DeviceIdFromJson
+    ATE->>PA: DeriveTokens
+    ATE->>DUT: TokensToJson
+```
+
+### Final Test (FT)
+
+```mermaid
+sequenceDiagram
+    participant PA
+    participant ATE
+    participant DUT
+    autonumber
+
+    note left of PA: RMA Token Injection
+    ATE->>PA: GenerateTokens
+    ATE->>DUT: RmaTokenToJson
+
+    note left of PA: Cert Endorsement
+    DUT->>ATE: PersoBlobFromJson
+    ATE->>PA: EndorseCerts
+    ATE->>DUT: PersoBlobToJson
+```
+
 ## Read More
 
 * [Provisioning Appliance](https://github.com/lowRISC/opentitan-provisioning/wiki/pa)

@@ -314,21 +314,21 @@ pub extern "C" fn OtLibConsoleTx(transport: *const TransportWrapper, c_msg: *mut
 #[no_mangle]
 pub extern "C" fn OtLibTxCpProvisioningData(
     transport: *const TransportWrapper,
-    c_msg: *mut c_char,
+    spi_frame: *mut u8,
+    spi_frame_size: usize,
     timeout_ms: u64,
 ) {
     // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
     // the call to `OtLibFpgaTransportInit(...)` above.
     let transport: &TransportWrapper = unsafe { &*transport };
 
-    // Unpack input strings.
-    // SAFETY: The expected input strings must be set by the caller and be valid.
-    let msg_cstr = unsafe { CStr::from_ptr(c_msg) };
-    let msg = msg_cstr.to_str().unwrap();
+    // SAFETY: spi_frame should be a valid pointer to memory allocated by the caller.
+    let spi_frame =
+        unsafe { std::slice::from_raw_parts_mut(spi_frame, spi_frame_size) };
 
     // Get handle to SPI console.
     let spi = transport.spi("BOOTSTRAP").unwrap();
-    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").unwrap();
+    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").expect("Unable to get GPIO pin.");
     let _ = device_console_tx_ready_pin.set_mode(PinMode::Input);
     let _ = device_console_tx_ready_pin.set_pull_mode(PullMode::None);
     let spi_console = SpiConsoleDevice::new(
@@ -336,7 +336,7 @@ pub extern "C" fn OtLibTxCpProvisioningData(
         Some(device_console_tx_ready_pin),
         /*ignore_frame_num=*/ true,
     )
-    .unwrap();
+    .expect("Unable to create SPI console.");
 
     // Send the UJSON CP data payload to the DUT over the console.
     let _ = UartConsole::wait_for(
@@ -344,7 +344,8 @@ pub extern "C" fn OtLibTxCpProvisioningData(
         r"Waiting for CP provisioning data ...",
         Duration::from_millis(timeout_ms),
     );
-    spi_console.console_write(msg.as_bytes()).unwrap();
+    spi_console.console_write(spi_frame.as_bytes())
+        .expect("Unable to write to console.");
 }
 
 #[no_mangle]

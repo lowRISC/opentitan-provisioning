@@ -115,11 +115,11 @@ absl::StatusOr<std::string> ValidateFilePathInput(std::string path) {
 }
 
 bool SetDiversificationString(uint8_t *diversifier, const std::string &str) {
-  if (str.size() > 48) {
+  if (str.size() > kDiversificationStringSize) {
     return false;
   }
-  memcpy(diversifier, str.c_str(), str.size());
-  memset(diversifier + str.size(), 0, 48 - str.size());
+  memcpy(diversifier, str.data(), str.size());
+  memset(diversifier + str.size(), 0, kDiversificationStringSize - str.size());
   return true;
 }
 
@@ -219,11 +219,9 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  uint8_t json_buf[1024] = {0};
-  size_t json_buf_size = sizeof(json_buf);
-  if (InjectTokensCmdToJson(&tokens[0], &tokens[1], &tokens[2], json_buf,
-                            &json_buf_size) != 0) {
-    LOG(ERROR) << "InjectTokensCmdToJson failed.";
+  dut_spi_frame_t spi_frame;
+  if (TokensToJson(&tokens[0], &tokens[1], &tokens[2], &spi_frame) != 0) {
+    LOG(ERROR) << "TokensToJson failed.";
     return -1;
   }
 
@@ -231,7 +229,7 @@ int main(int argc, char **argv) {
   auto dut = DutLib::Create(absl::GetFlag(FLAGS_fpga));
   dut->DutFpgaLoadBitstream(fpga_bitstream_path);
   dut->DutLoadSramElf(openocd_path, sram_elf_path);
-  dut->DutTxCpProvisioningData(reinterpret_cast<const char *>(json_buf),
+  dut->DutTxCpProvisioningData(spi_frame.payload, spi_frame.cursor,
                                /*timeout_ms=*/1000);
   std::string cp_device_id_str = dut->DutRxCpDeviceId(/*quiet=*/false,
                                                       /*timeout_ms=*/1000);

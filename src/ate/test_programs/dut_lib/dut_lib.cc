@@ -25,8 +25,8 @@ void OtLibConsoleWaitForRx(void* transport, const char* msg,
 void OtLibConsoleRx(void* transport, bool quiet, uint64_t timeout_ms,
                     uint8_t* msg, size_t* msg_size);
 void OtLibConsoleTx(void* transport, const char* msg);
-void OtLibTxCpProvisioningData(void* transport, const char* msg,
-                               uint64_t timeout_ms);
+void OtLibTxCpProvisioningData(void* transport, const uint8_t* spi_frame,
+                               size_t spi_frame_size, uint64_t timeout_ms);
 void OtLibRxCpDeviceId(void* transport, bool quiet, uint64_t timeout_ms,
                        uint8_t* cp_device_id_str,
                        size_t* cp_device_id_str_size);
@@ -69,11 +69,11 @@ void DutLib::DutConsoleTx(std::string& msg) {
   OtLibConsoleTx(transport_, msg.c_str());
 }
 
-void DutLib::DutTxCpProvisioningData(const char* json_cmd,
+void DutLib::DutTxCpProvisioningData(const uint8_t* spi_frame,
+                                     size_t spi_frame_size,
                                      uint64_t timeout_ms) {
   LOG(INFO) << "in DutLib::DutTxCpProvisioningData";
-  LOG(INFO) << "JSON string: " << json_cmd;
-  OtLibTxCpProvisioningData(transport_, json_cmd, timeout_ms);
+  OtLibTxCpProvisioningData(transport_, spi_frame, spi_frame_size, timeout_ms);
 }
 
 std::string DutLib::DutRxCpDeviceId(bool quiet, uint64_t timeout_ms) {

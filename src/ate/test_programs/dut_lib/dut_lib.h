@@ -46,7 +46,8 @@ class DutLib {
    * Calls opentitanlib methods to send a CP provisioning data UJSON payload
    * over the SPI console to the DUT.
    */
-  void DutTxCpProvisioningData(const char* json_cmd, uint64_t timeout_ms);
+  void DutTxCpProvisioningData(const uint8_t* spi_frame, size_t spi_frame_size,
+                               uint64_t timeout_ms);
   /**
    * Calls opentitanlib methods to receive the CP device ID UJSON payload over
    * the SPI console from the DUT.
