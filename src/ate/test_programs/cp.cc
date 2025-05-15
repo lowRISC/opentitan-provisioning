@@ -221,9 +221,9 @@ int main(int argc, char **argv) {
 
   uint8_t json_buf[1024] = {0};
   size_t json_buf_size = sizeof(json_buf);
-  if (InjectTokensCmdToJson(&tokens[0], &tokens[1], &tokens[2], json_buf,
-                            &json_buf_size) != 0) {
-    LOG(ERROR) << "InjectTokensCmdToJson failed.";
+  if (TokensToJson(&tokens[0], &tokens[1], &tokens[2], json_buf,
+                   &json_buf_size) != 0) {
+    LOG(ERROR) << "TokensToJson failed.";
     return -1;
   }
 

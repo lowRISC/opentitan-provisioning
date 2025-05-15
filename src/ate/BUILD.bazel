@@ -43,7 +43,10 @@ cc_test(
 
 cc_library(
     name = "ate_lib",
-    srcs = ["ate_dll.cc"],
+    srcs = [
+        "ate_api_json_commands.cc",
+        "ate_dll.cc",
+    ],
     hdrs = ["ate_api.h"],
     defines = ["BAZEL_BUILD"],
     linkopts = select({
@@ -62,10 +65,21 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "ate_api_json_commands_test",
+    srcs = ["ate_api_json_commands_test.cc"],
+    deps = [
+        ":ate_lib",
+        "//src/testing:test_helpers",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 cc_binary(
     name = "ate",
     srcs = [
         "ate_api.h",
+        "ate_api_json_commands.cc",
         "ate_dll.cc",
     ],
     linkopts = select({
