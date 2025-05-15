@@ -1,6 +1,7 @@
 // Copyright lowRISC contributors (OpenTitan project).
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
+#include <google/protobuf/util/json_util.h>
 #include <openssl/asn1.h>
 #include <openssl/pem.h>
 #include <openssl/x509v3.h>
@@ -15,6 +16,7 @@
 #include "absl/status/statusor.h"
 #include "src/ate/ate_api.h"
 #include "src/ate/ate_client.h"
+#include "src/ate/proto/dut_commands.pb.h"
 #include "src/pa/proto/pa.grpc.pb.h"
 #include "src/proto/crypto/common.pb.h"
 #include "src/proto/crypto/ecdsa.pb.h"
@@ -277,8 +279,8 @@ int TokensCopy(size_t count, const pa::DeriveTokensResponse &resp,
     auto token = sk.token();
 
     if (token.size() > sizeof(resp_token.data)) {
-      LOG(ERROR) << "DeriveTokens failed- token size is too big: " << token.size
-                 << " bytes. token index: " << i;
+      LOG(ERROR) << "DeriveTokens failed- token size is too big: "
+                 << token.size() << " bytes. token index: " << i;
       return static_cast<int>(absl::StatusCode::kInternal);
     }
 
@@ -297,7 +299,7 @@ int TokensCopy(size_t count, const pa::DeriveTokensResponse &resp,
       }
 
       if (s.size() > sizeof(seed.seed)) {
-        LOG(ERROR) << "DeriveTokens failed - seed size is too big: " << s.size
+        LOG(ERROR) << "DeriveTokens failed - seed size is too big: " << s.size()
                    << " bytes. Seed index: " << i;
         return static_cast<int>(absl::StatusCode::kInternal);
       }
@@ -495,5 +497,81 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
     resp_cert.size = c.blob().size();
     memcpy(resp_cert.cert, c.blob().data(), c.blob().size());
   }
+  return 0;
+}
+
+DLLEXPORT int InjectTokensCmdToJson(const token_t *wafer_auth_secret,
+                                    const token_t *test_unlock_token,
+                                    const token_t *test_exit_token,
+                                    uint8_t *json_buf, size_t *json_buf_size) {
+  if (json_buf == nullptr || json_buf_size == nullptr) {
+    return -1;
+  }
+
+  ot::dut_commands::CpProvisioningDataJSON provisioning_data;
+  if (wafer_auth_secret == nullptr ||
+      wafer_auth_secret->size != sizeof(uint32_t) * 8) {
+    LOG(ERROR) << "Invalid wafer auth secret" << wafer_auth_secret->size;
+    return -1;
+  }
+  const uint32_t *was_ptr =
+      reinterpret_cast<const uint32_t *>(wafer_auth_secret->data);
+  for (size_t i = 0; i < 8; ++i) {
+    provisioning_data.add_wafer_auth_secret(was_ptr[i]);
+  }
+
+  if (test_unlock_token == nullptr ||
+      test_unlock_token->size != sizeof(uint64_t) * 2) {
+    LOG(ERROR) << "Invalid test unlock token" << test_unlock_token->size;
+    return -1;
+  }
+  const uint64_t *test_unlock_token_ptr =
+      reinterpret_cast<const uint64_t *>(test_unlock_token->data);
+  for (size_t i = 0; i < 2; ++i) {
+    provisioning_data.add_test_unlock_token_hash(test_unlock_token_ptr[i]);
+  }
+
+  if (test_exit_token == nullptr ||
+      test_exit_token->size != sizeof(uint64_t) * 2) {
+    LOG(ERROR) << "Invalid test exit token" << test_exit_token->size;
+    return -1;
+  }
+  const uint64_t *test_exit_token_ptr =
+      reinterpret_cast<const uint64_t *>(test_exit_token->data);
+  for (size_t i = 0; i < 2; ++i) {
+    provisioning_data.add_test_exit_token_hash(test_exit_token_ptr[i]);
+  }
+
+  // Convert the provisioning data to a JSON string.
+  std::string command;
+  google::protobuf::util::JsonOptions options;
+  options.add_whitespace = false;
+  options.always_print_primitive_fields = true;
+  options.preserve_proto_field_names = true;
+  google::protobuf::util::Status status =
+      google::protobuf::util::MessageToJsonString(provisioning_data, &command,
+                                                  options);
+  if (!status.ok()) {
+    LOG(ERROR) << "Failed to convert provisioning data to JSON: "
+               << status.ToString();
+    return -1;
+  }
+
+  // The +1 is for the null terminator.
+  size_t command_size = command.size() + 1;
+
+  if (command_size > *json_buf_size) {
+    LOG(ERROR) << "Output buffer size is too small"
+               << " (expected: >=" << command_size
+               << ", got: " << *json_buf_size << ")";
+    return -1;
+  }
+
+  // Copy the command to the output buffer and null-terminate it.
+  // The Rust wrapper used in end-to-end tests expects a null-terminated
+  // string.
+  memcpy(json_buf, command.data(), command.size());
+  json_buf[command.size()] = '\0';
+  *json_buf_size = command_size;
   return 0;
 }

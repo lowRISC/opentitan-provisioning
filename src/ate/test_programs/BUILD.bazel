@@ -12,7 +12,7 @@ cc_binary(
         "//third_party/lowrisc/ot_bitstreams:cp_hyper340.bit",
     ],
     deps = [
-        "//src/ate:ate_client",
+        "//src/ate:ate_lib",
         "//src/ate/test_programs/dut_lib",
         "//src/pa/proto:pa_cc_proto",
         "//src/version",
