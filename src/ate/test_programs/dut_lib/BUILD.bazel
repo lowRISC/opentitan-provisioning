@@ -19,6 +19,7 @@ cc_library(
     ],
     deps = [
         "//src/ate:ate_client",
+        "//src/ate/proto:dut_commands_cc_proto",
         "//src/ate/test_programs/otlib_wrapper",
         "@com_google_absl//absl/log",
         "@lowrisc_opentitan//sw/host/opentitanlib",

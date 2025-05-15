@@ -41,6 +41,27 @@ cc_test(
     ],
 )
 
+cc_library(
+    name = "ate_lib",
+    srcs = ["ate_dll.cc"],
+    hdrs = ["ate_api.h"],
+    defines = ["BAZEL_BUILD"],
+    linkopts = select({
+        "//:windows": WINDOWS_LIBS,
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":ate_client",
+        "//src/ate/proto:dut_commands_cc_proto",
+        "//src/pa/proto:pa_cc_grpc",
+        "//src/proto/crypto:common_cc_proto",
+        "//src/proto/crypto:ecdsa_cc_proto",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
+
 cc_binary(
     name = "ate",
     srcs = [
@@ -57,6 +78,7 @@ cc_binary(
     ],
     deps = [
         ":ate_client",
+        "//src/ate/proto:dut_commands_cc_proto",
         "//src/pa/proto:pa_cc_grpc",
         "//src/proto/crypto:common_cc_proto",
         "//src/proto/crypto:ecdsa_cc_proto",

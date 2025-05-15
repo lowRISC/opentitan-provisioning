@@ -358,6 +358,23 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char* sku,
                            const endorse_cert_request_t* request,
                            endorse_cert_response_t* certs);
 
+/**
+ * Generate JSON command to inject tokens.
+ *
+ * The caller should allocate enough memory to store the JSON string.
+ *
+ * @param wafer_auth_secret The wafer auth secret.
+ * @param test_unlock_token The test unlock token.
+ * @param test_exit_token The test exit token.
+ * @param json_buf The buffer to store the JSON string.
+ * @param json_buf_size The size of the buffer.
+ * @return The result of the operation.
+ */
+DLLEXPORT int InjectTokensCmdToJson(const token_t* wafer_auth_secret,
+                                    const token_t* test_unlock_token,
+                                    const token_t* test_exit_token,
+                                    uint8_t* json_buf, size_t* json_buf_size);
+
 #ifdef __cplusplus
 }
 #endif
