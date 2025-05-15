@@ -4,10 +4,14 @@
 
 #include "src/ate/test_programs/dut_lib/dut_lib.h"
 
+#include <google/protobuf/util/json_util.h>
+
+#include <iomanip>
 #include <string>
 
 #include "absl/log/log.h"
 #include "absl/status/status.h"
+#include "src/ate/proto/dut_commands.pb.h"
 
 namespace provisioning {
 namespace test_programs {
@@ -21,9 +25,7 @@ void OtLibConsoleWaitForRx(void* transport, const char* msg,
 void OtLibConsoleRx(void* transport, bool quiet, uint64_t timeout_ms,
                     uint8_t* msg, size_t* msg_size);
 void OtLibConsoleTx(void* transport, const char* msg);
-void OtLibTxCpProvisioningData(void* transport, const char* was,
-                               const char* test_unlock_token,
-                               const char* test_exit_token,
+void OtLibTxCpProvisioningData(void* transport, const char* msg,
                                uint64_t timeout_ms);
 void OtLibRxCpDeviceId(void* transport, bool quiet, uint64_t timeout_ms,
                        uint8_t* cp_device_id_str,
@@ -67,14 +69,11 @@ void DutLib::DutConsoleTx(std::string& msg) {
   OtLibConsoleTx(transport_, msg.c_str());
 }
 
-void DutLib::DutTxCpProvisioningData(std::string* was,
-                                     std::string* test_unlock_token,
-                                     std::string* test_exit_token,
+void DutLib::DutTxCpProvisioningData(const char* json_cmd,
                                      uint64_t timeout_ms) {
   LOG(INFO) << "in DutLib::DutTxCpProvisioningData";
-  OtLibTxCpProvisioningData(transport_, was->c_str(),
-                            test_unlock_token->c_str(),
-                            test_exit_token->c_str(), timeout_ms);
+  LOG(INFO) << "JSON string: " << json_cmd;
+  OtLibTxCpProvisioningData(transport_, json_cmd, timeout_ms);
 }
 
 std::string DutLib::DutRxCpDeviceId(bool quiet, uint64_t timeout_ms) {

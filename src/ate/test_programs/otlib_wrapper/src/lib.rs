@@ -28,10 +28,9 @@ use opentitanlib::test_utils::load_bitstream::LoadBitstream;
 use opentitanlib::test_utils::load_sram_program::{
     ExecutionMode, ExecutionResult, SramProgramParams,
 };
-use opentitanlib::test_utils::rpc::{ConsoleRecv, ConsoleSend};
+use opentitanlib::test_utils::rpc::ConsoleRecv;
 use opentitanlib::uart::console::{ExitStatus, UartConsole};
-use ujson_lib::provisioning_data::{ManufCpProvisioningData, ManufCpProvisioningDataOut};
-use util_lib::{hash_lc_token, hex_string_to_u32_arrayvec};
+use ujson_lib::provisioning_data::ManufCpProvisioningDataOut;
 
 #[no_mangle]
 pub extern "C" fn OtLibFpgaTransportInit(fpga: *mut c_char) -> *const TransportWrapper {
@@ -144,6 +143,7 @@ pub extern "C" fn OtLibLoadSramElf(
         elf: Some(PathBuf::from_str(sram_elf_in).unwrap()),
         vmem: None,
         load_addr: None,
+        skip_crc: true,
     };
     let result = sram_program
         .load_and_execute(&mut *jtag, ExecutionMode::Jump)
@@ -286,9 +286,7 @@ pub extern "C" fn OtLibConsoleTx(transport: *const TransportWrapper, c_msg: *mut
 #[no_mangle]
 pub extern "C" fn OtLibTxCpProvisioningData(
     transport: *const TransportWrapper,
-    c_was: *mut c_char,
-    c_test_unlock_token: *mut c_char,
-    c_test_exit_token: *mut c_char,
+    c_msg: *mut c_char,
     timeout_ms: u64,
 ) {
     // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
@@ -297,12 +295,8 @@ pub extern "C" fn OtLibTxCpProvisioningData(
 
     // Unpack input strings.
     // SAFETY: The expected input strings must be set by the caller and be valid.
-    let was_cstr = unsafe { CStr::from_ptr(c_was) };
-    let was = was_cstr.to_str().unwrap();
-    let test_unlock_token_str = unsafe { CStr::from_ptr(c_test_unlock_token) };
-    let test_unlock_token = test_unlock_token_str.to_str().unwrap();
-    let test_exit_token_str = unsafe { CStr::from_ptr(c_test_exit_token) };
-    let test_exit_token = test_exit_token_str.to_str().unwrap();
+    let msg_cstr = unsafe { CStr::from_ptr(c_msg) };
+    let msg = msg_cstr.to_str().unwrap();
 
     // Get handle to SPI console.
     let spi = transport.spi("BOOTSTRAP").unwrap();
@@ -314,22 +308,7 @@ pub extern "C" fn OtLibTxCpProvisioningData(
         r"Waiting for CP provisioning data ...",
         Duration::from_millis(timeout_ms),
     );
-    let provisioning_data = ManufCpProvisioningData {
-        wafer_auth_secret: hex_string_to_u32_arrayvec::<8>(was).unwrap(),
-        test_unlock_token_hash: hash_lc_token(
-            hex_string_to_u32_arrayvec::<4>(test_unlock_token)
-                .unwrap()
-                .as_bytes(),
-        )
-        .unwrap(),
-        test_exit_token_hash: hash_lc_token(
-            hex_string_to_u32_arrayvec::<4>(test_exit_token)
-                .unwrap()
-                .as_bytes(),
-        )
-        .unwrap(),
-    };
-    provisioning_data.send(&spi_console).unwrap();
+    spi_console.console_write(msg.as_bytes()).unwrap();
 }
 
 #[no_mangle]
