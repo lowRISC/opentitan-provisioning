@@ -19,7 +19,7 @@ fi
 
 OT_REPO_TOP=$1
 
-_OT_REPO_BRANCH="Earlgrey-A2-Provisioning-RC3"
+_OT_REPO_BRANCH="Earlgrey-A2-Provisioning-RC6"
 _PROVISIONING_REPO_TOP=$(pwd)
 _FPGAS=("hyper310" "cw340")
 _CP_SKUS=("emulation")
@@ -42,10 +42,11 @@ for fpga in "${_FPGAS[@]}"; do
       //hw/bitstream/universal:splice
     if [[ "$fpga" == "cw340" ]]; then
       cp -f "${_BITSTREAM_PATH}" "${_PROVISIONING_REPO_TOP}/third_party/lowrisc/ot_bitstreams/cp_hyper340.bit"
+      chmod -x "${_PROVISIONING_REPO_TOP}/third_party/lowrisc/ot_bitstreams/cp_hyper340.bit"
     else
       cp -f "${_BITSTREAM_PATH}" "${_PROVISIONING_REPO_TOP}/third_party/lowrisc/ot_bitstreams/cp_${fpga}.bit"
+      chmod -x "${_PROVISIONING_REPO_TOP}/third_party/lowrisc/ot_bitstreams/cp_${fpga}.bit"
     fi
-    chmod -x "${_PROVISIONING_REPO_TOP}/third_party/lowrisc/ot_bitstreams/cp_${fpga}.bit"
   done
 done
 
