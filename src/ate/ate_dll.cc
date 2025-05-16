@@ -1,10 +1,12 @@
 // Copyright lowRISC contributors (OpenTitan project).
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
+#include <google/protobuf/util/json_util.h>
 #include <openssl/asn1.h>
 #include <openssl/pem.h>
 #include <openssl/x509v3.h>
 
+#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <unordered_map>
@@ -15,6 +17,7 @@
 #include "absl/status/statusor.h"
 #include "src/ate/ate_api.h"
 #include "src/ate/ate_client.h"
+#include "src/ate/proto/dut_commands.pb.h"
 #include "src/pa/proto/pa.grpc.pb.h"
 #include "src/proto/crypto/common.pb.h"
 #include "src/proto/crypto/ecdsa.pb.h"
@@ -277,8 +280,8 @@ int TokensCopy(size_t count, const pa::DeriveTokensResponse &resp,
     auto token = sk.token();
 
     if (token.size() > sizeof(resp_token.data)) {
-      LOG(ERROR) << "DeriveTokens failed- token size is too big: " << token.size
-                 << " bytes. token index: " << i;
+      LOG(ERROR) << "DeriveTokens failed- token size is too big: "
+                 << token.size() << " bytes. token index: " << i;
       return static_cast<int>(absl::StatusCode::kInternal);
     }
 
@@ -297,7 +300,7 @@ int TokensCopy(size_t count, const pa::DeriveTokensResponse &resp,
       }
 
       if (s.size() > sizeof(seed.seed)) {
-        LOG(ERROR) << "DeriveTokens failed - seed size is too big: " << s.size
+        LOG(ERROR) << "DeriveTokens failed - seed size is too big: " << s.size()
                    << " bytes. Seed index: " << i;
         return static_cast<int>(absl::StatusCode::kInternal);
       }
