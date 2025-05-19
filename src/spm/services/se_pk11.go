@@ -520,8 +520,11 @@ func (h *HSM) VerifyWASSignature(params VerifyWASParams) error {
 		return fmt.Errorf("failed to find %q key object: %v", params.Seed, err)
 	}
 
-	dev := append([]byte("was"), params.DeviceID...)
-	was, err := ws.SignHMAC256(dev)
+	if len(params.Diversifier) == 0 {
+		return fmt.Errorf("invalid diversifier length: %d, expected > 0", len(params.Diversifier))
+	}
+
+	was, err := ws.SignHMAC256(params.Diversifier)
 	if err != nil {
 		return fmt.Errorf("failed to hash seed: %v", err)
 	}

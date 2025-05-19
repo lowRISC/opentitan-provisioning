@@ -22,6 +22,7 @@ use opentitanlib::backend::ti50emulator::Ti50EmulatorOpts;
 use opentitanlib::backend::verilator::VerilatorOpts;
 use opentitanlib::console::spi::SpiConsoleDevice;
 use opentitanlib::io::console::{ConsoleDevice, ConsoleError};
+use opentitanlib::io::gpio::{PinMode, PullMode};
 use opentitanlib::io::jtag::{JtagParams, JtagTap};
 use opentitanlib::test_utils::init::InitializeTest;
 use opentitanlib::test_utils::load_bitstream::LoadBitstream;
@@ -144,12 +145,12 @@ pub extern "C" fn OtLibLoadSramElf(
         elf: Some(PathBuf::from_str(sram_elf_in).unwrap()),
         vmem: None,
         load_addr: None,
+        skip_crc: false,
     };
     let result = sram_program
         .load_and_execute(&mut *jtag, ExecutionMode::Jump)
         .unwrap();
     match result {
-        //ExecutionResult::Executing => log::info!("SRAM program loaded and is executing."),
         ExecutionResult::Executing => println!("SRAM program loaded and is executing."),
         _ => panic!("SRAM program load/execution failed: {:?}.", result),
     }
@@ -175,7 +176,19 @@ pub extern "C" fn OtLibConsoleWaitForRx(
 
     // Get handle to SPI console.
     let spi = transport.spi("BOOTSTRAP").unwrap();
-    let spi_console = SpiConsoleDevice::new(&*spi).unwrap();
+    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").unwrap();
+    let _ = device_console_tx_ready_pin
+        .set_mode(PinMode::Input)
+        .expect("Unable to set GPIO pin mode.");
+    let _ = device_console_tx_ready_pin
+        .set_pull_mode(PullMode::None)
+        .expect("Unable to set GPIO pull mode.");
+    let spi_console = SpiConsoleDevice::new(
+        &*spi,
+        Some(device_console_tx_ready_pin),
+        /*ignore_frame_num=*/ true,
+    )
+    .unwrap();
 
     // Unpack msg string.
     // SAFETY: The expected message string must be set by the caller and be valid.
@@ -211,7 +224,15 @@ pub extern "C" fn OtLibConsoleRx(
 
     // Get handle to SPI console.
     let spi = transport.spi("BOOTSTRAP").unwrap();
-    let spi_console = SpiConsoleDevice::new(&*spi).unwrap();
+    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").unwrap();
+    let _ = device_console_tx_ready_pin.set_mode(PinMode::Input);
+    let _ = device_console_tx_ready_pin.set_pull_mode(PullMode::None);
+    let spi_console = SpiConsoleDevice::new(
+        &*spi,
+        Some(device_console_tx_ready_pin),
+        /*ignore_frame_num=*/ true,
+    )
+    .unwrap();
 
     // Instantiate a "UartConsole", which is really just a console buffer.
     let mut console = UartConsole {
@@ -277,7 +298,15 @@ pub extern "C" fn OtLibConsoleTx(transport: *const TransportWrapper, c_msg: *mut
 
     // Get handle to SPI console.
     let spi = transport.spi("BOOTSTRAP").unwrap();
-    let spi_console = SpiConsoleDevice::new(&*spi).unwrap();
+    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").unwrap();
+    let _ = device_console_tx_ready_pin.set_mode(PinMode::Input);
+    let _ = device_console_tx_ready_pin.set_pull_mode(PullMode::None);
+    let spi_console = SpiConsoleDevice::new(
+        &*spi,
+        Some(device_console_tx_ready_pin),
+        /*ignore_frame_num=*/ true,
+    )
+    .unwrap();
 
     // Send string to console.
     spi_console.console_write(msg.as_bytes()).unwrap();
@@ -306,14 +335,23 @@ pub extern "C" fn OtLibTxCpProvisioningData(
 
     // Get handle to SPI console.
     let spi = transport.spi("BOOTSTRAP").unwrap();
-    let spi_console = SpiConsoleDevice::new(&*spi).unwrap();
+    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").unwrap();
+    let _ = device_console_tx_ready_pin.set_mode(PinMode::Input);
+    let _ = device_console_tx_ready_pin.set_pull_mode(PullMode::None);
+    let spi_console = SpiConsoleDevice::new(
+        &*spi,
+        Some(device_console_tx_ready_pin),
+        /*ignore_frame_num=*/ true,
+    )
+    .unwrap();
 
     // Send the UJSON CP data payload to the DUT over the console.
     let _ = UartConsole::wait_for(
         &spi_console,
         r"Waiting for CP provisioning data ...",
         Duration::from_millis(timeout_ms),
-    );
+    )
+    .expect("Timed out waiting for sync message.");
     let provisioning_data = ManufCpProvisioningData {
         wafer_auth_secret: hex_string_to_u32_arrayvec::<8>(was).unwrap(),
         test_unlock_token_hash: hash_lc_token(
@@ -321,13 +359,13 @@ pub extern "C" fn OtLibTxCpProvisioningData(
                 .unwrap()
                 .as_bytes(),
         )
-        .unwrap(),
+        .expect("Failed to generate TestUnlock token hash."),
         test_exit_token_hash: hash_lc_token(
             hex_string_to_u32_arrayvec::<4>(test_exit_token)
                 .unwrap()
                 .as_bytes(),
         )
-        .unwrap(),
+        .expect("Failed to generate TestExit token hash."),
     };
     provisioning_data.send(&spi_console).unwrap();
 }
@@ -346,7 +384,15 @@ pub extern "C" fn OtLibRxCpDeviceId(
 
     // Get handle to SPI console.
     let spi = transport.spi("BOOTSTRAP").unwrap();
-    let spi_console = SpiConsoleDevice::new(&*spi).unwrap();
+    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").unwrap();
+    let _ = device_console_tx_ready_pin.set_mode(PinMode::Input);
+    let _ = device_console_tx_ready_pin.set_pull_mode(PullMode::None);
+    let spi_console = SpiConsoleDevice::new(
+        &*spi,
+        Some(device_console_tx_ready_pin),
+        /*ignore_frame_num=*/ true,
+    )
+    .unwrap();
 
     // Receive the CP device ID string from DUT.
     let timeout = Duration::from_millis(timeout_ms);

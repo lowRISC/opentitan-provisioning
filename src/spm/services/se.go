@@ -83,11 +83,11 @@ type TokenResult struct {
 }
 
 type VerifyWASParams struct {
-	Data      []byte
-	DeviceID  []byte
-	Sku       string
-	Seed      string
-	Signature []byte
+	Data        []byte
+	Diversifier []byte
+	Sku         string
+	Seed        string
+	Signature   []byte
 }
 
 // SE is an interface representing a secure element, which may be implemented

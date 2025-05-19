@@ -180,9 +180,9 @@ func testOTEndorseCerts(ctx context.Context, numCalls int, skuName string, c *cl
 	client_ctx := metadata.NewOutgoingContext(ctx, md)
 
 	request := &pbp.EndorseCertsRequest{
-		Sku:       skuName,
-		DeviceId:  dID,
-		Signature: signature,
+		Sku:         skuName,
+		Diversifier: dID,
+		Signature:   signature,
 		Bundles: []*pbp.EndorseCertBundle{
 			{
 				KeyParams: &pbc.SigningKeyParams{
@@ -227,24 +227,25 @@ func NewEndorseCertTest() callFunc {
 		},
 		SkuSpecific: make([]byte, dtd.DeviceIdSkuSpecificLenInBytes),
 	}
-	dBytes, err := devid.DeviceIDToRawBytes(d)
+	dBytes, err := devid.HardwareOriginToRawBytes(d.HardwareOrigin)
 	if err != nil {
 		log.Fatalf("unable to convert device ID to raw bytes: %v", err)
 	}
 
-	return callFunc(func(ctx context.Context, numCalls int, skuName string, c *clientTask) {
-		// Obtain the WAS token and calculate the signature over the TBS,
-		// emulating the behavior of the device.
-		hwID, err := devid.HardwareOriginToRawBytes(d.HardwareOrigin)
-		if err != nil {
-			log.Fatalf("unable to convert hardware origin to raw bytes: %v", err)
-		}
-		diversifier := append([]byte("was"), hwID...)
+	// The ATE DLL API requires a diversifier of 48 bytes. We emulate this by creating
+	// a 48 byte slice and appending the hardware ID to it. The first 3 bytes are
+	// "was" and the rest are the hardware ID.
+	dID := make([]byte, 48)
+	copy(dID, []byte("was"))
+	copy(dID[3:], dBytes)
 
+	return callFunc(func(ctx context.Context, numCalls int, skuName string, c *clientTask) {
 		// Prepare request and auth token.
 		md := metadata.Pairs("user_id", strconv.Itoa(c.id), "authorization", c.auth_token)
 		client_ctx := metadata.NewOutgoingContext(ctx, md)
 
+		// Obtain the WAS token and calculate the signature over the TBS,
+		// emulating the behavior of the device.
 		result, err := c.client.DeriveTokens(client_ctx, &pbp.DeriveTokensRequest{
 			Sku: skuName,
 			Params: []*pbp.TokenParams{
@@ -252,7 +253,7 @@ func NewEndorseCertTest() callFunc {
 					Seed:        pbp.TokenSeed_TOKEN_SEED_HIGH_SECURITY,
 					Type:        pbp.TokenType_TOKEN_TYPE_RAW,
 					Size:        pbp.TokenSize_TOKEN_SIZE_256_BITS,
-					Diversifier: diversifier,
+					Diversifier: dID,
 					WrapSeed:    false,
 				},
 			},
@@ -267,7 +268,7 @@ func NewEndorseCertTest() callFunc {
 		mac.Write(diceTBS)
 		sig := mac.Sum(nil)
 
-		testOTEndorseCerts(ctx, numCalls, skuName, c, diceTBS, dBytes, sig)
+		testOTEndorseCerts(ctx, numCalls, skuName, c, diceTBS, dID, sig)
 	})
 }
 

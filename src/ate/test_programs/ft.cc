@@ -29,11 +29,11 @@
  * DUT configuration flags.
  */
 ABSL_FLAG(std::string, fpga, "", "FPGA platform to use.");
-ABSL_FLAG(std::string, bitstream,
-          "third_party/lowrisc/ot_bitstreams/cp_$fpga.bit",
-          "Bitstream to load.");
 ABSL_FLAG(std::string, openocd, "", "OpenOCD binary path.");
-ABSL_FLAG(std::string, cp_sram_elf, "", "CP SRAM ELF (device binary).");
+ABSL_FLAG(std::string, ft_individualization_elf, "",
+          "FT Individualization ELF (device binary).");
+ABSL_FLAG(std::string, ft_personalize_bin, "",
+          "FT Personalize Binary (device binary).");
 
 /**
  * PA configuration flags.
@@ -142,14 +142,6 @@ int main(int argc, char **argv) {
     return -1;
   }
   AteClient::Options ate_options = ate_opts_result.value();
-  // Validate FPGA bitstream path.
-  auto bitstream_result = ValidateFilePathInput(absl::StrReplaceAll(
-      absl::GetFlag(FLAGS_bitstream), {{"$fpga", absl::GetFlag(FLAGS_fpga)}}));
-  if (!bitstream_result.ok()) {
-    LOG(ERROR) << bitstream_result.status().message() << std::endl;
-    return -1;
-  }
-  std::string fpga_bitstream_path = bitstream_result.value();
   // Validate OpenOCD path.
   auto openocd_result = ValidateFilePathInput(absl::GetFlag(FLAGS_openocd));
   if (!openocd_result.ok()) {
@@ -157,14 +149,14 @@ int main(int argc, char **argv) {
     return -1;
   }
   std::string openocd_path = openocd_result.value();
-  // Validate SRAM ELF path.
-  auto sram_elf_result =
-      ValidateFilePathInput(absl::GetFlag(FLAGS_cp_sram_elf));
-  if (!sram_elf_result.ok()) {
-    LOG(ERROR) << sram_elf_result.status().message() << std::endl;
+  // Validate FT firmware binary paths.
+  auto ft_individ_elf_result =
+      ValidateFilePathInput(absl::GetFlag(FLAGS_ft_individualization_elf));
+  if (!ft_individ_elf_result.ok()) {
+    LOG(ERROR) << ft_individ_elf_result.status().message() << std::endl;
     return -1;
   }
-  std::string sram_elf_path = sram_elf_result.value();
+  std::string ft_individ_elf_path = ft_individ_elf_result.value();
 
   // Instantiate an ATE client (gateway to PA).
   auto ate = AteClient::Create(ate_options);
@@ -178,64 +170,14 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  // Derive WAS and test tokens.
-  pa::DeriveTokensRequest request;
-  pa::DeriveTokensResponse response;
-  request.set_sku(absl::GetFlag(FLAGS_sku));
-  // WAS.
-  auto *was_params = request.add_params();
-  was_params->set_seed(pa::TokenSeed::TOKEN_SEED_HIGH_SECURITY);
-  was_params->set_type(pa::TokenType::TOKEN_TYPE_RAW);
-  was_params->set_size(pa::TokenSize::TOKEN_SIZE_256_BITS);
-  // TODO(timothytrippel): derive WAS from CP device ID as well
-  was_params->set_diversifier("was");
-  was_params->set_wrap_seed(false);
-  // Test Unlock Token.
-  auto *tut_params = request.add_params();
-  tut_params->set_seed(pa::TokenSeed::TOKEN_SEED_LOW_SECURITY);
-  tut_params->set_type(pa::TokenType::TOKEN_TYPE_RAW);
-  tut_params->set_size(pa::TokenSize::TOKEN_SIZE_128_BITS);
-  tut_params->set_diversifier("test_unlock");
-  tut_params->set_wrap_seed(false);
-  // Test Exit Token.
-  auto *tet_params = request.add_params();
-  tet_params->set_seed(pa::TokenSeed::TOKEN_SEED_LOW_SECURITY);
-  tet_params->set_type(pa::TokenType::TOKEN_TYPE_RAW);
-  tet_params->set_size(pa::TokenSize::TOKEN_SIZE_128_BITS);
-  tet_params->set_diversifier("test_exit");
-  tet_params->set_wrap_seed(false);
-  pa_status = ate->DeriveTokens(request, &response);
-  if (!pa_status.ok()) {
-    LOG(ERROR) << "DeriveTokens request to PA failed " << pa_status.error_code()
-               << ": " << pa_status.error_message() << std::endl;
-    return -1;
-  }
-  std::string was, test_unlock_token, test_exit_token;
-  for (int i = 0; i < response.tokens_size(); ++i) {
-    std::string hexstr = BytesToHexStr(response.tokens(i).token().data(),
-                                       response.tokens(i).token().length());
-    if (i == 0) {
-      was = hexstr;
-    } else if (i == 1) {
-      test_unlock_token = hexstr;
-    } else if (i == 2) {
-      test_exit_token = hexstr;
-    } else {
-      LOG(ERROR) << "DeriveTokens generated more tokens than expected."
-                 << std::endl;
-      return -1;
-    }
-  }
-
-  // Init session with FPGA DUT and load CP provisioning firmware.
+  // Init session with FPGA DUT and load FT individualization firmware.
+  //
+  // Note: we do not reload the bitstream as the CP test program should be run
+  // before running this test program.
   auto dut = DutLib::Create(absl::GetFlag(FLAGS_fpga));
-  dut->DutFpgaLoadBitstream(fpga_bitstream_path);
-  dut->DutLoadSramElf(openocd_path, sram_elf_path);
-  dut->DutTxCpProvisioningData(&was, &test_unlock_token, &test_exit_token,
-                               /*timeout_ms=*/1000);
-  std::string cp_device_id_str = dut->DutRxCpDeviceId(/*quiet=*/false,
-                                                      /*timeout_ms=*/1000);
-  LOG(INFO) << "CP Device ID: " << cp_device_id_str << std::endl;
+  dut->DutLoadSramElf(openocd_path, ft_individ_elf_path);
+
+  // TODO(timothytrippel): add perso loading and execution steps
 
   // Close session with PA.
   pa_status = ate->CloseSession();

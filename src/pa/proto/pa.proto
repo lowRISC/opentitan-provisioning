@@ -43,9 +43,8 @@ message EndorseCertsRequest {
   string sku = 1;
   // List of certificates to endorse. Required.
   repeated EndorseCertBundle bundles = 2;
-  // Device ID encoded in raw bytes in little endian format. The length should
-  // be equal to 256 bits. Required.
-  bytes device_id = 3;
+  // Diversifier raw bytes used to derive the signing key. Required.
+  bytes diversifier = 3;
   // Derived signature covering the raw `tbs` bytes inside the cert `bundles`.
   // The signture is generated using a MAC agorithm with the key derived from
   // the device ID and a secret key previously provisioned in the SPM and the

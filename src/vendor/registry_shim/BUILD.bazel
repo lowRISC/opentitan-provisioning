@@ -13,8 +13,10 @@ go_library(
     deps = [
         "@//src/pa/proto:pa_go_pb",
         "@//src/proto:device_id_utils",
+        "@//src/proxy_buffer/proto:proxy_buffer_go_pb",
         "@//src/proxy_buffer/services:proxybuffer",
         "@//src/spm/proto:spm_go_pb",
+        "@//src/transport:grpconn",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",

@@ -31,10 +31,10 @@ const (
 // bufferDialer creates a gRPC buffer connection to an initialized PA service.
 // It returns a connection which can then be used to initialize the client
 // interface by calling `pbp.NewProvisioningApplianceClient`.
-func bufferDialer(t *testing.T, spmClient pbs.SpmServiceClient, pbClient pbr.ProxyBufferServiceClient) func(context.Context, string) (net.Conn, error) {
+func bufferDialer(t *testing.T, spmClient pbs.SpmServiceClient) func(context.Context, string) (net.Conn, error) {
 	listener := bufconn.Listen(bufferConnectionSize)
 	server := grpc.NewServer()
-	pbp.RegisterProvisioningApplianceServiceServer(server, pa.NewProvisioningApplianceServer(spmClient, pbClient))
+	pbp.RegisterProvisioningApplianceServiceServer(server, pa.NewProvisioningApplianceServer(spmClient))
 	go func(t *testing.T) {
 		if err := server.Serve(listener); err != nil {
 			t.Fatal(err)
@@ -126,8 +126,7 @@ func (c *fakeSpmClient) EndorseData(ctx context.Context, request *pbs.EndorseDat
 func TestDeriveSymmetricKey(t *testing.T) {
 	ctx := context.Background()
 	spmClient := &fakeSpmClient{}
-	pbClient := &fakePbClient{}
-	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(bufferDialer(t, spmClient, pbClient)))
+	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(bufferDialer(t, spmClient)))
 	if err != nil {
 		t.Fatalf("failed to connect to test server: %v", err)
 	}
@@ -187,8 +186,7 @@ func TestDeriveSymmetricKey(t *testing.T) {
 func TestEndorseCerts(t *testing.T) {
 	ctx := context.Background()
 	spmClient := &fakeSpmClient{}
-	pbClient := &fakePbClient{}
-	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(bufferDialer(t, spmClient, pbClient)))
+	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(bufferDialer(t, spmClient)))
 	if err != nil {
 		t.Fatalf("failed to connect to test server: %v", err)
 	}

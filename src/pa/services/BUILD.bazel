@@ -25,7 +25,6 @@ go_library(
     importpath = "github.com/lowRISC/opentitan-provisioning/src/pa/services/pa",
     deps = [
         "//src/pa/proto:pa_go_pb",
-        "//src/proxy_buffer/proto:proxy_buffer_go_pb",
         "//src/spm/proto:spm_go_pb",
         "//src/transport/auth_service",
         "//src/utils",

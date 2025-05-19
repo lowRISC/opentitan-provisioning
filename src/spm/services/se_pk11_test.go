@@ -385,11 +385,11 @@ func TestVerifyWASSignature(t *testing.T) {
 	sig := mac.Sum(nil)
 
 	err = hsm.VerifyWASSignature(VerifyWASParams{
-		Data:      data,
-		DeviceID:  devID,
-		Sku:       "sival",
-		Seed:      "HighSecKdfSeed",
-		Signature: sig,
+		Data:        data,
+		Diversifier: dev,
+		Sku:         "sival",
+		Seed:        "HighSecKdfSeed",
+		Signature:   sig,
 	})
 	ts.Check(t, err)
 }

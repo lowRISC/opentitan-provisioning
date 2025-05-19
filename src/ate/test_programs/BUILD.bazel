@@ -23,3 +23,19 @@ cc_binary(
         "@com_google_absl//absl/status:statusor",
     ],
 )
+
+cc_binary(
+    name = "ft",
+    srcs = ["ft.cc"],
+    deps = [
+        "//src/ate:ate_client",
+        "//src/ate/test_programs/dut_lib",
+        "//src/pa/proto:pa_cc_proto",
+        "//src/version",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
