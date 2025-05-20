@@ -1,0 +1,25 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+
+go_binary(
+    name = "fake_registry_server",
+    srcs = ["fake_registry.go"],
+    deps = [
+        "//src/proxy_buffer/proto:proxy_buffer_go_pb",
+        "@org_golang_google_grpc//codes",
+    ],
+)
+
+go_image(
+    name = "fake_registry_server_image",
+    srcs = ["fake_registry.go"],
+    static = "on",
+    deps = [
+        "//src/proxy_buffer/proto:proxy_buffer_go_pb",
+        "@org_golang_google_grpc//codes",
+    ],
+)

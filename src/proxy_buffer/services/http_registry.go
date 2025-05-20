@@ -21,6 +21,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 )
 
 // RegistryConfig holds the configuration for an HTTP registry
@@ -103,9 +104,9 @@ type callConfig struct {
 // Types used for call
 
 type callError struct {
-	Code    uint32 `json:"code"`
-	Message string `json:"message"`
-	Status  string `json:"status"`
+	Code    codes.Code `json:"code"`
+	Message string     `json:"message"`
+	Status  string     `json:"status"`
 }
 
 type registerResponse struct {
@@ -163,7 +164,7 @@ func serverResponseToPBResponse(resp *registerResponse) *pbp.DeviceRegistrationR
 		RpcStatus: 0,
 	}
 	if resp.Error != nil {
-		pbResp.RpcStatus = resp.Error.Code
+		pbResp.RpcStatus = uint32(resp.Error.Code)
 		pbResp.Status = pbp.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_BAD_REQUEST
 	}
 	return pbResp
