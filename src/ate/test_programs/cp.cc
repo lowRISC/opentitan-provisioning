@@ -174,8 +174,6 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  const char *sku = absl::GetFlag(FLAGS_sku).c_str();
-
   derive_token_params_t params[] = {
       {
           // WAS
@@ -214,7 +212,8 @@ int main(int argc, char **argv) {
   }
 
   token_t tokens[3];
-  if (DeriveTokens(ate_client, sku, /*count=*/3, params, tokens) != 0) {
+  if (DeriveTokens(ate_client, absl::GetFlag(FLAGS_sku).c_str(), /*count=*/3,
+                   params, tokens) != 0) {
     LOG(ERROR) << "DeriveTokens failed.";
     return -1;
   }
