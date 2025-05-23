@@ -170,12 +170,16 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  // Init session with FPGA DUT and load FT individualization firmware.
+  // Init session with FPGA DUT.
   //
   // Note: we do not reload the bitstream as the CP test program should be run
   // before running this test program.
   auto dut = DutLib::Create(absl::GetFlag(FLAGS_fpga));
-  dut->DutLoadSramElf(openocd_path, ft_individ_elf_path);
+
+  // Run FT individualization firmware.
+  dut->DutLoadSramElf(openocd_path, ft_individ_elf_path,
+                      /*wait_for_done=*/true,
+                      /*timeout_ms=*/1000);
 
   // TODO(timothytrippel): add perso loading and execution steps
 

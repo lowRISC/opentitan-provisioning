@@ -29,11 +29,12 @@ class DutLib {
   /**
    * Calls opentitanlib test util to load an SRAM ELF into the DUT over JTAG.
    */
-  void DutLoadSramElf(const std::string& openocd, const std::string& elf);
+  void DutLoadSramElf(const std::string& openocd, const std::string& elf,
+                      bool wait_for_done, uint64_t timeout_ms);
   /**
    * Calls opentitanlib test util to wait for a message over the SPI console.
    */
-  void DutConsoleWaitForRx(const char*, uint64_t timeout_ms);
+  void DutConsoleWaitForRx(const char* msg, uint64_t timeout_ms);
   /**
    * Calls opentitanlib test util to receive a message over the SPI console.
    */

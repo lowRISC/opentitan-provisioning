@@ -19,7 +19,8 @@ namespace test_programs {
 extern "C" {
 void* OtLibFpgaTransportInit(const char* fpga);
 void OtLibFpgaLoadBitstream(void* transport, const char* fpga_bitstream);
-void OtLibLoadSramElf(void* transport, const char* openocd, const char* elf);
+void OtLibLoadSramElf(void* transport, const char* openocd, const char* elf,
+                      bool wait_for_done, uint64_t timeout_ms);
 void OtLibConsoleWaitForRx(void* transport, const char* msg,
                            uint64_t timeout_ms);
 void OtLibConsoleRx(void* transport, bool quiet, uint64_t timeout_ms,
@@ -42,10 +43,11 @@ void DutLib::DutFpgaLoadBitstream(const std::string& fpga_bitstream) {
   OtLibFpgaLoadBitstream(transport_, fpga_bitstream.c_str());
 }
 
-void DutLib::DutLoadSramElf(const std::string& openocd,
-                            const std::string& elf) {
+void DutLib::DutLoadSramElf(const std::string& openocd, const std::string& elf,
+                            bool wait_for_done, uint64_t timeout_ms) {
   LOG(INFO) << "in DutLib::DutLoadSramElf";
-  OtLibLoadSramElf(transport_, openocd.c_str(), elf.c_str());
+  OtLibLoadSramElf(transport_, openocd.c_str(), elf.c_str(), wait_for_done,
+                   timeout_ms);
 }
 
 void DutLib::DutConsoleWaitForRx(const char* msg, uint64_t timeout_ms) {

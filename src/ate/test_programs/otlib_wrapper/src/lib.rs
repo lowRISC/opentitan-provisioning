@@ -109,6 +109,8 @@ pub extern "C" fn OtLibLoadSramElf(
     transport: *const TransportWrapper,
     openocd_path: *mut c_char,
     sram_elf: *mut c_char,
+    wait_for_done: bool,
+    timeout_ms: u64,
 ) {
     // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
     // the call to `OtLibFpgaTransportInit(...)` above.
@@ -146,11 +148,14 @@ pub extern "C" fn OtLibLoadSramElf(
         load_addr: None,
         skip_crc: false,
     };
-    let result = sram_program
-        .load_and_execute(&mut *jtag, ExecutionMode::Jump)
-        .unwrap();
+    let mut mode = ExecutionMode::Jump;
+    if wait_for_done {
+        mode = ExecutionMode::JumpAndWait(Duration::from_millis(timeout_ms));
+    }
+    let result = sram_program.load_and_execute(&mut *jtag, mode).unwrap();
     match result {
         ExecutionResult::Executing => println!("SRAM program loaded and is executing."),
+        ExecutionResult::ExecutionDone(_sp) => println!("SRAM program loaded execution completed."),
         _ => panic!("SRAM program load/execution failed: {:?}.", result),
     }
 
@@ -323,8 +328,7 @@ pub extern "C" fn OtLibTxCpProvisioningData(
     let transport: &TransportWrapper = unsafe { &*transport };
 
     // SAFETY: spi_frame should be a valid pointer to memory allocated by the caller.
-    let spi_frame =
-        unsafe { std::slice::from_raw_parts_mut(spi_frame, spi_frame_size) };
+    let spi_frame = unsafe { std::slice::from_raw_parts_mut(spi_frame, spi_frame_size) };
 
     // Get handle to SPI console.
     let spi = transport.spi("BOOTSTRAP").unwrap();
@@ -344,7 +348,8 @@ pub extern "C" fn OtLibTxCpProvisioningData(
         r"Waiting for CP provisioning data ...",
         Duration::from_millis(timeout_ms),
     );
-    spi_console.console_write(spi_frame.as_bytes())
+    spi_console
+        .console_write(spi_frame.as_bytes())
         .expect("Unable to write to console.");
 }
 
