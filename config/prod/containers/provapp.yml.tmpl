@@ -44,6 +44,12 @@ spec:
     - --ca_root_certs=/var/lib/opentitan/config/prod/certs/out/ca-cert.pem
     - --port=${OTPROV_PORT_PB}
     - --db_path=file::memory:?cache=shared
+    - --register_device_url=${OTPROV_SECRET_XXX}
+    - --batch_register_device_url=${OTPROV_SECRET_XXX}
+    - --registry_headers_file=${OTPROV_SECRET_XXX}
+    - --enable_syncer=true
+    - --syncer_frequency=1m
+    - --syncer_records_per_run=5
     # TODO: Update label to point to specific release version.
     image: localhost/pb_server:latest
     resources: {}
