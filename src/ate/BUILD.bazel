@@ -41,28 +41,36 @@ cc_test(
     ],
 )
 
+ATE_LIB_SRCS = [
+    "ate_api_json_commands.cc",
+    "ate_dll.cc",
+    "ate_perso_blob.cc",
+]
+
+ATE_LIB_DEPS = [
+    ":ate_client",
+    "//src/ate/proto:dut_commands_cc_proto",
+    "//src/pa/proto:pa_cc_grpc",
+    "//src/proto/crypto:common_cc_proto",
+    "//src/proto/crypto:ecdsa_cc_proto",
+    "@com_google_absl//absl/log",
+    "@com_google_absl//absl/status",
+    "@com_google_absl//absl/status:statusor",
+]
+
 cc_library(
     name = "ate_lib",
-    srcs = [
-        "ate_api_json_commands.cc",
-        "ate_dll.cc",
+    srcs = ATE_LIB_SRCS,
+    hdrs = [
+        "ate_api.h",
+        "ate_perso_blob.h",
     ],
-    hdrs = ["ate_api.h"],
     defines = ["BAZEL_BUILD"],
     linkopts = select({
         "//:windows": WINDOWS_LIBS,
         "//conditions:default": [],
     }),
-    deps = [
-        ":ate_client",
-        "//src/ate/proto:dut_commands_cc_proto",
-        "//src/pa/proto:pa_cc_grpc",
-        "//src/proto/crypto:common_cc_proto",
-        "//src/proto/crypto:ecdsa_cc_proto",
-        "@com_google_absl//absl/log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-    ],
+    deps = ATE_LIB_DEPS,
 )
 
 cc_test(
@@ -75,13 +83,22 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "ate_perso_blob_test",
+    srcs = ["ate_perso_blob_test.cc"],
+    deps = [
+        ":ate_lib",
+        "//src/testing:test_helpers",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 cc_binary(
     name = "ate",
     srcs = [
         "ate_api.h",
-        "ate_api_json_commands.cc",
-        "ate_dll.cc",
-    ],
+        "ate_perso_blob.h",
+    ] + ATE_LIB_SRCS,
     linkopts = select({
         "//:windows": WINDOWS_LIBS,
         "//conditions:default": [],
@@ -90,16 +107,7 @@ cc_binary(
     target_compatible_with = [
         "@platforms//os:windows",
     ],
-    deps = [
-        ":ate_client",
-        "//src/ate/proto:dut_commands_cc_proto",
-        "//src/pa/proto:pa_cc_grpc",
-        "//src/proto/crypto:common_cc_proto",
-        "//src/proto/crypto:ecdsa_cc_proto",
-        "@com_google_absl//absl/log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-    ],
+    deps = ATE_LIB_DEPS,
 )
 
 pkg_win(

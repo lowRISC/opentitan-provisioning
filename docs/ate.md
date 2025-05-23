@@ -60,7 +60,9 @@ sequenceDiagram
 
     note left of PA: Cert Endorsement
     DUT->>ATE: PersoBlobFromJson
+    ATE->>ATE: UnpackPersoBlob
     ATE->>PA: EndorseCerts
+    ATE->>ATE: PackPersoBlob
     ATE->>DUT: PersoBlobToJson
 ```
 
