@@ -21,6 +21,9 @@ void* OtLibFpgaTransportInit(const char* fpga);
 void OtLibFpgaLoadBitstream(void* transport, const char* fpga_bitstream);
 void OtLibLoadSramElf(void* transport, const char* openocd, const char* elf,
                       bool wait_for_done, uint64_t timeout_ms);
+void OtLibBootstrap(void* transport, const char* bin);
+void OtLibWaitForGpioState(void* transport, const char* pin, bool state,
+                           uint64_t timeout_ms);
 void OtLibConsoleWaitForRx(void* transport, const char* msg,
                            uint64_t timeout_ms);
 void OtLibConsoleRx(void* transport, bool quiet, uint64_t timeout_ms,
@@ -48,6 +51,17 @@ void DutLib::DutLoadSramElf(const std::string& openocd, const std::string& elf,
   LOG(INFO) << "in DutLib::DutLoadSramElf";
   OtLibLoadSramElf(transport_, openocd.c_str(), elf.c_str(), wait_for_done,
                    timeout_ms);
+}
+
+void DutLib::DutBootstrap(const std::string& bin) {
+  LOG(INFO) << "in DutLib::DutBootstrap";
+  OtLibBootstrap(transport_, bin.c_str());
+}
+
+void DutLib::DutWaitForGpioState(const char* pin, bool state,
+                                 uint64_t timeout_ms) {
+  LOG(INFO) << "in DutLib::DutWaitForGpioState";
+  OtLibWaitForGpioState(transport_, pin, state, timeout_ms);
 }
 
 void DutLib::DutConsoleWaitForRx(const char* msg, uint64_t timeout_ms) {

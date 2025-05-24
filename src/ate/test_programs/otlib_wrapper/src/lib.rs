@@ -7,7 +7,7 @@ use std::io::Write;
 use std::os::raw::c_char;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use crc::{Crc, CRC_32_ISO_HDLC};
@@ -20,10 +20,14 @@ use opentitanlib::backend::chip_whisperer::ChipWhispererOpts;
 use opentitanlib::backend::proxy::ProxyOpts;
 use opentitanlib::backend::ti50emulator::Ti50EmulatorOpts;
 use opentitanlib::backend::verilator::VerilatorOpts;
+use opentitanlib::bootstrap::{BootstrapOptions, BootstrapProtocol};
 use opentitanlib::console::spi::SpiConsoleDevice;
 use opentitanlib::io::console::{ConsoleDevice, ConsoleError};
 use opentitanlib::io::gpio::{PinMode, PullMode};
 use opentitanlib::io::jtag::{JtagParams, JtagTap};
+use opentitanlib::io::spi::SpiParams;
+use opentitanlib::io::uart::UartParams;
+use opentitanlib::test_utils::bootstrap::Bootstrap;
 use opentitanlib::test_utils::init::InitializeTest;
 use opentitanlib::test_utils::load_bitstream::LoadBitstream;
 use opentitanlib::test_utils::load_sram_program::{
@@ -166,6 +170,82 @@ pub extern "C" fn OtLibLoadSramElf(
         .unwrap()
         .remove()
         .unwrap();
+}
+
+#[no_mangle]
+pub extern "C" fn OtLibBootstrap(transport: *const TransportWrapper, bin: *mut c_char) {
+    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
+    // the call to `OtLibFpgaTransportInit(...)` above.
+    let transport: &TransportWrapper = unsafe { &*transport };
+
+    // Unpack path strings.
+    // SAFETY: The binary path string must be set by the caller and be valid.
+    let bin_cstr = unsafe { CStr::from_ptr(bin) };
+    let bin_in = bin_cstr.to_str().unwrap();
+    let bin_path = PathBuf::from(bin_in);
+
+    // Bootstrap flash binary into the DUT.
+    let bs = Bootstrap {
+        options: BootstrapOptions {
+            uart_params: UartParams {
+                uart: "CONSOLE".to_string(),
+                baudrate: None, // Use default baudrate.
+                flow_control: false,
+            },
+            spi_params: SpiParams {
+                ..Default::default()
+            },
+            protocol: BootstrapProtocol::Eeprom,
+            clear_uart: None,
+            reset_delay: Duration::from_millis(100),
+            leave_in_bootstrap: false,
+            leave_in_reset: false,
+            inter_frame_delay: None,
+            flash_erase_delay: None,
+        },
+        bootstrap: Some(bin_path.clone()),
+    };
+    let _ = bs
+        .load(transport, &bin_path)
+        .expect(format!("Failed to bootstrap binary: {:?}.", bin_path).as_str());
+}
+
+#[no_mangle]
+pub extern "C" fn OtLibWaitForGpioState(
+    transport: *const TransportWrapper,
+    pin: *mut c_char,
+    state: bool,
+    timeout_ms: u64,
+) {
+    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
+    // the call to `OtLibFpgaTransportInit(...)` above.
+    let transport: &TransportWrapper = unsafe { &*transport };
+
+    // Unpack pin string.
+    // SAFETY: The pin string must be set by the caller and be valid.
+    let pin_cstr = unsafe { CStr::from_ptr(pin) };
+    let pin_str = pin_cstr.to_str().unwrap();
+
+    // Get handle to SPI console.
+    let status_pin = &transport.gpio_pin(pin_str).unwrap();
+    let _ = status_pin
+        .set_mode(PinMode::Input)
+        .expect("Unable to set GPIO pin mode.");
+    let _ = status_pin
+        .set_pull_mode(PullMode::None)
+        .expect("Unable to set GPIO pull mode.");
+
+    // Wait for pin to reach the specified state.
+    let timeout = Duration::from_millis(timeout_ms);
+    let deadline = Instant::now() + timeout;
+    loop {
+        if Instant::now() > deadline {
+            panic!("Timed out waiting for a GPIO to toggle.");
+        }
+        if status_pin.read().expect("failed to read GPIO pin.") == state {
+            break;
+        }
+    }
 }
 
 #[no_mangle]

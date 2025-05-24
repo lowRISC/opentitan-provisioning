@@ -32,6 +32,14 @@ class DutLib {
   void DutLoadSramElf(const std::string& openocd, const std::string& elf,
                       bool wait_for_done, uint64_t timeout_ms);
   /**
+   * Calls opentitanlib to bootstrap a binary into the DUT's flash over SPI.
+   */
+  void DutBootstrap(const std::string& bin);
+  /**
+   * Waits for a GPIO pin to toggle high.
+   */
+  void DutWaitForGpioState(const char* pin, bool state, uint64_t timeout_ms);
+  /**
    * Calls opentitanlib test util to wait for a message over the SPI console.
    */
   void DutConsoleWaitForRx(const char* msg, uint64_t timeout_ms);
