@@ -54,7 +54,7 @@ bazelisk run //src/ate/test_programs:ft -- \
   --sku="sival" \
   --sku_auth_pw="test_password" \
   --fpga="${FPGA}" \
-  --ft_individualization_elf="${DEPLOYMENT_BIN_DIR}/sram_ft_individualize_sival_fpga_${BIN_DEVICE}_rom_with_fake_keys.elf" \
-  --ft_personalize_bin="${DEPLOYMENT_BIN_DIR}/ft_personalize_sival_${BIN_DEVICE}_rom_with_fake_keys.elf" \
+  --ft_individualization_elf="${DEPLOYMENT_BIN_DIR}/sram_ft_individualize_sival_ate_fpga_${BIN_DEVICE}_rom_with_fake_keys.elf" \
+  --ft_personalize_bin="${DEPLOYMENT_BIN_DIR}/ft_personalize_sival_fpga_${BIN_DEVICE}_rom_with_fake_keys.prod_key_0.prod_key_0.signed.bin" \
   --openocd="${DEPLOYMENT_BIN_DIR}/openocd"
 echo "Done."

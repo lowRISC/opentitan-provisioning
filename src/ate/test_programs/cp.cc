@@ -227,7 +227,8 @@ int main(int argc, char **argv) {
   // Init session with FPGA DUT and load CP provisioning firmware.
   auto dut = DutLib::Create(absl::GetFlag(FLAGS_fpga));
   dut->DutFpgaLoadBitstream(fpga_bitstream_path);
-  dut->DutLoadSramElf(openocd_path, sram_elf_path);
+  dut->DutLoadSramElf(openocd_path, sram_elf_path, /*wait_for_done=*/false,
+                      /*timeout_ms=*/1000);
   dut->DutTxCpProvisioningData(spi_frame.payload, spi_frame.cursor,
                                /*timeout_ms=*/1000);
   std::string cp_device_id_str = dut->DutRxCpDeviceId(/*quiet=*/false,

@@ -157,6 +157,13 @@ int main(int argc, char **argv) {
     return -1;
   }
   std::string ft_individ_elf_path = ft_individ_elf_result.value();
+  auto ft_perso_bin_result =
+      ValidateFilePathInput(absl::GetFlag(FLAGS_ft_personalize_bin));
+  if (!ft_perso_bin_result.ok()) {
+    LOG(ERROR) << ft_perso_bin_result.status().message() << std::endl;
+    return -1;
+  }
+  std::string ft_perso_bin_path = ft_perso_bin_result.value();
 
   // Instantiate an ATE client (gateway to PA).
   auto ate = AteClient::Create(ate_options);
@@ -170,14 +177,21 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  // Init session with FPGA DUT and load FT individualization firmware.
+  // Init session with FPGA DUT.
   //
   // Note: we do not reload the bitstream as the CP test program should be run
   // before running this test program.
   auto dut = DutLib::Create(absl::GetFlag(FLAGS_fpga));
-  dut->DutLoadSramElf(openocd_path, ft_individ_elf_path);
 
-  // TODO(timothytrippel): add perso loading and execution steps
+  // Run FT individualization firmware.
+  dut->DutLoadSramElf(openocd_path, ft_individ_elf_path,
+                      /*wait_for_done=*/true,
+                      /*timeout_ms=*/1000);
+
+  // Run FT personalization firmware.
+  dut->DutBootstrap(ft_perso_bin_path);
+
+  // TODO(timothytrippel): add perso execution steps
 
   // Close session with PA.
   pa_status = ate->CloseSession();
