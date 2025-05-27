@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -27,15 +28,15 @@ import (
 // RegistryConfig holds the configuration for an HTTP registry
 type RegistryConfig struct {
 	// RegisterDeviceURL is the HTTP URL to call when registering a single device
-	RegisterDeviceURL string
+	RegisterDeviceURL string `json:"register_device_url"`
 	// BatchRegisterDeviceURL is the HTTP URL to call when registering multiple devices
-	BatchRegisterDeviceURL string
+	BatchRegisterDeviceURL string `json:"batch_register_device_url"`
 	// HeadersFilepath is the path to a file containing all headers to be used
 	// when calling the registry. If empty, no headers will be used.
 	//
 	// Each line in the file should contain a header in the format:
 	// `Header-Name: headerValue`
-	HeadersFilepath string
+	HeadersFilepath string `json:"headers_filepath"`
 }
 
 // Registry is an implementation of proxybuffer.Registry that runs over HTTP.
@@ -93,6 +94,22 @@ func New(config *RegistryConfig) (*Registry, error) {
 		RegistryConfig: *config,
 		client:         http.DefaultClient,
 	}, nil
+}
+
+// NewFromJSON is a wrapper over New. It takes a path to a JSON-formatted config.
+func NewFromJSON(filepath string) (*Registry, error) {
+	if filepath == "" {
+		return nil, errors.New("empty JSON filepath")
+	}
+	fileBytes, err := os.ReadFile(filepath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read registry config file: %v", err)
+	}
+	config := &RegistryConfig{}
+	if err := json.Unmarshal(fileBytes, config); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal registry config: %v", err)
+	}
+	return New(config)
 }
 
 type callConfig struct {

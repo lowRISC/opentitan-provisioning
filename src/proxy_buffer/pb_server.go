@@ -30,9 +30,7 @@ var (
 	port   = flag.Int("port", 0, "the port to bind the server on; required")
 	dbPath = flag.String("db_path", "", "the path to the database file")
 	// Registry client
-	registerDeviceURL      = flag.String("register_device_url", "", "URL to call for RegisterDevice")
-	batchRegisterDeviceURL = flag.String("batch_register_device_url", "", "URL to call for BatchRegisterDevice")
-	registryHeadersFile    = flag.String("registry_headers_file", "", "File containing all the headers. Each line should contain a header in the format `NAME: VALUE`.")
+	registryConfigFile = flag.String("registry_config_file", "", "File containing a JSON configuration for the registry. See the definition at httpregistry.RegistryConfig.")
 	// Syncer
 	enableSyncer        = flag.Bool("enable_syncer", false, "If true, will create an HTTP register and a syncer.")
 	syncerFrequency     = flag.String("syncer_frequency", "10m", "Frequency with which the syncer runs. Must use a valid Go duration string (see https://pkg.go.dev/time#ParseDuration). Defaults to 10 minutes.")
@@ -59,11 +57,7 @@ func main() {
 
 	if *enableSyncer {
 		// Initialize the registry client
-		registry, err := httpregistry.New(&httpregistry.RegistryConfig{
-			RegisterDeviceURL:      *registerDeviceURL,
-			BatchRegisterDeviceURL: *batchRegisterDeviceURL,
-			HeadersFilepath:        *registryHeadersFile,
-		})
+		registry, err := httpregistry.NewFromJSON(*registryConfigFile)
 		if err != nil {
 			log.Fatalf("Failed to initialize registry client: %v", err)
 		}
