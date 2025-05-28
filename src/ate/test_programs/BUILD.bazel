@@ -28,7 +28,7 @@ cc_binary(
     name = "ft",
     srcs = ["ft.cc"],
     deps = [
-        "//src/ate:ate_client",
+        "//src/ate:ate_lib",
         "//src/ate/test_programs/dut_lib",
         "//src/pa/proto:pa_cc_proto",
         "//src/version",

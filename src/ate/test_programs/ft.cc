@@ -19,7 +19,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_replace.h"
-#include "src/ate/ate_client.h"
+#include "src/ate/ate_api.h"
 #include "src/ate/test_programs/dut_lib/dut_lib.h"
 #include "src/pa/proto/pa.grpc.pb.h"
 #include "src/pa/proto/pa.pb.h"
@@ -56,7 +56,6 @@ ABSL_FLAG(std::string, ca_root_certs, "",
 
 namespace {
 using provisioning::VersionFormatted;
-using provisioning::ate::AteClient;
 using provisioning::test_programs::DutLib;
 
 // Returns `filename` content in a std::string format
@@ -71,38 +70,39 @@ absl::StatusOr<std::string> ReadFile(const std::string &filename) {
   return output_stream.str();
 }
 
-absl::StatusOr<AteClient::Options> ValidateAteClientOptions(void) {
-  AteClient::Options options;
-  options.pa_socket = absl::GetFlag(FLAGS_pa_socket);
+absl::StatusOr<ate_client_ptr> AteClientNew(void) {
+  client_options_t options;
+
+  std::string pa_socket = absl::GetFlag(FLAGS_pa_socket);
+  if (pa_socket.empty()) {
+    return absl::InvalidArgumentError(
+        "--pa_socket not set. This is a required argument.");
+  }
+  options.pa_socket = pa_socket.c_str();
   options.enable_mtls = absl::GetFlag(FLAGS_enable_mtls);
 
-  // If mTLS is enabled, load key and certs.
+  std::string pem_private_key = absl::GetFlag(FLAGS_client_key);
+  std::string pem_cert_chain = absl::GetFlag(FLAGS_client_cert);
+  std::string pem_root_certs = absl::GetFlag(FLAGS_ca_root_certs);
+
   if (options.enable_mtls) {
-    std::unordered_map<absl::Flag<std::string> *, std::string *> pem_options = {
-        {&FLAGS_client_key, &options.pem_private_key},
-        {&FLAGS_client_cert, &options.pem_cert_chain},
-        {&FLAGS_ca_root_certs, &options.pem_root_certs},
-    };
-    for (auto opt : pem_options) {
-      // Check the required filepath flag was provided.
-      std::string filename = absl::GetFlag(*opt.first);
-      if (filename.empty()) {
-        return absl::InvalidArgumentError(
-            absl::StrCat("--", absl::GetFlagReflectionHandle(*opt.first).Name(),
-                         " not set. This is a required argument when "
-                         "--enable_mtls is set to true."));
-      }
-      // Check the required filepath is valid by attempting to read it.
-      auto result = ReadFile(filename);
-      if (!result.ok()) {
-        return absl::InvalidArgumentError(
-            absl::StrCat("--", absl::GetFlagReflectionHandle(*opt.first).Name(),
-                         " ", result.status().message()));
-      }
-      *opt.second = result.value();
+    if (pem_private_key.empty() || pem_cert_chain.empty() ||
+        pem_root_certs.empty()) {
+      return absl::InvalidArgumentError(
+          "--client_key, --client_cert, and --ca_root_certs are required "
+          "arguments when --enable_mtls is set.");
     }
+    options.pem_private_key = pem_private_key.c_str();
+    options.pem_cert_chain = pem_cert_chain.c_str();
+    options.pem_root_certs = pem_root_certs.c_str();
   }
-  return options;
+
+  ate_client_ptr ate_client;
+  CreateClient(&ate_client, &options);
+  if (ate_client == nullptr) {
+    return absl::InternalError("Failed to create ATE client.");
+  }
+  return ate_client;
 }
 
 absl::StatusOr<std::string> ValidateFilePathInput(std::string path) {
@@ -123,6 +123,15 @@ std::string BytesToHexStr(const char *bytes, size_t len) {
   }
   return ss.str();
 }
+
+bool SetDiversificationString(uint8_t *diversifier, const std::string &str) {
+  if (str.size() > kDiversificationStringSize) {
+    return false;
+  }
+  memcpy(diversifier, str.data(), str.size());
+  memset(diversifier + str.size(), 0, kDiversificationStringSize - str.size());
+  return true;
+}
 }  // namespace
 
 int main(int argc, char **argv) {
@@ -135,13 +144,6 @@ int main(int argc, char **argv) {
   config.version_string = &VersionFormatted;
   LOG(INFO) << VersionFormatted();
 
-  // Validate cmd line args.
-  auto ate_opts_result = ValidateAteClientOptions();
-  if (!ate_opts_result.ok()) {
-    LOG(ERROR) << ate_opts_result.status().message() << std::endl;
-    return -1;
-  }
-  AteClient::Options ate_options = ate_opts_result.value();
   // Validate OpenOCD path.
   auto openocd_result = ValidateFilePathInput(absl::GetFlag(FLAGS_openocd));
   if (!openocd_result.ok()) {
@@ -166,14 +168,17 @@ int main(int argc, char **argv) {
   std::string ft_perso_bin_path = ft_perso_bin_result.value();
 
   // Instantiate an ATE client (gateway to PA).
-  auto ate = AteClient::Create(ate_options);
+  auto ate_client_result = AteClientNew();
+  if (!ate_client_result.ok()) {
+    LOG(ERROR) << ate_client_result.status().message() << std::endl;
+    return -1;
+  }
+  ate_client_ptr ate_client = ate_client_result.value();
 
   // Init session with PA.
-  grpc::Status pa_status = ate->InitSession(absl::GetFlag(FLAGS_sku),
-                                            absl::GetFlag(FLAGS_sku_auth_pw));
-  if (!pa_status.ok()) {
-    LOG(ERROR) << "InitSession with PA failed " << pa_status.error_code()
-               << ": " << pa_status.error_message() << std::endl;
+  if (InitSession(ate_client, absl::GetFlag(FLAGS_sku).c_str(),
+                  absl::GetFlag(FLAGS_sku_auth_pw).c_str()) != 0) {
+    LOG(ERROR) << "InitSession with PA failed.";
     return -1;
   }
 
@@ -182,6 +187,42 @@ int main(int argc, char **argv) {
   // Note: we do not reload the bitstream as the CP test program should be run
   // before running this test program.
   auto dut = DutLib::Create(absl::GetFlag(FLAGS_fpga));
+
+  // Regenerate the test tokens.
+  derive_token_params_t params[] = {
+      {
+          // Test Unlock Token
+          .seed = kTokenSeedSecurityLow,
+          .type = kTokenTypeRaw,
+          .size = kTokenSize128,
+          .diversifier = {0},
+      },
+      {
+          // Test Exit Token
+          .seed = kTokenSeedSecurityLow,
+          .type = kTokenTypeRaw,
+          .size = kTokenSize128,
+          .diversifier = {0},
+      },
+  };
+  if (!SetDiversificationString(params[0].diversifier, "test_unlock")) {
+    LOG(ERROR) << "Failed to set diversifier for test_unlock.";
+    return -1;
+  }
+  if (!SetDiversificationString(params[1].diversifier, "test_exit")) {
+    LOG(ERROR) << "Failed to set diversifier for test_exit.";
+    return -1;
+  }
+  constexpr size_t kNumTokens = 2;
+  token_t tokens[kNumTokens];
+  if (DeriveTokens(ate_client, absl::GetFlag(FLAGS_sku).c_str(),
+                   /*count=*/kNumTokens, params, tokens) != 0) {
+    LOG(ERROR) << "DeriveTokens failed.";
+    return -1;
+  }
+
+  // Unlock the chip.
+  dut->DutTestUnlock(openocd_path, tokens[0].data, kTokenSize128);
 
   // Run FT individualization firmware.
   dut->DutLoadSramElf(openocd_path, ft_individ_elf_path,
@@ -194,12 +235,10 @@ int main(int argc, char **argv) {
   // TODO(timothytrippel): add perso execution steps
 
   // Close session with PA.
-  pa_status = ate->CloseSession();
-  if (!pa_status.ok()) {
-    LOG(ERROR) << "CloseSession failed with " << pa_status.error_code() << ": "
-               << pa_status.error_message() << std::endl;
+  if (CloseSession(ate_client) != 0) {
+    LOG(ERROR) << "CloseSession with PA failed.";
     return -1;
   }
-
+  DestroyClient(ate_client);
   return 0;
 }

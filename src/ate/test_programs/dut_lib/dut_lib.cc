@@ -34,6 +34,9 @@ void OtLibTxCpProvisioningData(void* transport, const uint8_t* spi_frame,
 void OtLibRxCpDeviceId(void* transport, bool quiet, uint64_t timeout_ms,
                        uint8_t* cp_device_id_str,
                        size_t* cp_device_id_str_size);
+void OtLibResetAndLock(void* transport, const char* openocd);
+void OtLibTestUnlock(void* transport, const char* openocd, const uint8_t* token,
+                     size_t token_size);
 }
 
 std::unique_ptr<DutLib> DutLib::Create(const std::string& fpga) {
@@ -104,5 +107,15 @@ std::string DutLib::DutRxCpDeviceId(bool quiet, uint64_t timeout_ms) {
   return cp_device_id_str;
 }
 
+void DutLib::DutResetAndLock(const std::string& openocd) {
+  LOG(INFO) << "in DutLib::DutResetAndLock";
+  OtLibResetAndLock(transport_, openocd.c_str());
+}
+
+void DutLib::DutTestUnlock(const std::string& openocd, const uint8_t* token,
+                           size_t token_size) {
+  LOG(INFO) << "in DutLib::DutTestUnlock";
+  OtLibTestUnlock(transport_, openocd.c_str(), token, token_size);
+}
 }  // namespace test_programs
 }  // namespace provisioning

@@ -24,17 +24,17 @@ class AteJsonTest : public ::testing::Test {};
 
 TEST_F(AteJsonTest, TokensToJson) {
   dut_spi_frame_t frame;
-  token_t wafer_auth_secret;
-  token_t test_unlock_token;
-  token_t test_exit_token;
+  token_t wafer_auth_secret = {0};
+  token_t test_unlock_token = {0};
+  token_t test_exit_token = {0};
 
   wafer_auth_secret.size = sizeof(uint32_t) * 8;
   test_unlock_token.size = sizeof(uint64_t) * 2;
   test_exit_token.size = sizeof(uint64_t) * 2;
 
-  wafer_auth_secret.data[0] = 0x11;
-  test_unlock_token.data[0] = 0x11;
-  test_exit_token.data[0] = 0x11;
+  wafer_auth_secret.data[0] = 1;
+  test_unlock_token.data[0] = 1;
+  test_exit_token.data[0] = 1;
 
   EXPECT_EQ(TokensToJson(&wafer_auth_secret, &test_unlock_token,
                          &test_exit_token, &frame),
@@ -51,7 +51,7 @@ TEST_F(AteJsonTest, TokensToJson) {
                                                   options);
   EXPECT_EQ(status.ok(), true);
   EXPECT_THAT(tokens_cmd, EqualsProto(R"pb(
-                wafer_auth_secret: 285212672
+                wafer_auth_secret: 1
                 wafer_auth_secret: 0
                 wafer_auth_secret: 0
                 wafer_auth_secret: 0
@@ -59,9 +59,9 @@ TEST_F(AteJsonTest, TokensToJson) {
                 wafer_auth_secret: 0
                 wafer_auth_secret: 0
                 wafer_auth_secret: 0
-                test_unlock_token_hash: 1224979098644774912
+                test_unlock_token_hash: 1
                 test_unlock_token_hash: 0
-                test_exit_token_hash: 1224979098644774912
+                test_exit_token_hash: 1
                 test_exit_token_hash: 0
               )pb"));
 }

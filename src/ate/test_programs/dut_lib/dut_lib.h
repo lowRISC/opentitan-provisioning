@@ -62,6 +62,17 @@ class DutLib {
    * the SPI console from the DUT.
    */
   std::string DutRxCpDeviceId(bool quiet, uint64_t timeout_ms);
+  /**
+   * Calls opentitanlib test util to execute a life cycle transition to
+   * TestLocked0 (from TestUnlocked0).
+   */
+  void DutResetAndLock(const std::string& openocd);
+  /**
+   * Calls opentitanlib test util to execute a life cycle transition to
+   * TestUnlocked* (from TestLocked*).
+   */
+  void DutTestUnlock(const std::string& openocd, const uint8_t* token,
+                     size_t token_size);
 
  private:
   // Must match the opentitanlib UartConsole buffer size defined here:
