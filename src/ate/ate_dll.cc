@@ -501,15 +501,24 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
     auto &c = resp.certs(i);
     auto &resp_cert = certs[i];
 
-    if (c.blob().size() > sizeof(resp_cert.cert)) {
+    if (c.cert().blob().size() > sizeof(resp_cert.cert)) {
       LOG(ERROR) << "EndorseCerts failed- certificate size is too big: "
-                 << c.blob().size() << " bytes. Certificate index: " << i
+                 << c.cert().blob().size() << " bytes. Certificate index: " << i
                  << ", expected max size: " << sizeof(resp_cert.cert);
       return static_cast<int>(absl::StatusCode::kInternal);
     }
 
-    resp_cert.size = c.blob().size();
-    memcpy(resp_cert.cert, c.blob().data(), c.blob().size());
+    resp_cert.cert_size = c.cert().blob().size();
+    memcpy(resp_cert.cert, c.cert().blob().data(), c.cert().blob().size());
+
+    if (c.key_label().size() > kCertificateKeyLabelMaxSize) {
+      LOG(ERROR) << "EndorseCerts failed - key label size is too big: "
+                 << c.key_label().size() << " bytes. Certificate index: " << i
+                 << ", expected max size: " << kCertificateKeyLabelMaxSize;
+      return static_cast<int>(absl::StatusCode::kInternal);
+    }
+    resp_cert.key_label_size = c.key_label().size();
+    memcpy(resp_cert.key_label, c.key_label().data(), c.key_label().size());
   }
   return 0;
 }

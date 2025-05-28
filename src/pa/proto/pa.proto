@@ -52,10 +52,17 @@ message EndorseCertsRequest {
   bytes signature = 4;
 }
 
+message CertBundle {
+  // Key label used to sign the certificate.
+  string key_label = 1;
+  // Endorsed certificate.
+  crypto.cert.Certificate cert = 2;
+}
+
 // Endorse certs response.
 message EndorseCertsResponse {
   // Array of complete (endorsed) certificates to be installed in a device.
-  repeated crypto.cert.Certificate certs = 1;
+  repeated CertBundle certs = 1;
 }
 
 // Token seed type (seed is provisioned into HSM).

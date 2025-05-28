@@ -51,7 +51,10 @@ class AteTest : public ::testing::Test {
 TEST_F(AteTest, EndorseCerts) {
   // Response that will be sent back for EndorseCerts.
   auto response = ParseTextProto<EndorseCertsResponse>(R"pb(
-    certs: { blob: "fake-cert-blob" })pb");
+    certs: {
+      key_label: "fake-key-label"
+      cert: { blob: "fake-cert-blob" }
+    })pb");
 
   // Expect EndorseCerts to be called.
   // The 2nd arg is expected to be a protobuf with the `sku` field.

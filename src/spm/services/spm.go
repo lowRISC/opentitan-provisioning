@@ -343,7 +343,7 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 		return nil, status.Errorf(codes.Internal, "could not verify WAS signature: %s", err)
 	}
 
-	var certs []*pbc.Certificate
+	var certs []*pbp.CertBundle
 	for _, bundle := range request.Bundles {
 		keyLabel, err := sku.config.GetUnsafeAttribute(bundle.KeyParams.KeyLabel)
 		if err != nil {
@@ -359,7 +359,12 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "could not endorse cert: %v", err)
 			}
-			certs = append(certs, &pbc.Certificate{Blob: cert})
+			certs = append(certs, &pbp.CertBundle{
+				KeyLabel: bundle.KeyParams.KeyLabel,
+				Cert: &pbc.Certificate{
+					Blob: cert,
+				},
+			})
 		default:
 			return nil, status.Errorf(codes.Unimplemented, "unsupported key format")
 		}

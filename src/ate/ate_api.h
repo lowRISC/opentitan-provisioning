@@ -211,7 +211,11 @@ typedef struct endorse_cert_request {
   signature_encoding_t signature_encoding;
   /** Size of the key label. */
   size_t key_label_size;
-  /** Signing key label. */
+  /**
+   * The key label is used to identify the key used to sign the certificate.
+   * The label is a human-readable string that is used to identify the key.
+   * The size of the label is limited to kCertificateKeyLabelMaxSize bytes.
+   */
   char key_label[kCertificateKeyLabelMaxSize];
   /** Size of the TBS data. */
   size_t tbs_size;
@@ -223,12 +227,20 @@ typedef struct endorse_cert_request {
  * Response parameters for endorsing certificates.
  */
 typedef struct endorse_cert_response {
+  /** Size of the key label. */
+  size_t key_label_size;
+  /**
+   * The key label is used to identify the key used to sign the certificate.
+   * The label is a human-readable string that is used to identify the key.
+   * The size of the label is limited to kCertificateKeyLabelMaxSize bytes.
+   */
+  char key_label[kCertificateKeyLabelMaxSize];
   /**
    * The size of the buffer pointed by `cert`. The user should set the size
    * allocated before calling the `EndorseCerts()` function. The funtion will
    * update the value with the actual certificate size.
    */
-  size_t size;
+  size_t cert_size;
   /**
    * The endorsed certificate.
    */
