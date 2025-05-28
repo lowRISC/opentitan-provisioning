@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/google/go-cmp/cmp"
+
 	testdata "github.com/lowRISC/opentitan-provisioning/src/proto/device_testdata"
 	rpb "github.com/lowRISC/opentitan-provisioning/src/proto/registry_record_go_pb"
 	pbp "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/proto/proxy_buffer_go_pb"
@@ -81,8 +82,9 @@ func TestSyncer(t *testing.T) {
 		},
 	}
 	options := &syncer.Options{
-		Frequency:     "1s",
-		RecordsPerRun: 5,
+		Frequency:           "1s",
+		RecordsPerRun:       5,
+		MaxRetriesPerRecord: 2,
 	}
 	sync, err := syncer.New(database, registry, options)
 	if err != nil {
@@ -90,7 +92,7 @@ func TestSyncer(t *testing.T) {
 	}
 
 	sync.Start()
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 3)
 	sync.Stop()
 
 	unsyncedRecords, err := database.GetUnsyncedDevices(ctx, 5)
@@ -103,5 +105,12 @@ func TestSyncer(t *testing.T) {
 	}
 	if diff := cmp.Diff(unsyncedRecords, expectedUnsyncedRecords, protocmp.Transform()); diff != "" {
 		t.Errorf("unsynced records diffs (-got +want):\n%s", diff)
+	}
+
+	select {
+	case <-sync.FatalErrors():
+		break
+	default:
+		t.Errorf("expected error in FatalErrors() channel, got nothing")
 	}
 }
