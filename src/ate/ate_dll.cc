@@ -346,7 +346,6 @@ DLLEXPORT int DeriveTokens(ate_client_ptr client, const char *sku, size_t count,
   }
 
   AteClient *ate = reinterpret_cast<AteClient *>(client);
-
   pa::DeriveTokensResponse resp;
   auto status = ate->DeriveTokens(req, &resp);
   if (!status.ok()) {
@@ -389,7 +388,6 @@ DLLEXPORT int GenerateTokens(ate_client_ptr client, const char *sku,
   }
 
   AteClient *ate = reinterpret_cast<AteClient *>(client);
-
   pa::DeriveTokensResponse resp;
   auto status = ate->DeriveTokens(req, &resp);
   if (!status.ok()) {
@@ -426,8 +424,8 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
       return static_cast<int>(absl::StatusCode::kInvalidArgument);
     }
 
-    bundle->set_tbs(std::string(req_params.tbs,
-                                req_params.tbs + sizeof(req_params.tbs_size)));
+    bundle->set_tbs(
+        std::string(req_params.tbs, req_params.tbs + req_params.tbs_size));
 
     auto signing_params = bundle->mutable_key_params();
 

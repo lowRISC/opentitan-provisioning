@@ -36,6 +36,9 @@ enum {
   /** Diversification string size. */
   kDiversificationStringSize = 48,
 
+  /** DeviceId size (256 bits). */
+  kDeviceIdSize = 32,
+
   /** Maximum size of a certificiate buffer in bytes. */
   kCertificateMaxSize = 2048,
 
@@ -135,22 +138,23 @@ typedef struct HardwareOrigin {
   uint16_t silicon_creator_id;
   uint16_t product_id;
   uint64_t device_identification_number;
+  uint32_t cp_reserved;
 } hardware_origin_t;
 
 typedef struct DeviceId {
   hardware_origin_t hardware_origin;
   uint8_t sku_specific[kSkuSpecificSize];
-  uint32_t crc32;
 } device_id_t;
 #pragma pack(pop)
-static_assert(sizeof(device_id_t) == 32, "device_id_t must be 32 bytes long");
+static_assert(sizeof(device_id_t) == kDeviceIdSize,
+              "device_id_t must be 32 bytes long");
 
 typedef struct device_id_bytes {
   /**
    * Device ID used during token calculation. Unused bytes should be filled
    * with zeroes.
    */
-  uint8_t raw[sizeof(device_id_t)];
+  uint8_t raw[kDeviceIdSize];
 } device_id_bytes_t;
 
 /**

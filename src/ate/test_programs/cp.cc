@@ -122,7 +122,6 @@ bool SetDiversificationString(uint8_t *diversifier, const std::string &str) {
   memset(diversifier + str.size(), 0, kDiversificationStringSize - str.size());
   return true;
 }
-
 }  // namespace
 
 int main(int argc, char **argv) {
@@ -235,7 +234,8 @@ int main(int argc, char **argv) {
                                                       /*timeout_ms=*/1000);
   LOG(INFO) << "CP Device ID: " << cp_device_id_str;
 
-  // Close session with PA.
+  // Lock the chip and close session with PA.
+  dut->DutResetAndLock(openocd_path);
   if (CloseSession(ate_client) != 0) {
     LOG(ERROR) << "CloseSession with PA failed.";
     return -1;

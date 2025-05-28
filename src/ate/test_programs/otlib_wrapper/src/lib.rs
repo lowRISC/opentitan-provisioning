@@ -6,14 +6,17 @@ use std::ffi::CStr;
 use std::io::Write;
 use std::os::raw::c_char;
 use std::path::PathBuf;
+use std::slice;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
+use arrayvec::ArrayVec;
 use crc::{Crc, CRC_32_ISO_HDLC};
 use regex::Regex;
 use zerocopy::AsBytes;
 
+use cp_lib::reset_and_lock;
 use opentitanlib::app::TransportWrapper;
 use opentitanlib::backend;
 use opentitanlib::backend::chip_whisperer::ChipWhispererOpts;
@@ -22,6 +25,7 @@ use opentitanlib::backend::ti50emulator::Ti50EmulatorOpts;
 use opentitanlib::backend::verilator::VerilatorOpts;
 use opentitanlib::bootstrap::{BootstrapOptions, BootstrapProtocol};
 use opentitanlib::console::spi::SpiConsoleDevice;
+use opentitanlib::dif::lc_ctrl::{DifLcCtrlState, LcCtrlReg};
 use opentitanlib::io::console::{ConsoleDevice, ConsoleError};
 use opentitanlib::io::gpio::{PinMode, PullMode};
 use opentitanlib::io::jtag::{JtagParams, JtagTap};
@@ -29,6 +33,7 @@ use opentitanlib::io::spi::SpiParams;
 use opentitanlib::io::uart::UartParams;
 use opentitanlib::test_utils::bootstrap::Bootstrap;
 use opentitanlib::test_utils::init::InitializeTest;
+use opentitanlib::test_utils::lc_transition::trigger_lc_transition;
 use opentitanlib::test_utils::load_bitstream::LoadBitstream;
 use opentitanlib::test_utils::load_sram_program::{
     ExecutionMode, ExecutionResult, SramProgramParams,
@@ -343,7 +348,6 @@ pub extern "C" fn OtLibConsoleRx(
     // SAFETY: msg should be a valid pointer to memory allocated by the caller.
     let msg = unsafe { std::slice::from_raw_parts_mut(msg, *msg_size) };
     let result = console.interact(&spi_console, None, out).unwrap();
-    println!();
     match result {
         ExitStatus::ExitSuccess => {
             let cap = console
@@ -478,4 +482,107 @@ pub extern "C" fn OtLibRxCpDeviceId(
     *cp_device_id_str_size = cp_dev_id.len();
 
     let _ = UartConsole::wait_for(&spi_console, r"CP provisioning done.", timeout);
+}
+
+#[no_mangle]
+pub extern "C" fn OtLibResetAndLock(transport: *const TransportWrapper, openocd_path: *mut c_char) {
+    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
+    // the call to `OtLibFpgaTransportInit(...)` above.
+    let transport: &TransportWrapper = unsafe { &*transport };
+
+    // Unpack OpenOCD path string.
+    // SAFETY: The OpenOCD path string must be set by the caller and be valid.
+    let openocd_path_cstr = unsafe { CStr::from_ptr(openocd_path) };
+    let openocd_path_in = openocd_path_cstr.to_str().unwrap();
+
+    // Set CPU TAP straps, reset and lock the chip.
+    let jtag_params = JtagParams {
+        openocd: PathBuf::from_str(openocd_path_in).unwrap(),
+        adapter_speed_khz: 1000,
+        log_stdio: false,
+    };
+    reset_and_lock(transport, &jtag_params, Duration::from_millis(50))
+        .expect("Failed to lock the DUT.");
+}
+
+#[no_mangle]
+pub extern "C" fn OtLibTestUnlock(
+    transport: *const TransportWrapper,
+    openocd_path: *mut c_char,
+    token: *const u8,
+    token_size: usize,
+) {
+    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
+    // the call to `OtLibFpgaTransportInit(...)` above.
+    let transport: &TransportWrapper = unsafe { &*transport };
+
+    // Unpack OpenOCD path string.
+    // SAFETY: The OpenOCD path string must be set by the caller and be valid.
+    let openocd_path_cstr = unsafe { CStr::from_ptr(openocd_path) };
+    let openocd_path_in = openocd_path_cstr.to_str().unwrap();
+
+    // Unpack test unlock token.
+    // SAFETY: The test unlock token must be set by the caller and be valid.
+    let token_bytes = unsafe { slice::from_raw_parts(token, token_size) };
+    let token = token_bytes
+        .chunks(4)
+        .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
+        .collect::<ArrayVec<u32, 4>>();
+
+    // Set CPU TAP straps, reset and lock the chip.
+    let jtag_params = JtagParams {
+        openocd: PathBuf::from_str(openocd_path_in).unwrap(),
+        adapter_speed_khz: 1000,
+        log_stdio: false,
+    };
+    let reset_delay = Duration::from_millis(50);
+
+    // Connect to LC TAP.
+    transport
+        .pin_strapping("PINMUX_TAP_LC")
+        .unwrap()
+        .apply()
+        .expect("Could not apply LC TAP staps.");
+    transport
+        .reset_target(reset_delay, true)
+        .expect("Could not reset chip.");
+    let mut jtag = jtag_params
+        .create(transport)
+        .unwrap()
+        .connect(JtagTap::LcTap)
+        .expect("Could not connect to LC TAP.");
+
+    // Check that LC state is currently `TEST_LOCKED0`.
+    let state = jtag.read_lc_ctrl_reg(&LcCtrlReg::LcState).unwrap();
+    assert_eq!(state, DifLcCtrlState::TestLocked0.redundant_encoding());
+
+    // ROM execution is not yet enabled in OTP so we can safely reconnect to the LC TAP after
+    // the transition without risking the chip resetting.
+    trigger_lc_transition(
+        transport,
+        jtag,
+        DifLcCtrlState::TestUnlocked1,
+        Some(token.clone().into_inner().unwrap()),
+        /*use_external_clk=*/
+        false, // AST will be calibrated by now, so no need for ext_clk.
+        reset_delay,
+        /*reset_tap_straps=*/ Some(JtagTap::LcTap),
+    )
+    .expect("Could not perform LC transition.");
+
+    // Check that LC state has transitioned to `TestUnlocked1`.
+    jtag = jtag_params
+        .create(transport)
+        .unwrap()
+        .connect(JtagTap::LcTap)
+        .expect("Could not connect to LC TAP.");
+    let state = jtag.read_lc_ctrl_reg(&LcCtrlReg::LcState).unwrap();
+    assert_eq!(state, DifLcCtrlState::TestUnlocked1.redundant_encoding());
+
+    jtag.disconnect().expect("Could not disconnect from JTAG.");
+    transport
+        .pin_strapping("PINMUX_TAP_LC")
+        .unwrap()
+        .remove()
+        .expect("Could not remove LC TAP straps.");
 }

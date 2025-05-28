@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -22,24 +23,35 @@ import (
 
 // Options contains configuration options for a syncer to use
 type Options struct {
-	Frequency     string
+	// How frequently the syncer runs. It should be a Go duration string
+	// (see https://pkg.go.dev/time#ParseDuration).
+	Frequency string
+	// Number of records to process on each run.
 	RecordsPerRun int
+	// Number of times a record can be retried before it is considered a fatal
+	// fail (which kills ProxyBuffer process). If less than 0, it will have
+	// unlimited retries.
+	MaxRetriesPerRecord int
 }
 
 // DefaultOptions returns the default options for a syncer
 func DefaultOptions() *Options {
 	return &Options{
-		Frequency:     "10m",
-		RecordsPerRun: 100,
+		Frequency:           "10m",
+		RecordsPerRun:       100,
+		MaxRetriesPerRecord: 5,
 	}
 }
 
 type syncer struct {
-	db            *db.DB
-	registry      proxybuffer.Registry
-	ticker        <-chan time.Time
-	recordsPerRun int
-	closeCh       chan struct{}
+	db                  *db.DB
+	registry            proxybuffer.Registry
+	ticker              <-chan time.Time
+	recordsPerRun       int
+	maxRetriesPerRecord int
+	retryCounter        map[string]int
+	closeCh             chan struct{}
+	fatalErrorsCh       chan error
 }
 
 // New creates a new syncer that consumes a given db and publishes to a registry
@@ -52,11 +64,14 @@ func New(db *db.DB, registry proxybuffer.Registry, options *Options) (*syncer, e
 		return nil, errors.New("options.RecordsPerRun must be at least 1")
 	}
 	return &syncer{
-		db:            db,
-		registry:      registry,
-		ticker:        time.Tick(freq),
-		recordsPerRun: options.RecordsPerRun,
-		closeCh:       make(chan struct{}),
+		db:                  db,
+		registry:            registry,
+		ticker:              time.Tick(freq),
+		recordsPerRun:       options.RecordsPerRun,
+		maxRetriesPerRecord: options.MaxRetriesPerRecord,
+		retryCounter:        make(map[string]int),
+		closeCh:             make(chan struct{}, 1),
+		fatalErrorsCh:       make(chan error, 1),
 	}, nil
 }
 
@@ -79,19 +94,37 @@ func (s *syncer) run() error {
 		return err
 	}
 	successfulDeviceIDs := make([]string, 0)
+	fatalFailures := make([]string, 0)
 	for _, response := range batchResponse.Responses {
 		if response.Status == pbp.DeviceRegistrationStatus_DEVICE_REGISTRATION_STATUS_SUCCESS {
 			successfulDeviceIDs = append(successfulDeviceIDs, response.DeviceId)
+			delete(s.retryCounter, response.DeviceId)
 		} else {
-			log.Printf(
-				"Request with ID %q failed: status: %s, rpc_status: %s",
+			// If not in the map, it will be zero by default
+			retryCount := s.retryCounter[response.DeviceId] + 1
+			s.retryCounter[response.DeviceId] = retryCount
+			errorMsg := fmt.Sprintf("id: %q, num_retries: %d, status: %s, rpc_status: %s",
 				response.DeviceId,
+				retryCount,
 				pbp.DeviceRegistrationStatus_name[int32(response.Status)],
 				codes.Code(response.RpcStatus),
 			)
+			if s.maxRetriesPerRecord >= 0 && retryCount >= s.maxRetriesPerRecord {
+				// We wait until we finish processing all records to avoid
+				// a state where a record is registered in the registry but not
+				// marked as such in our database.
+				fatalFailures = append(fatalFailures, errorMsg)
+			}
+			log.Printf("Request failed: %s", errorMsg)
 		}
 	}
-	return s.db.MarkDevicesAsSynced(ctx, successfulDeviceIDs)
+	// We ensure to sync successful devices before sending fatal failures
+	err = s.db.MarkDevicesAsSynced(ctx, successfulDeviceIDs)
+	if len(fatalFailures) > 0 {
+		// log.Fatal("before adding to channel")
+		s.fatalErrorsCh <- fmt.Errorf("devices failed after retry limit: [%s]", strings.Join(fatalFailures, "; "))
+	}
+	return err
 }
 
 func (s *syncer) listen() {
@@ -115,4 +148,12 @@ func (s *syncer) Start() {
 // Stop stops the syncer
 func (s *syncer) Stop() {
 	s.closeCh <- struct{}{}
+}
+
+// FatalErrors returns a read-only channel to which fatal errors will be posted.
+// A fatal error will happen in the following scenarios:
+//
+// - A device was retried `MaxRetriesPerRecord` times and failed again.
+func (s *syncer) FatalErrors() <-chan error {
+	return s.fatalErrorsCh
 }

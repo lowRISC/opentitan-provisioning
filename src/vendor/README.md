@@ -17,4 +17,4 @@ To implement a custom `registry_shim` library to enable packing any vendor-speci
 1. Copy/Paste the `$(REPO_TOP)/src/vendor` directory to another location on your system.
 1. Modify the `RegisterDevice` function in the new `registry_shim.go` file you copy/pasted to a new location on your system, e.g., `/path/to/location_of/vendor/registry_shim/registry_shim.go`. You should modify the function to unpack/repack the `ot.DeviceData` message into the desired format your Registry Service requires.
 1. Set the `VENDOR_REPO_DIR` envar to point to the location of the `$(REPO_TOP)/src/vendor` directory you copy/pasted on your system: `export VENDOR_REPO_DIR="/path/to/vendor"`.
-1. Build your modified PA binary with `bazelisk build --//src/pa/services:use_vendor_shim //src/pa/services:pa`.
+1. Build your modified PA binary with `bazelisk build --//src/pa/services:use_vendor_shim //src/pa/services:pa //src/pa:pa_server`.

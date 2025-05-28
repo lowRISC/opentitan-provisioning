@@ -285,3 +285,87 @@ func TestHTTPRegistryBatchRegisterDevice(t *testing.T) {
 		})
 	}
 }
+
+const (
+	validHeadersContent            = "Authorization: Bearer TOKEN\n"
+	validConfigJSONContentTemplate = `{
+  "register_device_url": "http://localhost:8080/register",
+  "batch_register_device_url": "http://localhost:8080/batch_register",
+  "headers_filepath": "%s"
+}`
+	filePermissions = 0644
+)
+
+func TestNewFromJSON(t *testing.T) {
+	tcs := []struct {
+		Name          string
+		CreateFile    func(t *testing.T) string
+		ExpectAnError bool
+	}{
+		{
+			Name: "ValidConfig",
+			CreateFile: func(t *testing.T) string {
+				t.Helper()
+				dir := t.TempDir()
+				headersFile := filepath.Join(dir, "headers.txt")
+				if err := os.WriteFile(headersFile, []byte(validHeadersContent), filePermissions); err != nil {
+					t.Fatalf("Unexpected error when writing headers file: %v", err)
+				}
+				configFile := filepath.Join(dir, "config.json")
+				if err := os.WriteFile(configFile, []byte(fmt.Sprintf(validConfigJSONContentTemplate, headersFile)), filePermissions); err != nil {
+					t.Fatalf("Unexpected error when writing config file: %v", err)
+				}
+				return configFile
+			},
+		},
+		{
+			Name: "ValidConfigNoHeadersFile",
+			CreateFile: func(t *testing.T) string {
+				t.Helper()
+				dir := t.TempDir()
+				configFile := filepath.Join(dir, "config.json")
+				if err := os.WriteFile(configFile, []byte(fmt.Sprintf(validConfigJSONContentTemplate, "")), filePermissions); err != nil {
+					t.Fatalf("Unexpected error when writing config file: %v", err)
+				}
+				return configFile
+			},
+		},
+		{
+			Name: "EmptyConfigName",
+			CreateFile: func(t *testing.T) string {
+				return ""
+			},
+			ExpectAnError: true,
+		},
+		{
+			Name: "InvalidConfig",
+			CreateFile: func(t *testing.T) string {
+				t.Helper()
+				dir := t.TempDir()
+				configFile := filepath.Join(dir, "config.json")
+				if err := os.WriteFile(configFile, []byte("garbage config"), filePermissions); err != nil {
+					t.Fatalf("Unexpected error when writing config file: %v", err)
+				}
+				return configFile
+			},
+			ExpectAnError: true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			if tc.CreateFile == nil {
+				t.Fatal("CreateFile function is nil, it should not be")
+			}
+			filepath := tc.CreateFile(t)
+			_, err := httpregistry.NewFromJSON(filepath)
+			if err != nil && !tc.ExpectAnError {
+				t.Errorf("Expected no error, got %v", err)
+				return
+			}
+			if err == nil && tc.ExpectAnError {
+				t.Error("Expected an error, got nil")
+				return
+			}
+		})
+	}
+}

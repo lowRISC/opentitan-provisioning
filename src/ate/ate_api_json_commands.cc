@@ -67,7 +67,7 @@ DLLEXPORT int TokensToJson(const token_t *wafer_auth_secret,
   const uint32_t *was_ptr =
       reinterpret_cast<const uint32_t *>(wafer_auth_secret->data);
   for (size_t i = 0; i < 8; ++i) {
-    tokens_cmd.add_wafer_auth_secret(ByteSwap32(was_ptr[i]));
+    tokens_cmd.add_wafer_auth_secret(was_ptr[i]);
   }
 
   if (test_unlock_token == nullptr ||
@@ -78,7 +78,7 @@ DLLEXPORT int TokensToJson(const token_t *wafer_auth_secret,
   const uint64_t *test_unlock_token_ptr =
       reinterpret_cast<const uint64_t *>(test_unlock_token->data);
   for (size_t i = 0; i < 2; ++i) {
-    tokens_cmd.add_test_unlock_token_hash(ByteSwap64(test_unlock_token_ptr[i]));
+    tokens_cmd.add_test_unlock_token_hash(test_unlock_token_ptr[i]);
   }
 
   if (test_exit_token == nullptr ||
@@ -89,7 +89,7 @@ DLLEXPORT int TokensToJson(const token_t *wafer_auth_secret,
   const uint64_t *test_exit_token_ptr =
       reinterpret_cast<const uint64_t *>(test_exit_token->data);
   for (size_t i = 0; i < 2; ++i) {
-    tokens_cmd.add_test_exit_token_hash(ByteSwap64(test_exit_token_ptr[i]));
+    tokens_cmd.add_test_exit_token_hash(test_exit_token_ptr[i]);
   }
 
   // Convert the provisioning data to a JSON string.
