@@ -420,13 +420,26 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
     auto &req_params = request[i];
 
     // TBS certificate buffer.
+    if (req_params.tbs_size > sizeof(req_params.tbs)) {
+      LOG(ERROR) << "EndorseCerts failed - TBS size is too big: "
+                 << req_params.tbs_size << " bytes.";
+      return static_cast<int>(absl::StatusCode::kInvalidArgument);
+    }
+
     bundle->set_tbs(std::string(req_params.tbs,
                                 req_params.tbs + sizeof(req_params.tbs_size)));
 
     auto signing_params = bundle->mutable_key_params();
 
     // Signing key label.
-    signing_params->set_key_label(req_params.key_label);
+    if (req_params.key_label_size > kCertificateKeyLabelMaxSize) {
+      LOG(ERROR) << "EndorseCerts failed - key label size is too big: "
+                 << req_params.key_label_size << " bytes.";
+      return static_cast<int>(absl::StatusCode::kInvalidArgument);
+    }
+    signing_params->set_key_label(
+        std::string(req_params.key_label,
+                    req_params.key_label + req_params.key_label_size));
 
     // Only ECDSA keys are supported at this time.
     auto key = signing_params->mutable_ecdsa_params();
@@ -488,10 +501,10 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
     auto &c = resp.certs(i);
     auto &resp_cert = certs[i];
 
-    if (c.blob().size() > resp_cert.size) {
+    if (c.blob().size() > sizeof(resp_cert.cert)) {
       LOG(ERROR) << "EndorseCerts failed- certificate size is too big: "
                  << c.blob().size() << " bytes. Certificate index: " << i
-                 << ", expected max size: " << resp_cert.size;
+                 << ", expected max size: " << sizeof(resp_cert.cert);
       return static_cast<int>(absl::StatusCode::kInternal);
     }
 

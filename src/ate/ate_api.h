@@ -35,6 +35,12 @@ enum {
 
   /** Diversification string size. */
   kDiversificationStringSize = 48,
+
+  /** Maximum size of a certificiate buffer in bytes. */
+  kCertificateMaxSize = 2048,
+
+  /** Maximum key label size in bytes including the nul terminator. */
+  kCertificateKeyLabelMaxSize = 32,
 };
 
 /**
@@ -203,16 +209,14 @@ typedef struct endorse_cert_request {
   curve_type_t curve_type;
   /** Signature encoding type. */
   signature_encoding_t signature_encoding;
+  /** Size of the key label. */
+  size_t key_label_size;
   /** Signing key label. */
-  const char* key_label;
+  char key_label[kCertificateKeyLabelMaxSize];
   /** Size of the TBS data. */
   size_t tbs_size;
-  /**
-   * TBS data to sign.
-   *
-   * This field should be allocated by the caller to store the TBS data.
-   */
-  const char* tbs;
+  /** TBS data to sign. */
+  char tbs[kCertificateMaxSize];
 } endorse_cert_request_t;
 
 /**
@@ -228,7 +232,7 @@ typedef struct endorse_cert_response {
   /**
    * The endorsed certificate.
    */
-  char* cert;
+  char cert[kCertificateMaxSize];
 } endorse_cert_response_t;
 
 /**
