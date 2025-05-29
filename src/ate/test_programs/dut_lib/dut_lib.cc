@@ -35,8 +35,11 @@ void OtLibRxCpDeviceId(void* transport, bool quiet, uint64_t timeout_ms,
                        uint8_t* cp_device_id_str,
                        size_t* cp_device_id_str_size);
 void OtLibResetAndLock(void* transport, const char* openocd);
-void OtLibTestUnlock(void* transport, const char* openocd, const uint8_t* token,
-                     size_t token_size);
+void OtLibLcTransition(void* transport, const char* openocd,
+                       const uint8_t* token, size_t token_size,
+                       uint32_t target_lc_state);
+void OtLibTxRmaUnlockTokenHash(void* transport, const uint8_t* spi_frame,
+                               size_t spi_frame_size, uint64_t timeout_ms);
 }
 
 std::unique_ptr<DutLib> DutLib::Create(const std::string& fpga) {
@@ -112,10 +115,18 @@ void DutLib::DutResetAndLock(const std::string& openocd) {
   OtLibResetAndLock(transport_, openocd.c_str());
 }
 
-void DutLib::DutTestUnlock(const std::string& openocd, const uint8_t* token,
-                           size_t token_size) {
-  LOG(INFO) << "in DutLib::DutTestUnlock";
-  OtLibTestUnlock(transport_, openocd.c_str(), token, token_size);
+void DutLib::DutLcTransition(const std::string& openocd, const uint8_t* token,
+                             size_t token_size, uint32_t target_lc_state) {
+  LOG(INFO) << "in DutLib::DutLcTransition";
+  OtLibLcTransition(transport_, openocd.c_str(), token, token_size,
+                    target_lc_state);
+}
+
+void DutLib::DutTxFtRmaUnlockTokenHash(const uint8_t* spi_frame,
+                                       size_t spi_frame_size,
+                                       uint64_t timeout_ms) {
+  LOG(INFO) << "in DutLib::DutTxFtRmaUnlockTokenHash";
+  OtLibTxRmaUnlockTokenHash(transport_, spi_frame, spi_frame_size, timeout_ms);
 }
 }  // namespace test_programs
 }  // namespace provisioning

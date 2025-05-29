@@ -56,5 +56,6 @@ bazelisk run //src/ate/test_programs:ft -- \
   --fpga="${FPGA}" \
   --ft_individualization_elf="${DEPLOYMENT_BIN_DIR}/sram_ft_individualize_sival_ate_fpga_${BIN_DEVICE}_rom_with_fake_keys.elf" \
   --ft_personalize_bin="${DEPLOYMENT_BIN_DIR}/ft_personalize_sival_fpga_${BIN_DEVICE}_rom_with_fake_keys.signed.bin" \
+  --ft_fw_bundle_bin="${DEPLOYMENT_BIN_DIR}/ft_fw_bundle_sival_fpga_${BIN_DEVICE}_rom_with_fake_keys.img" \
   --openocd="${DEPLOYMENT_BIN_DIR}/openocd"
 echo "Done."

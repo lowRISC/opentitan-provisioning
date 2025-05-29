@@ -83,6 +83,7 @@ cp "${BUILD_BIN_DIR}"/sw/device/silicon_creator/manuf/base/sram_cp_provision*.el
 cp "${BUILD_BIN_DIR}"/sw/device/silicon_creator/manuf/base/sram_ft_individualize*.elf "${DEPLOYMENT_BIN_DIR}"
 cp "${BUILD_BIN_DIR}"/sw/device/silicon_creator/manuf/base/ft_personalize*.bin "${DEPLOYMENT_BIN_DIR}"
 cp "${BUILD_BIN_DIR}"/sw/device/silicon_creator/manuf/base/binaries/ft_personalize*.bin "${DEPLOYMENT_BIN_DIR}"
+cp "${BUILD_BIN_DIR}"/sw/device/silicon_creator/manuf/base/ft_fw_bundle*.img "${DEPLOYMENT_BIN_DIR}"
 cp "${BUILD_BIN_DIR}"/third_party/openocd/build_openocd/bin/openocd "${DEPLOYMENT_BIN_DIR}"
 chmod +x "${DEPLOYMENT_BIN_DIR}"/openocd
 

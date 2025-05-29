@@ -507,11 +507,12 @@ pub extern "C" fn OtLibResetAndLock(transport: *const TransportWrapper, openocd_
 }
 
 #[no_mangle]
-pub extern "C" fn OtLibTestUnlock(
+pub extern "C" fn OtLibLcTransition(
     transport: *const TransportWrapper,
     openocd_path: *mut c_char,
     token: *const u8,
     token_size: usize,
+    target_lc_state: u32,
 ) {
     // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
     // the call to `OtLibFpgaTransportInit(...)` above.
@@ -540,10 +541,15 @@ pub extern "C" fn OtLibTestUnlock(
 
     // Connect to LC TAP.
     transport
+        .pin_strapping("ROM_BOOTSTRAP")
+        .unwrap()
+        .apply()
+        .expect("Could not apply bootstrap straps.");
+    transport
         .pin_strapping("PINMUX_TAP_LC")
         .unwrap()
         .apply()
-        .expect("Could not apply LC TAP staps.");
+        .expect("Could not apply LC TAP straps.");
     transport
         .reset_target(reset_delay, true)
         .expect("Could not reset chip.");
@@ -553,17 +559,21 @@ pub extern "C" fn OtLibTestUnlock(
         .connect(JtagTap::LcTap)
         .expect("Could not connect to LC TAP.");
 
-    // Check that LC state is currently `TEST_LOCKED0`.
-    let state = jtag.read_lc_ctrl_reg(&LcCtrlReg::LcState).unwrap();
-    assert_eq!(state, DifLcCtrlState::TestLocked0.redundant_encoding());
+    // Set target LC state and token.
+    let lc_state = DifLcCtrlState(target_lc_state);
+    let lc_token = if token_size > 0 {
+        Some(token.clone().into_inner().unwrap())
+    } else {
+        None
+    };
 
     // ROM execution is not yet enabled in OTP so we can safely reconnect to the LC TAP after
     // the transition without risking the chip resetting.
     trigger_lc_transition(
         transport,
         jtag,
-        DifLcCtrlState::TestUnlocked1,
-        Some(token.clone().into_inner().unwrap()),
+        lc_state,
+        lc_token,
         /*use_external_clk=*/
         false, // AST will be calibrated by now, so no need for ext_clk.
         reset_delay,
@@ -571,14 +581,14 @@ pub extern "C" fn OtLibTestUnlock(
     )
     .expect("Could not perform LC transition.");
 
-    // Check that LC state has transitioned to `TestUnlocked1`.
+    // Check that LC state has transitioned to the target state.
     jtag = jtag_params
         .create(transport)
         .unwrap()
         .connect(JtagTap::LcTap)
         .expect("Could not connect to LC TAP.");
     let state = jtag.read_lc_ctrl_reg(&LcCtrlReg::LcState).unwrap();
-    assert_eq!(state, DifLcCtrlState::TestUnlocked1.redundant_encoding());
+    assert_eq!(state, lc_state.redundant_encoding());
 
     jtag.disconnect().expect("Could not disconnect from JTAG.");
     transport
@@ -586,4 +596,46 @@ pub extern "C" fn OtLibTestUnlock(
         .unwrap()
         .remove()
         .expect("Could not remove LC TAP straps.");
+    transport
+        .pin_strapping("ROM_BOOTSTRAP")
+        .unwrap()
+        .remove()
+        .expect("Could not remove bootstrap straps.");
+}
+
+#[no_mangle]
+pub extern "C" fn OtLibTxRmaUnlockTokenHash(
+    transport: *const TransportWrapper,
+    spi_frame: *mut u8,
+    spi_frame_size: usize,
+    timeout_ms: u64,
+) {
+    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
+    // the call to `OtLibFpgaTransportInit(...)` above.
+    let transport: &TransportWrapper = unsafe { &*transport };
+
+    // SAFETY: spi_frame should be a valid pointer to memory allocated by the caller.
+    let spi_frame = unsafe { std::slice::from_raw_parts_mut(spi_frame, spi_frame_size) };
+
+    // Get handle to SPI console.
+    let spi = transport.spi("BOOTSTRAP").unwrap();
+    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").expect("Unable to get GPIO pin.");
+    let _ = device_console_tx_ready_pin.set_mode(PinMode::Input);
+    let _ = device_console_tx_ready_pin.set_pull_mode(PullMode::None);
+    let spi_console = SpiConsoleDevice::new(
+        &*spi,
+        Some(device_console_tx_ready_pin),
+        /*ignore_frame_num=*/ true,
+    )
+    .expect("Unable to create SPI console.");
+
+    // Send the UJSON data payload to the DUT over the console.
+    let _ = UartConsole::wait_for(
+        &spi_console,
+        r"Waiting For RMA Unlock Token Hash ...",
+        Duration::from_millis(timeout_ms),
+    );
+    spi_console
+        .console_write(spi_frame.as_bytes())
+        .expect("Unable to write to console.");
 }

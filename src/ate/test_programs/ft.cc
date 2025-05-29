@@ -19,6 +19,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_replace.h"
+#include "external/lowrisc_opentitan/sw/device/lib/dif/dif_lc_ctrl.h"
 #include "src/ate/ate_api.h"
 #include "src/ate/test_programs/dut_lib/dut_lib.h"
 #include "src/pa/proto/pa.grpc.pb.h"
@@ -34,6 +35,8 @@ ABSL_FLAG(std::string, ft_individualization_elf, "",
           "FT Individualization ELF (device binary).");
 ABSL_FLAG(std::string, ft_personalize_bin, "",
           "FT Personalize Binary (device binary).");
+ABSL_FLAG(std::string, ft_fw_bundle_bin, "",
+          "FT Personalize / Transport image bundle (device binary).");
 
 /**
  * PA configuration flags.
@@ -166,6 +169,13 @@ int main(int argc, char **argv) {
     return -1;
   }
   std::string ft_perso_bin_path = ft_perso_bin_result.value();
+  auto ft_fw_bundle_result =
+      ValidateFilePathInput(absl::GetFlag(FLAGS_ft_fw_bundle_bin));
+  if (!ft_fw_bundle_result.ok()) {
+    LOG(ERROR) << ft_fw_bundle_result.status().message() << std::endl;
+    return -1;
+  }
+  std::string ft_fw_bundle_path = ft_fw_bundle_result.value();
 
   // Instantiate an ATE client (gateway to PA).
   auto ate_client_result = AteClientNew();
@@ -221,18 +231,47 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  // Unlock the chip.
-  dut->DutTestUnlock(openocd_path, tokens[0].data, kTokenSize128);
+  // Generate the RMA unlock token hash.
+  generate_token_params_t rma_token_params = {
+      .type = kTokenTypeHashedLcToken,
+      .size = kTokenSize128,
+      .diversifier = {0},
+  };
+  if (!SetDiversificationString(rma_token_params.diversifier, "rma")) {
+    LOG(ERROR) << "Failed to set diversifier for RMA.";
+    return -1;
+  }
+  token_t rma_token;
+  wrapped_seed_t wrapped_rma_token_seed;
+  if (GenerateTokens(ate_client, absl::GetFlag(FLAGS_sku).c_str(), /*count=*/1,
+                     &rma_token_params, &rma_token,
+                     &wrapped_rma_token_seed) != 0) {
+    LOG(ERROR) << "GenerateTokens failed.";
+    return -1;
+  }
+  dut_spi_frame_t spi_frame;
+  if (RmaTokenToJson(&rma_token, &spi_frame) != 0) {
+    LOG(ERROR) << "RmaTokenToJson failed.";
+    return -1;
+  }
 
-  // Run FT individualization firmware.
+  // Unlock the chip and run the FT individualization firmware.
+  dut->DutLcTransition(openocd_path, tokens[0].data, kTokenSize128,
+                       kDifLcCtrlStateTestUnlocked1);
   dut->DutLoadSramElf(openocd_path, ft_individ_elf_path,
                       /*wait_for_done=*/true,
                       /*timeout_ms=*/1000);
 
-  // Run FT personalization firmware.
+  // Transition to mission mode and run FT personalization firmware.
+  dut->DutLcTransition(openocd_path, tokens[1].data, kTokenSize128,
+                       kDifLcCtrlStateProd);
   dut->DutBootstrap(ft_perso_bin_path);
+  dut->DutConsoleWaitForRx("Bootstrap requested.", /*timeout_ms=*/1000);
+  dut->DutBootstrap(ft_fw_bundle_path);
+  dut->DutTxFtRmaUnlockTokenHash(spi_frame.payload, spi_frame.cursor,
+                                 /*timeout_ms=*/1000);
 
-  // TODO(timothytrippel): add perso execution steps
+  // TODO(timothytrippel): add perso remaining execution steps
 
   // Close session with PA.
   if (CloseSession(ate_client) != 0) {

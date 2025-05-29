@@ -71,8 +71,14 @@ class DutLib {
    * Calls opentitanlib test util to execute a life cycle transition to
    * TestUnlocked* (from TestLocked*).
    */
-  void DutTestUnlock(const std::string& openocd, const uint8_t* token,
-                     size_t token_size);
+  void DutLcTransition(const std::string& openocd, const uint8_t* token,
+                       size_t token_size, uint32_t target_lc_state);
+  /**
+   * Calls opentitanlib methods to send the RMA unlock token hash over the SPI
+   * console to the DUT.
+   */
+  void DutTxFtRmaUnlockTokenHash(const uint8_t* spi_frame,
+                                 size_t spi_frame_size, uint64_t timeout_ms);
 
  private:
   // Must match the opentitanlib UartConsole buffer size defined here:
