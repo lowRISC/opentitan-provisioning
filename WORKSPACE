@@ -56,6 +56,10 @@ crate_universe_dependencies(bootstrap = True)
 load("@lowrisc_opentitan//third_party/rust/crates:crates.bzl", "crate_repositories")
 crate_repositories()
 
+# hwtrust
+load("@lowrisc_opentitan//third_party/hwtrust:repos.bzl", "hwtrust_repos")
+hwtrust_repos()
+
 # HyperDebug firmware (required for opentitanlib) from the lowrisc_opentitan repo.
 load("@lowrisc_opentitan//third_party/hyperdebug:repos.bzl", "hyperdebug_repos")
 hyperdebug_repos()

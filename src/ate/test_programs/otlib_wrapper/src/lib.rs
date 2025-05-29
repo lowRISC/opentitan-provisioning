@@ -464,14 +464,15 @@ pub extern "C" fn OtLibRxCpDeviceId(
     // Receive the CP device ID string from DUT.
     let timeout = Duration::from_millis(timeout_ms);
     let _ = UartConsole::wait_for(&spi_console, r"Exporting CP device ID ...", timeout);
-    let cp_dev_id_string = ManufCpProvisioningDataOut::recv(&spi_console, timeout, quiet)
-        .unwrap()
-        .cp_device_id
-        .iter()
-        .rev()
-        .map(|v| format!("{v:08X}"))
-        .collect::<Vec<String>>()
-        .join("");
+    let cp_dev_id_string =
+        ManufCpProvisioningDataOut::recv(&spi_console, timeout, quiet, /*skip_crc=*/ false)
+            .unwrap()
+            .cp_device_id
+            .iter()
+            .rev()
+            .map(|v| format!("{v:08X}"))
+            .collect::<Vec<String>>()
+            .join("");
     let cp_dev_id = cp_dev_id_string.as_str();
     // SAFETY: data_size should be a valid pointer to memory allocated by the caller.
     let cp_device_id_str_size = unsafe { &mut *cp_device_id_str_size };

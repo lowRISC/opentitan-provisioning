@@ -12,7 +12,7 @@ _BAZEL_SKYLIB_VERSION = "1.5.0"
 # When updating the lowrisc_opentitan repo, be sure to rebuild the builtstream
 # files too by following the instructions in
 # `third_party/lowrisc/README.md`.
-_OPENTITAN_VERSION = "Earlgrey-A2-Provisioning-RC6"
+_OPENTITAN_VERSION = "Earlgrey-A2-Provisioning-RC8"
 
 def lowrisc_repos(misc_linters = None, bazel_release = None, bazel_skylib = None, opentitan = None):
     maybe(
@@ -45,7 +45,7 @@ def lowrisc_repos(misc_linters = None, bazel_release = None, bazel_skylib = None
         http_archive_or_local,
         local = opentitan,
         name = "lowrisc_opentitan",
-        sha256 = "9517eb191fa5c2b2666204677fc0d35784f088cce163f319fbc3e3c2cc17defe",
+        sha256 = "bd5b804c39a04911f5408441747a9b1715a7a38c9ab7f18c01b4490771917d15",
         strip_prefix = "opentitan-{}".format(_OPENTITAN_VERSION),
         url = "https://github.com/lowRISC/opentitan/archive/refs/tags/{}.tar.gz".format(_OPENTITAN_VERSION),
     )

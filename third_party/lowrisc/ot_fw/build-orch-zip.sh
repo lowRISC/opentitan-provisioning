@@ -19,7 +19,7 @@ fi
 
 OT_REPO_TOP=$1
 
-_OT_REPO_BRANCH="Earlgrey-A2-Provisioning-RC6"
+_OT_REPO_BRANCH="Earlgrey-A2-Provisioning-RC8"
 _PROVISIONING_REPO_TOP=$(pwd)
 _ORCHESTRATOR_ZIP_PATH="bazel-bin/sw/host/provisioning/orchestrator/src/orchestrator.zip"
 
