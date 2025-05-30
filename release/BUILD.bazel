@@ -21,6 +21,15 @@ filegroup(
     output_group = "tar",
 )
 
+pkg_tar(
+    name = "provisioning_appliance_binaries",
+    srcs = [
+        "//src/pa:pa_server",
+        "//src/spm:spm_server",
+    ],
+    extension = "tar.xz",
+)
+
 container_bundle(
     name = "proxybuffer_containers",
     images = {
@@ -35,17 +44,27 @@ filegroup(
 )
 
 pkg_tar(
-    name = "provisioning_appliance_binaries",
-    srcs = [
-        "//src/pa:pa_server",
-        "//src/spm:spm_server",
-    ],
+    name = "proxybuffer_binaries",
+    srcs = ["//src/proxy_buffer:pb_server"],
     extension = "tar.xz",
 )
 
+container_bundle(
+    name = "fakeregistry_containers",
+    images = {
+        "fakeregistry_server:latest": "//src/testing/fake_registry:fake_registry_server_image",
+    },
+)
+
+filegroup(
+    name = "fakeregistry_containers_tar",
+    srcs = [":fakeregistry_containers"],
+    output_group = "tar",
+)
+
 pkg_tar(
-    name = "proxybuffer_binaries",
-    srcs = ["//src/proxy_buffer:pb_server"],
+    name = "fakeregistry_binaries",
+    srcs = ["//src/testing/fake_registry:fake_registry_server"],
     extension = "tar.xz",
 )
 

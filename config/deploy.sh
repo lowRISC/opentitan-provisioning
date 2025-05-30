@@ -116,11 +116,15 @@ tar -xvf "${RELEASE_DIR}/hsmutils.tar.xz" --directory "${OPENTITAN_VAR_DIR}/bin"
 echo "Unpacking release binaries and container images ..."
 mkdir -p "${OPENTITAN_VAR_DIR}/release"
 if [ -z "${CONTAINERS_ONLY}" ]; then
+    tar -xvf "${RELEASE_DIR}/fakeregistry_binaries.tar.xz" \
+        --directory "${OPENTITAN_VAR_DIR}/release"
     tar -xvf "${RELEASE_DIR}/provisioning_appliance_binaries.tar.xz" \
         --directory "${OPENTITAN_VAR_DIR}/release"
     tar -xvf "${RELEASE_DIR}/proxybuffer_binaries.tar.xz" \
         --directory "${OPENTITAN_VAR_DIR}/release"
 else
+    cp -f "${RELEASE_DIR}/fakeregistry_containers.tar" \
+        "${OPENTITAN_VAR_DIR}/release/"
     cp -f "${RELEASE_DIR}/provisioning_appliance_containers.tar" \
         "${OPENTITAN_VAR_DIR}/release/"
     cp -f "${RELEASE_DIR}/proxybuffer_containers.tar" \
@@ -143,6 +147,8 @@ infra_image = "podman_pause:latest"
 
 EOF
 podman load \
+    -i "${OPENTITAN_VAR_DIR}/release/fakeregistry_containers.tar"
+podman load \
     -i "${OPENTITAN_VAR_DIR}/release/provisioning_appliance_containers.tar"
 podman load \
     -i "${OPENTITAN_VAR_DIR}/release/proxybuffer_containers.tar"
@@ -151,9 +157,11 @@ echo "Done."
 ################################################################################
 # Generate Kube configuration files from templates.
 ################################################################################
-envsubst \
-    < "${DEPLOYMENT_DIR}/containers/provapp.yml.tmpl" \
-    > "${DEPLOYMENT_DIR}/containers/provapp.yml"
+find "${DEPLOYMENT_DIR}/containers/" -name "*.tmpl" -print0 | \
+while IFS= read -r -d '' template; do
+    file="${template%.tmpl}"
+    envsubst < "${template}" > "${file}"
+done
 
 ################################################################################
 # Generate gRPC certificates.
