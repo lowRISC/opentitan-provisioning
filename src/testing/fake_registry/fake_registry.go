@@ -102,6 +102,7 @@ func batchRegisterDevice(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	flag.Parse()
 	http.HandleFunc(*registerDeviceURL, registerDevice)
 	http.HandleFunc(*batchRegisterDeviceURL, batchRegisterDevice)
 	log.Printf("Listening on port %d...", *port)

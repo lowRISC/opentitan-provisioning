@@ -86,6 +86,11 @@ spec:
     - --ca_root_certs=/var/lib/opentitan/config/dev/certs/out/ca-cert.pem
     - --port=${OTPROV_PORT_PB}
     - --db_path=file::memory:?cache=shared
+    - --registry_config_file=/var/lib/opentitan/config/dev/containers/registry_config.json
+    - --enable_syncer=true
+    - --syncer_frequency=30s
+    - --syncer_records_per_run=10
+    - --syncer_max_retries_per_record=0
     # TODO: Update label to point to specific release version.
     image: localhost/pb_server:latest
     resources: {}
@@ -100,6 +105,20 @@ spec:
     volumeMounts:
     - mountPath: /var/lib/opentitan/config/dev
       name: var-lib-opentitan-spm-config-dev-0
+  # Configuration for the `fakeregistry` container.
+  - name: fakeregistry
+    args:
+    - --port=${OTPROV_PORT_REG}
+    image: localhost/fakeregistry_server:latest
+    resources: {}
+    ports:
+      - containerPort: ${OTPROV_PORT_REG}
+    securityContext:
+      capabilities:
+        drop:
+        - CAP_MKNOD
+        - CAP_NET_RAW
+        - CAP_AUDIT_WRITE
   restartPolicy: Always
   volumes:
   - hostPath:
