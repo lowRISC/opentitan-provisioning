@@ -25,6 +25,8 @@ service ProvisioningApplianceService {
     returns (DeriveTokensResponse) {}
   rpc GetStoredTokens(GetStoredTokensRequest)
     returns (GetStoredTokensResponse) {}
+  rpc GetCaSerialNumbers(GetCaSerialNumbersRequest)
+    returns (GetCaSerialNumbersResponse) {}
   rpc RegisterDevice(RegistrationRequest)
     returns (RegistrationResponse) {}
 }
@@ -181,6 +183,22 @@ message InitSessionResponse {
   // List of authenticate methods. Required.
   repeated string auth_methods = 3;
 }
+
+// Get CA serial numbers request.
+message GetCaSerialNumbersRequest{
+  // SKU identifier. Required.
+  string sku = 1;
+  // CA cert labels (to locate the key within the SPM). Required.
+  repeated string cert_labels = 2;
+}
+
+// Get stored tokens response.
+message GetCaSerialNumbersResponse{
+  // Serial numbers. Size is fixed to 20 bytes (160-bits) per serial number as
+  // this is the size of the CA key IDs used by the OpenTitan project.
+  repeated bytes serial_numbers = 1;
+}
+
 
 // Close SKU session request.
 message CloseSessionRequest {

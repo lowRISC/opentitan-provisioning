@@ -8,6 +8,9 @@ numSessions: 3
 symmetricKeys:
   - name: sival-kdf-hisec-v0
   - name: sival-kdf-losec-v0
+certs:
+  - name: dice-ica
+    path: sku/sival/ca/sival-dice-key-p256-v0.priv.der
 privateKeys:
     - name: sival-dice-key-p256-v0.priv
     - name: spm-hsm-id-v0.priv
