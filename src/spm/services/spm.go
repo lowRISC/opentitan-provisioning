@@ -302,6 +302,31 @@ func ecdsaSignatureAlgorithmFromHashType(h pbcommon.HashType) x509.SignatureAlgo
 	}
 }
 
+// GetCaSerialNumbers retrieves the CA certificate(s) serial numbers for a SKU.
+func (s *server) GetCaSerialNumbers(ctx context.Context, request *pbp.GetCaSerialNumbersRequest) (*pbp.GetCaSerialNumbersResponse, error) {
+	// Acquire mutex before accessing SKU configuration.
+	s.muSKU.RLock()
+	defer s.muSKU.RUnlock()
+	sku, ok := s.skus[request.Sku]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.Sku)
+	}
+
+	// Extract the serial number from each certificate.
+	var serialNumbers [][]byte
+	for _, label := range request.CertLabels {
+		cert, ok := sku.certs[label]
+		if !ok {
+			return nil, status.Errorf(codes.Internal, "unable to find cert %q in SKU configuration", label)
+		}
+		serialNumbers = append(serialNumbers, cert.SerialNumber.Bytes())
+	}
+
+	return &pbp.GetCaSerialNumbersResponse{
+		SerialNumbers: serialNumbers,
+	}, nil
+}
+
 // GetStoredTokens retrieves a provisioned token from the SPM's HSM.
 func (s *server) GetStoredTokens(ctx context.Context, request *pbp.GetStoredTokensRequest) (*pbp.GetStoredTokensResponse, error) {
 	return nil, status.Errorf(codes.Internal, "SPM.GetStoredTokens - unimplemented")
@@ -479,6 +504,7 @@ func (s *server) initializeSKU(skuName string) error {
 	}
 
 	// Load all certificates referenced in the SKU configuration.
+	log.Printf("Initializing certificates: %v", cfg.Certs)
 	certs := make(map[string]*x509.Certificate)
 	for _, cert := range cfg.Certs {
 		c, err := utils.LoadCertFromFile(s.configDir, cert.Path)

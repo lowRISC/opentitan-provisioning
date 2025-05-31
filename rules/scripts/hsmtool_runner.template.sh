@@ -228,6 +228,8 @@ certgen () {
       -CAkeyform engine \
       -CAkey "${ENDORSING_KEY}"
   fi
+  echo "Converting certificate for ${ca_key} to DER"
+  openssl x509 -in "${OUTDIR_CA}/${ca_key}.pem" -outform DER -out "${OUTDIR_CA}/${ca_key}.der"
 }
 
 # Create output directory for HSM exported files.
@@ -285,5 +287,5 @@ done
 if [[ -n "${FLAGS_OUT_TAR}" ]]; then
   echo "Exporting HSM data to ${FLAGS_OUT_TAR}"
   tar -czvf "${FLAGS_OUT_TAR}" "${OUTDIR_HSM}" "${OUTDIR_CA}" "${OUTDIR_PUB}"
-  rm -rf "${OUTDIR_HSM}" "${OUTDIR_CA}" "${OUTDIR_PUB}"
+  rm -rf "${OUTDIR_HSM}"
 fi

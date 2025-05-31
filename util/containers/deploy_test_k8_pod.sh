@@ -25,7 +25,6 @@ fi
 . ${REPO_TOP}/config/${CONFIG_SUBDIR}/env/spm.env
 ${REPO_TOP}/config/deploy.sh ${CONFIG_SUBDIR} ${REPO_TOP}/bazel-bin/release
 
-
 bazelisk build --stamp //config/${CONFIG_SUBDIR}/spm/sku:release
 bazelisk build --stamp //config/${CONFIG_SUBDIR}/spm/sku/sival:release
 
