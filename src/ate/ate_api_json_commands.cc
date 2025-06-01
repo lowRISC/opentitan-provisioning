@@ -1,6 +1,7 @@
 // Copyright lowRISC contributors (OpenTitan project).
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
+
 #include <google/protobuf/util/json_util.h>
 
 #include <algorithm>
@@ -205,6 +206,57 @@ DLLEXPORT int RmaTokenFromJson(const dut_spi_frame_t *frame,
   rma_token->size = sizeof(uint64_t) * rma_hash_cmd.hash_size();
 
   return 0;
+}
+
+DLLEXPORT int CaSerialNumbersToJson(const ca_serial_number_t *dice_ca_sn,
+                                    const ca_serial_number_t *aux_ca_sn,
+                                    dut_spi_frame_t *result) {
+  if (result == nullptr) {
+    LOG(ERROR) << "Invalid result buffer";
+    return -1;
+  }
+
+  ot::dut_commands::CaSerialNumbersJSON ca_serial_numbers_cmd;
+  if (dice_ca_sn == nullptr) {
+    LOG(ERROR) << "Invalid DICE CA serial number.";
+    return -1;
+  }
+  if (aux_ca_sn == nullptr) {
+    LOG(ERROR) << "Invalid auxiliary CA serial number.";
+    return -1;
+  }
+  const uint32_t *dice_ca_sn_ptr =
+      reinterpret_cast<const uint32_t *>(dice_ca_sn->data);
+  const uint32_t *aux_ca_sn_ptr =
+      reinterpret_cast<const uint32_t *>(aux_ca_sn->data);
+  for (size_t i = 0; i < kCaSerialNumberSize; ++i) {
+    if (dice_ca_sn_ptr[i] > 255) {
+      LOG(ERROR) << "Each serial number byte must be smaller than 256.";
+      return -1;
+    }
+    if (aux_ca_sn_ptr[i] > 255) {
+      LOG(ERROR) << "Each serial number byte must be smaller than 256.";
+      return -1;
+    }
+    ca_serial_numbers_cmd.add_dice_auth_key_key_id(dice_ca_sn_ptr[i]);
+    ca_serial_numbers_cmd.add_ext_auth_key_key_id(aux_ca_sn_ptr[i]);
+  }
+
+  std::string command;
+  google::protobuf::util::JsonOptions options;
+  options.add_whitespace = false;
+  options.always_print_primitive_fields = true;
+  options.preserve_proto_field_names = true;
+  google::protobuf::util::Status status =
+      google::protobuf::util::MessageToJsonString(ca_serial_numbers_cmd,
+                                                  &command, options);
+  if (!status.ok()) {
+    LOG(ERROR) << "Failed to convert CA serial number command to JSON: "
+               << status.ToString();
+    return -1;
+  }
+
+  return SpiFrameSet(result, command);
 }
 
 DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob, dut_spi_frame_t *result,

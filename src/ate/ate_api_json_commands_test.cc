@@ -83,7 +83,7 @@ TEST_F(AteJsonTest, DeviceIdFromJson) {
                                                   options);
   EXPECT_EQ(status.ok(), true);
 
-  dut_spi_frame_t frame;
+  dut_spi_frame_t frame = {0};
   memcpy(frame.payload, command.data(), command.size());
   frame.cursor = command.size();
 
@@ -127,6 +127,71 @@ TEST_F(AteJsonTest, RmaToken) {
   EXPECT_THAT(rma_token_got.data, testing::ElementsAreArray(
                                       rma_token.data, sizeof(rma_token.data)));
   EXPECT_EQ(rma_token_got.size, sizeof(uint64_t) * 2);
+}
+
+TEST_F(AteJsonTest, CaSerialNumbers) {
+  ca_serial_number_t dice_ca_sn = {0};
+  ca_serial_number_t aux_ca_sn = {0};
+  dice_ca_sn.data[0] = 65;
+  aux_ca_sn.data[0] = 123;
+
+  dut_spi_frame_t frame;
+  EXPECT_EQ(CaSerialNumbersToJson(&dice_ca_sn, &aux_ca_sn, &frame), 0);
+
+  std::string json_string =
+      std::string(reinterpret_cast<char*>(frame.payload), frame.cursor);
+
+  // Use the proto representation of CaSerialNumbersJSON to verify the JSON
+  // string.
+  ot::dut_commands::CaSerialNumbersJSON ca_serial_numbers_cmd;
+  google::protobuf::util::JsonParseOptions options;
+  options.ignore_unknown_fields = true;
+  google::protobuf::util::Status status =
+      google::protobuf::util::JsonStringToMessage(
+          json_string, &ca_serial_numbers_cmd, options);
+  EXPECT_EQ(status.ok(), true);
+  EXPECT_THAT(ca_serial_numbers_cmd, EqualsProto(R"pb(
+                dice_auth_key_key_id: 65
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                dice_auth_key_key_id: 0
+                ext_auth_key_key_id: 123
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+                ext_auth_key_key_id: 0
+              )pb"));
 }
 
 TEST_F(AteJsonTest, PersoBlob) {

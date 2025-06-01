@@ -45,6 +45,28 @@ message RmaTokenJSON {
   repeated uint64 hash = 1;
 }
 
+// Provides the manuf_certgen_inputs_t data structure used by provisioning
+// firmware.
+message CaSerialNumbersJSON {
+  // dice_auth_key_key_id contains the DICE CA serial number. It must contain 20
+  // bytes, to hold a SHA1 hash. Protobuf does not have a "uint8" type, such
+  // that we can define a message field of "repeated uint8". Protobuf only has a
+  // "bytes" type, and defining a message field of type "bytes" will not
+  // serialize to {"a", "b", ...}, but rather to {"ab"} which is not what the
+  // provisioning firmware will expect. Therefore we define this field as
+  // `repeated uint32` and software ensures each unsigned integer in the array
+  // does not exceed 255.
+  // Required.
+  // protolint:disable:next REPEATED_FIELD_NAMES_PLURALIZED
+  repeated uint32 dice_auth_key_key_id = 1;
+  // ext_auth_key_key_id contains the auxiliary CA serial number. It must
+  // contain 20 bytes to hold a SHA1 hash. See above for why this field is
+  // defined as `repeated uint32` instead of `bytes`.
+  // Required.
+  // protolint:disable:next REPEATED_FIELD_NAMES_PLURALIZED
+  repeated uint32 ext_auth_key_key_id = 2;
+}
+
 // Provides the perso_blob_t data structure used by provisioning firmware.
 message PersoBlobJSON {
   // num_objs contains the number of objects in the blob. Required.
