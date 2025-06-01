@@ -40,6 +40,8 @@ void OtLibLcTransition(void* transport, const char* openocd,
                        uint32_t target_lc_state);
 void OtLibTxRmaUnlockTokenHash(void* transport, const uint8_t* spi_frame,
                                size_t spi_frame_size, uint64_t timeout_ms);
+void OtLibTxCaSerialNums(void* transport, const uint8_t* spi_frame,
+                         size_t spi_frame_size, uint64_t timeout_ms);
 }
 
 std::unique_ptr<DutLib> DutLib::Create(const std::string& fpga) {
@@ -128,5 +130,12 @@ void DutLib::DutTxFtRmaUnlockTokenHash(const uint8_t* spi_frame,
   LOG(INFO) << "in DutLib::DutTxFtRmaUnlockTokenHash";
   OtLibTxRmaUnlockTokenHash(transport_, spi_frame, spi_frame_size, timeout_ms);
 }
+
+void DutLib::DutTxFtCaSerialNums(const uint8_t* spi_frame,
+                                 size_t spi_frame_size, uint64_t timeout_ms) {
+  LOG(INFO) << "in DutLib::DutTxFtCaSerialNums";
+  OtLibTxCaSerialNums(transport_, spi_frame, spi_frame_size, timeout_ms);
+}
+
 }  // namespace test_programs
 }  // namespace provisioning

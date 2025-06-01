@@ -79,6 +79,12 @@ class DutLib {
    */
   void DutTxFtRmaUnlockTokenHash(const uint8_t* spi_frame,
                                  size_t spi_frame_size, uint64_t timeout_ms);
+  /**
+   * Calls opentitanlib methods to send the CA serial numbers over the SPI
+   * console to the DUT so the DUT can generate TBS certificates.
+   */
+  void DutTxFtCaSerialNums(const uint8_t* spi_frame, size_t spi_frame_size,
+                           uint64_t timeout_ms);
 
  private:
   // Must match the opentitanlib UartConsole buffer size defined here:

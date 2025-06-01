@@ -249,9 +249,21 @@ int main(int argc, char **argv) {
     LOG(ERROR) << "GenerateTokens failed.";
     return -1;
   }
-  dut_spi_frame_t spi_frame;
-  if (RmaTokenToJson(&rma_token, &spi_frame) != 0) {
+  dut_spi_frame_t rma_token_spi_frame;
+  if (RmaTokenToJson(&rma_token, &rma_token_spi_frame) != 0) {
     LOG(ERROR) << "RmaTokenToJson failed.";
+    return -1;
+  }
+
+  // Generate CA serial numbers.
+  // TODO(timothytrippel): retrieve the serial numbers from the CA when #186
+  // merges.
+  ca_serial_number_t dice_ca_sn = {0};
+  ca_serial_number_t aux_ca_sn = {0};
+  dut_spi_frame_t ca_serial_numbers_spi_frame;
+  if (CaSerialNumbersToJson(&dice_ca_sn, &aux_ca_sn,
+                            &ca_serial_numbers_spi_frame) != 0) {
+    LOG(ERROR) << "CaSerialNumbersToJson failed.";
     return -1;
   }
 
@@ -268,8 +280,12 @@ int main(int argc, char **argv) {
   dut->DutBootstrap(ft_perso_bin_path);
   dut->DutConsoleWaitForRx("Bootstrap requested.", /*timeout_ms=*/1000);
   dut->DutBootstrap(ft_fw_bundle_path);
-  dut->DutTxFtRmaUnlockTokenHash(spi_frame.payload, spi_frame.cursor,
+  dut->DutTxFtRmaUnlockTokenHash(rma_token_spi_frame.payload,
+                                 rma_token_spi_frame.cursor,
                                  /*timeout_ms=*/1000);
+  dut->DutTxFtCaSerialNums(ca_serial_numbers_spi_frame.payload,
+                           ca_serial_numbers_spi_frame.cursor,
+                           /*timeout_ms=*/1000);
 
   // TODO(timothytrippel): add perso remaining execution steps
 
