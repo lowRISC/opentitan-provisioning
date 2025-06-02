@@ -40,7 +40,7 @@ use opentitanlib::test_utils::load_sram_program::{
 };
 use opentitanlib::test_utils::rpc::ConsoleRecv;
 use opentitanlib::uart::console::{ExitStatus, UartConsole};
-use ujson_lib::provisioning_data::ManufCpProvisioningDataOut;
+use ujson_lib::provisioning_data::{ManufCpProvisioningDataOut, PersoBlob};
 
 #[no_mangle]
 pub extern "C" fn OtLibFpgaTransportInit(fpga: *mut c_char) -> *const TransportWrapper {
@@ -671,8 +671,50 @@ pub extern "C" fn OtLibTxCaSerialNums(
         &spi_console,
         r"Waiting for certificate inputs ...\n",
         Duration::from_millis(timeout_ms),
-    );
+    )
+    .expect("CA serial numbers device sync message missed.");
     spi_console
         .console_write(spi_frame.as_bytes())
         .expect("Unable to write to console.");
+}
+
+#[no_mangle]
+pub extern "C" fn OtLibRxPersoBlob(
+    transport: *const TransportWrapper,
+    quiet: bool,
+    timeout_ms: u64,
+    num_objects: *mut usize,
+    next_free: *mut usize,
+    body: *mut u8,
+) {
+    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
+    // the call to `OtLibFpgaTransportInit(...)` above.
+    let transport: &TransportWrapper = unsafe { &*transport };
+
+    // Get handle to SPI console.
+    let spi = transport.spi("BOOTSTRAP").unwrap();
+    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").expect("Unable to get GPIO pin.");
+    let _ = device_console_tx_ready_pin.set_mode(PinMode::Input);
+    let _ = device_console_tx_ready_pin.set_pull_mode(PullMode::None);
+    let spi_console = SpiConsoleDevice::new(
+        &*spi,
+        Some(device_console_tx_ready_pin),
+        /*ignore_frame_num=*/ true,
+    )
+    .expect("Unable to create SPI console.");
+
+    // Receive the UJSON data payload from the DUT over the console.
+    let timeout = Duration::from_millis(timeout_ms);
+    let _ = UartConsole::wait_for(&spi_console, r"Exporting TBS certificates ...", timeout)
+        .expect("Perso blob device sync message missed.");
+    let perso_blob = PersoBlob::recv(&spi_console, timeout, quiet, /*skip_crc=*/ true)
+        .expect("Could not receive perso blob from DUT.");
+    // SAFETY: the size pointers below should be a valid pointers to memory allocated by the caller.
+    let num_objects = unsafe { &mut *num_objects };
+    let next_free = unsafe { &mut *next_free };
+    // SAFETY: body should be a valid pointer to memory allocated by the caller.
+    let body = unsafe { std::slice::from_raw_parts_mut(body, *next_free) };
+    *num_objects = perso_blob.num_objs;
+    body[..perso_blob.body.len()].copy_from_slice(perso_blob.body.as_slice());
+    *next_free = perso_blob.next_free;
 }

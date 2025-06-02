@@ -85,11 +85,18 @@ class DutLib {
    */
   void DutTxFtCaSerialNums(const uint8_t* spi_frame, size_t spi_frame_size,
                            uint64_t timeout_ms);
+  /**
+   * Calls opentitanlib methods to receive the perso blob from the DUT, which
+   * contains the TBS certificates to be endorsed.
+   */
+  void DutRxFtPersoBlob(bool quiet, uint64_t timeout_ms, size_t* num_objs,
+                        size_t* next_free, uint8_t* body);
 
  private:
-  // Must match the opentitanlib UartConsole buffer size defined here:
+  // Must be 2x the opentitanlib UartConsole buffer size defined here:
   // https://github.com/lowRISC/opentitan/blob/673199e30f85db799df6a31c983e8e41c8afb6c8/sw/host/opentitanlib/src/uart/console.rs#L46
-  static constexpr size_t kMaxRxMsgSizeInBytes = 16384;
+  // to account for whitespace padding.
+  static constexpr size_t kMaxRxMsgSizeInBytes = 65536;
 
   // Force users to call `Create` factory method.
   DutLib(void* transport) : transport_(transport){};

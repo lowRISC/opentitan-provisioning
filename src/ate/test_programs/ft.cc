@@ -267,14 +267,14 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  // Unlock the chip and run the FT individualization firmware.
+  // Unlock the chip and run the individualization firmware.
   dut->DutLcTransition(openocd_path, tokens[0].data, kTokenSize128,
                        kDifLcCtrlStateTestUnlocked1);
   dut->DutLoadSramElf(openocd_path, ft_individ_elf_path,
                       /*wait_for_done=*/true,
                       /*timeout_ms=*/1000);
 
-  // Transition to mission mode and run FT personalization firmware.
+  // Transition to mission mode and start running the personalization firmware.
   dut->DutLcTransition(openocd_path, tokens[1].data, kTokenSize128,
                        kDifLcCtrlStateProd);
   dut->DutBootstrap(ft_perso_bin_path);
@@ -286,6 +286,17 @@ int main(int argc, char **argv) {
   dut->DutTxFtCaSerialNums(ca_serial_numbers_spi_frame.payload,
                            ca_serial_numbers_spi_frame.cursor,
                            /*timeout_ms=*/1000);
+
+  // Receive the TBS certs from the DUT and endorse them with the PA/SPM.
+  size_t num_objs = 0;
+  perso_blob_t perso_blob_from_dut = {
+      .num_objects = 0,
+      .next_free = kPersoBlobMaxSize,
+      .body = {0},
+  };
+  dut->DutRxFtPersoBlob(
+      /*quiet=*/true, /*timeout_ms=*/5000, &perso_blob_from_dut.num_objects,
+      &perso_blob_from_dut.next_free, perso_blob_from_dut.body);
 
   // TODO(timothytrippel): add perso remaining execution steps
 
