@@ -103,7 +103,7 @@ The following command initializes the keys in the HSM for test purposes.
 > step.
 
 ```console
-$ config/dev/token_init.sh
+$ config/token_init.sh
 ```
 
 ### Start SPM Server

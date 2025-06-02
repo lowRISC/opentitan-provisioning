@@ -8,5 +8,6 @@ filegroup(
     name = "deploy_script",
     srcs = [
         ":deploy.sh",
+        ":token_init.sh",
     ],
 )

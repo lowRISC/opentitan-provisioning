@@ -6,9 +6,7 @@ package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "deploy_config",
-    srcs = [
-        ":token_init.sh",
-    ] + glob(
+    srcs = glob(
         [
             "env/**",
             "certs/**",
