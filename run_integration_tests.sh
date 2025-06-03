@@ -23,6 +23,12 @@ echo "Done."
 
 # Run the CP and FT flows (default to hyper340 since that is installed in CI).
 FPGA="${FPGA:-hyper340}"
+
+if [[ "${FPGA}" == "skip" ]]; then
+  echo "Skipping FPGA tests."
+  exit 0
+fi
+
 if [[ "$FPGA" == "hyper340" ]]; then
   BIN_DEVICE="cw340"
 else
