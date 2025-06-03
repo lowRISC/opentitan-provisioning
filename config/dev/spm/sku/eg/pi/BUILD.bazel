@@ -18,39 +18,54 @@ load(
 package(default_visibility = ["//visibility:public"])
 
 hsm_certificate_authority_intermediate(
-    name = "sival-dice-key-p256-v0",
+    name = "pi01-ica-dice-key-p256-v0",
+    curve = HSMTOOL_CONST.ECC_CURVE.PRIME256V1,
+)
+
+hsm_certificate_authority_intermediate(
+    name = "pi01-ica-ext-key-p256-v0",
     curve = HSMTOOL_CONST.ECC_CURVE.PRIME256V1,
 )
 
 hsm_certgen(
-    name = "ca_int_dice",
+    name = "pi01_ca_int_dice",
     ca_key = "//config/dev/spm/sku/eg/common:opentitan-ca-root-v0",
     config = ":ca_int_dice.conf",
-    key = ":sival-dice-key-p256-v0",
+    key = ":pi01-ica-dice-key-p256-v0",
+)
+
+hsm_certgen(
+    name = "pi01_ca_int_ext",
+    ca_key = "//config/dev/spm/sku/eg/common:opentitan-ca-root-v0",
+    config = ":ca_int_ext.conf",
+    key = ":pi01-ica-ext-key-p256-v0",
 )
 
 hsm_config_tar(
-    name = "spm_ca_keygen",
+    name = "pi01_spm_ca_keygen",
     hsmtool_sequence = {
-        ":sival-dice-key-p256-v0": "keygen",
+        ":pi01-ica-dice-key-p256-v0": "keygen",
+        ":pi01-ica-ext-key-p256-v0": "keygen",
     },
 )
 
 hsm_certgen_tar(
-    name = "ca_intermediate_certgen",
+    name = "pi01_ca_intermediate_certgen",
     certs = [
-        ":ca_int_dice",
+        ":pi01_ca_int_dice",
+        ":pi01_ca_int_ext",
     ],
 )
 
 pkg_tar(
-    name = "release",
+    name = "pi01_release",
     srcs = [
-        ":ca_intermediate_certgen",
-        ":spm_ca_keygen",
+        ":pi01_ca_intermediate_certgen",
+        ":pi01_spm_ca_keygen",
     ] + [
         # Certificate template files.
         ":ca_int_dice.conf",
+        ":ca_int_ext.conf",
     ],
     extension = "tar.gz",
     include_runfiles = True,

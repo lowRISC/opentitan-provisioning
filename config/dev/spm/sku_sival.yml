@@ -6,8 +6,8 @@ sku: "sival"
 slotId: 0
 numSessions: 3
 symmetricKeys:
-  - name: sival-kdf-hisec-v0
-  - name: sival-kdf-losec-v0
+  - name: eg-kdf-hisec-v0
+  - name: eg-kdf-losec-v0
 certs:
   - name: dice-ica
     path: sku/sival/ca/sival-dice-key-p256-v0.priv.der
@@ -15,13 +15,13 @@ privateKeys:
     - name: sival-dice-key-p256-v0.priv
     - name: spm-hsm-id-v0.priv
 publicKeys:
-    - name: sku-sival-rsa-rma-v0.pub
+    - name: sku-eg-rsa-rma-v0.pub
 attributes:
-    SeedSecHi: sival-kdf-hisec-v0
-    SeedSecLo: sival-kdf-losec-v0
+    SeedSecHi: eg-kdf-hisec-v0
+    SeedSecLo: eg-kdf-losec-v0
     KdfMechanism: HKDF
-    WASKeyLabel: sival-kdf-hisec-v0
+    WASKeyLabel: eg-kdf-hisec-v0
     WrappingMechanism: RsaPkcs
-    WrappingKeyLabel: sku-sival-rsa-rma-v0.pub
+    WrappingKeyLabel: sku-eg-rsa-rma-v0.pub
     SigningKey/Dice/v0: sival-dice-key-p256-v0.priv
     SigningKey/Identity/v0: spm-hsm-id-v0.priv

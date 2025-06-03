@@ -7,16 +7,15 @@ set -e
 
 # The script must be executed from its local directory.
 usage () {
-  echo "Usage: $0 -i <input.tar.gz> -o <output.tar.gz>"
-  echo "  -m <pkcs.some>     Path to the PKCS#11 module."
-  echo "  -t <token>         Token name."
-  echo "  -s <SoftHSMConfig> Path to the SoftHSM config file. Optional."
-  echo "  -p <pin>           PIN for the token."
-  echo "  -i <input.tar.gz>  Path to the input tarball."
-  echo "  -w                 Execute destroy commands before initializing the assets."
-  echo "  -o <output.tar.gz> Path to the output tarball. Optional."
-  echo "  -c                 Only run certificate generation, do not run hsmtool init or destroy."
-  echo "  -h                 Show this help message."
+  echo "Usage: $0 --input_tar <input.tar.gz> --output_tar <output.tar.gz>"
+  echo "  --hsm_module <pkcs.some>     Path to the PKCS#11 module."
+  echo "  --token <token>              Token name."
+  echo "  --softhsm_config <config>    Path to the SoftHSM config file. Optional."
+  echo "  --hsm_pin <pin>              PIN for the token."
+  echo "  --input_tar <input.tar.gz>   Path to the input tarball."
+  echo "  --wipe                       Execute destroy commands before initializing the assets."
+  echo "  --output_tar <output.tar.gz> Path to the output tarball. Optional."
+  echo "  --help                       Show this help message."
   exit 1
 }
 
@@ -38,32 +37,50 @@ FLAGS_OUT_TAR=""
 FLAGS_WIPE=false
 FLAGS_CA_CERTGEN_ONLY=false
 
-while getopts 'm:t:s:p:i:o:wch' opt; do
-  case "${opt}" in
-    m)
-      FLAGS_HSMTOOL_MODULE="${OPTARG}"
+LONGOPTS="hsm_module:,token:,softhsm_config:,hsm_pin:,input_tar:,output_tar:,wipe,help"
+OPTS=$(getopt -o "" --long "${LONGOPTS}" -n "$0" -- "$@")
+
+if [ $? != 0 ] ; then echo "Failed parsing options." >&2 ; exit 1 ; fi
+
+eval set -- "$OPTS"
+
+while true; do
+  case "$1" in
+    --hsm_module)
+      FLAGS_HSMTOOL_MODULE="$2"
+      shift 2
       ;;
-    t)
-      FLAGS_HSMTOOL_TOKEN="${OPTARG}"
+    --token)
+      FLAGS_HSMTOOL_TOKEN="$2"
+      shift 2
       ;;
-    s)
-      FLAGS_SOFTHSM_CONFIG="${OPTARG}"
+    --softhsm_config)
+      FLAGS_SOFTHSM_CONFIG="$2"
+      shift 2
       ;;
-    p)
-      FLAGS_HSMTOOL_PIN="${OPTARG}"
+    --hsm_pin)
+      FLAGS_HSMTOOL_PIN="$2"
+      shift 2
       ;;
-    i)
-      FLAGS_IN_TAR="${OPTARG}"
+    --input_tar)
+      FLAGS_IN_TAR="$2"
+      shift 2
       ;;
-    o)
-      FLAGS_OUT_TAR="${OPTARG}"
+    --output_tar)
+      FLAGS_OUT_TAR="$2"
+      shift 2
       ;;
-    w)
+    --wipe)
       FLAGS_WIPE=true
+      shift
       ;;
-    h)
+    --help)
       # Display usage information and exit.
       usage
+      ;;
+    --)
+      shift
+      break
       ;;
     *)
       usage
@@ -78,17 +95,17 @@ if [[ "$#" -gt 0 ]]; then
 fi
 
 if [[ -z "${FLAGS_HSMTOOL_MODULE}" ]]; then
-  echo "Error: -m HSMTOOL_MODULE is not set."
+  echo "Error: --hsm_module HSMTOOL_MODULE is not set."
   exit 1
 fi
 
 if [[ -z "${FLAGS_HSMTOOL_TOKEN}" ]]; then
-  echo "Error: -t HSMTOOL_TOKEN is not set."
+  echo "Error: --token HSMTOOL_TOKEN is not set."
   exit 1
 fi
 
 if [[ -z "${FLAGS_HSMTOOL_PIN}" ]]; then
-  echo "Error: -p HSMTOOL_PIN is not set."
+  echo "Error: --hsm_pin HSMTOOL_PIN is not set."
   exit 1
 fi
 

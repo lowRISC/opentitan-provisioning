@@ -11,8 +11,26 @@ if [[ -z "${CONFIG_SUBDIR}" ]]; then
 fi
 
 CONFIG_DIR="${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}"
+SPM_SKU_DIR="${CONFIG_DIR}/spm/sku"
+SPM_SKU_EG_DIR="${SPM_SKU_DIR}/eg"
 
-source "${CONFIG_DIR}/env/spm.env"
+# Supported SKU directories.
+SIVAL_DIR="${SPM_SKU_DIR}/sival"
+EG_COMMON_DIR="${SPM_SKU_EG_DIR}/common"
+EG_CR_DIR="${SPM_SKU_EG_DIR}/cr"
+EG_PI_DIR="${SPM_SKU_EG_DIR}/pi"
+EG_TI_DIR="${SPM_SKU_EG_DIR}/ti"
+
+# Common HSM archive filenames
+HSM_CA_INTERMEDIATE_CSR_TAR_GZ="hsm_ca_intermediate_csr.tar.gz"
+HSM_CA_INTERMEDIATE_CERTS_TAR_GZ="hsm_ca_intermediate_certs.tar.gz"
+HSM_CA_ROOT_CERTS_TAR_GZ="hsm_ca_root_certs.tar.gz"
+
+# Source environment variables or exit with error
+source "${CONFIG_DIR}/env/spm.env" || {
+  echo "Error: Failed to source ${CONFIG_DIR}/env/spm.env"
+  exit 1
+}
 
 export HSMTOOL_BIN="${OPENTITAN_VAR_DIR}/bin/hsmtool"
 
@@ -61,106 +79,108 @@ function run_hsm_init() {
   }
 }
 
-if [[ "dev" == "${CONFIG_SUBDIR}" ]]; then
-  # Run the HSM initialization script for SPM.
-  run_hsm_init "${CONFIG_DIR}/spm/sku/spm_init.bash" \
-    -m "${HSMTOOL_MODULE}" \
-    -t "${SPM_HSM_TOKEN_SPM}" \
-    -s "${SOFTHSM2_CONF_SPM}" \
-    -p "${HSMTOOL_PIN}"
+# Helper function to create common HSM args array
+function create_hsm_args() {
+  local token="$1"
+  local softhsm_conf="$2"
+  
+  echo "(
+    \"--hsm_module\" \"${HSMTOOL_MODULE}\" 
+    \"--token\" \"${token}\" 
+    \"--softhsm_config\" \"${softhsm_conf}\" 
+    \"--hsm_pin\" \"${HSMTOOL_PIN}\" 
+  )"
+}
 
-  run_hsm_init "${CONFIG_DIR}/spm/sku/spm_export.bash" \
-    -m "${HSMTOOL_MODULE}" \
-    -t "${SPM_HSM_TOKEN_SPM}" \
-    -s "${SOFTHSM2_CONF_SPM}" \
-    -p "${HSMTOOL_PIN}" \
-    -o "${CONFIG_DIR}/spm/sku/spm_hsm_init.tar.gz"
+if [[ "dev" == "${CONFIG_SUBDIR}" ]]; then
+  # Create argument arrays using the helper function
+  eval "SPM_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_SPM}" "${SOFTHSM2_CONF_SPM}")"
+  eval "OFFLINE_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_OFFLINE}" "${SOFTHSM2_CONF_OFFLINE}")"
+
+  # Run the HSM initialization script for SPM.
+  run_hsm_init "${SPM_SKU_DIR}/spm_init.bash" "${SPM_ARGS[@]}"
+
+  run_hsm_init "${SPM_SKU_DIR}/spm_export.bash" "${SPM_ARGS[@]}" \
+    --output_tar "${SPM_SKU_DIR}/spm_hsm_init.tar.gz"
 
   # Run the SKU initilization script in the offline HSM partition.
   # Creates root CA private key and RMA wrap/unwrap key.
-  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/offline_init.bash" \
-    -m "${HSMTOOL_MODULE}" \
-    -t "${SPM_HSM_TOKEN_OFFLINE}" \
-    -s "${SOFTHSM2_CONF_OFFLINE}" \
-    -p "${HSMTOOL_PIN}"
+  run_hsm_init "${EG_COMMON_DIR}/offline_init.bash" "${OFFLINE_ARGS[@]}"
 
   # Exports RMA public key and high and low security seeds from the offline HSM
   # partition.
-  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/offline_export.bash" \
-    -m "${HSMTOOL_MODULE}" \
-    -t "${SPM_HSM_TOKEN_OFFLINE}" \
-    -s "${SOFTHSM2_CONF_OFFLINE}" \
-    -p "${HSMTOOL_PIN}" \
-    -i "${CONFIG_DIR}/spm/sku/spm_hsm_init.tar.gz" \
-    -o "${CONFIG_DIR}/spm/sku/sival/hsm_offline_export.tar.gz"
+  run_hsm_init "${EG_COMMON_DIR}/offline_export.bash" "${OFFLINE_ARGS[@]}" \
+    --input_tar "${SPM_SKU_DIR}/spm_hsm_init.tar.gz" \
+    --output_tar "${EG_COMMON_DIR}/hsm_offline_export.tar.gz"
 
   # Generate SPM private keys.
-  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/spm_sku_init.bash" \
-    -m "${HSMTOOL_MODULE}" \
-    -t "${SPM_HSM_TOKEN_SPM}" \
-    -s "${SOFTHSM2_CONF_SPM}" \
-    -p "${HSMTOOL_PIN}" \
-    -i "${CONFIG_DIR}/spm/sku/sival/hsm_offline_export.tar.gz"
+  run_hsm_init "${EG_COMMON_DIR}/spm_sku_init.bash" "${SPM_ARGS[@]}" \
+    --input_tar "${EG_COMMON_DIR}/hsm_offline_export.tar.gz"
+
+  
+  SKU_DIRS=("${SIVAL_DIR}" "${EG_CR_DIR}" "${EG_PI_DIR}" "${EG_TI_DIR}")
+  CA_KEYGEN_SCRIPTS=(
+    "spm_ca_keygen.bash" 
+    "cr01_spm_ca_keygen.bash" 
+    "pi01_spm_ca_keygen.bash" 
+    "ti01_spm_ca_keygen.bash"
+  )
 
   # Generate Intermediate CA private keys.
-  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/spm_ca_keygen.bash" \
-    -m "${HSMTOOL_MODULE}" \
-    -t "${SPM_HSM_TOKEN_SPM}" \
-    -s "${SOFTHSM2_CONF_SPM}" \
-    -p "${HSMTOOL_PIN}"
+  for i in "${!SKU_DIRS[@]}"; do
+    run_hsm_init "${SKU_DIRS[i]}/${CA_KEYGEN_SCRIPTS[i]}" "${SPM_ARGS[@]}"
+  done
+
+  # Create CA argument arrays using the helper function with long args
+  eval "CA_SPM_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_SPM}" "${SOFTHSM2_CONF_SPM}")"
+  eval "CA_OFFLINE_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_OFFLINE}" "${SOFTHSM2_CONF_OFFLINE}")"
 
   # Generate Root Certificate.
-  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/ca_root_certgen.bash" \
-    --hsm_module "${HSMTOOL_MODULE}" \
-    --token "${SPM_HSM_TOKEN_OFFLINE}" \
-    --softhsm_config "${SOFTHSM2_CONF_OFFLINE}" \
-    --hsm_pin "${HSMTOOL_PIN}" \
-    --output_tar "${CONFIG_DIR}/spm/sku/sival/hsm_ca_root_certs.tar.gz"
+  run_hsm_init "${EG_COMMON_DIR}/ca_root_certgen.bash" "${CA_OFFLINE_ARGS[@]}" \
+    --output_tar "${EG_COMMON_DIR}/${HSM_CA_ROOT_CERTS_TAR_GZ}"
+
+  CA_CERTGEN_SCRIPTS=(
+    "ca_intermediate_certgen.bash" 
+    "cr01_ca_intermediate_certgen.bash" 
+    "pi01_ca_intermediate_certgen.bash" 
+    "ti01_ca_intermediate_certgen.bash"
+  )
 
   # Export Intermediate CA CSRs from SPM HSM.
-  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/ca_intermediate_certgen.bash" \
-    --hsm_module "${HSMTOOL_MODULE}" \
-    --token "${SPM_HSM_TOKEN_SPM}" \
-    --softhsm_config "${SOFTHSM2_CONF_SPM}" \
-    --hsm_pin "${HSMTOOL_PIN}" \
-    --output_tar "${CONFIG_DIR}/spm/sku/sival/hsm_ca_intermediate_csr.tar.gz" \
-    --csr_only
+  for i in "${!SKU_DIRS[@]}"; do
+    run_hsm_init "${SKU_DIRS[i]}/${CA_CERTGEN_SCRIPTS[i]}" "${CA_SPM_ARGS[@]}" \
+      --output_tar "${SKU_DIRS[i]}/${HSM_CA_INTERMEDIATE_CSR_TAR_GZ}" \
+      --csr_only
+  done
 
   # Endorse Intermediate CA CSRs in offline HSM.
-  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/ca_intermediate_certgen.bash" \
-    --hsm_module "${HSMTOOL_MODULE}" \
-    --token "${SPM_HSM_TOKEN_OFFLINE}" \
-    --softhsm_config "${SOFTHSM2_CONF_OFFLINE}" \
-    --hsm_pin "${HSMTOOL_PIN}" \
-    --input_tar "${CONFIG_DIR}/spm/sku/sival/hsm_ca_intermediate_csr.tar.gz" \
-    --output_tar "${CONFIG_DIR}/spm/sku/sival/hsm_ca_intermediate_certs.tar.gz" \
-    --sign_only
+  for i in "${!SKU_DIRS[@]}"; do
+    run_hsm_init "${SKU_DIRS[i]}/${CA_CERTGEN_SCRIPTS[i]}" "${CA_OFFLINE_ARGS[@]}" \
+      --input_tar "${SKU_DIRS[i]}/${HSM_CA_INTERMEDIATE_CSR_TAR_GZ}:${EG_COMMON_DIR}/${HSM_CA_ROOT_CERTS_TAR_GZ}" \
+      --output_tar "${SKU_DIRS[i]}/${HSM_CA_INTERMEDIATE_CERTS_TAR_GZ}" \
+      --sign_only
+  done
 
 else
   # In production mode, we only perform CA CSR and signing operations.
+  # Create CA argument arrays using the helper function with long args
+  eval "CA_SPM_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_SPM}" "")"
+  eval "CA_OFFLINE_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_OFFLINE}" "")"
 
   # Generate Root Certificate.
-  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/ca_root_certgen.bash" \
-    --hsm_module "${HSMTOOL_MODULE}" \
-    --token "${SPM_HSM_TOKEN_OFFLINE}" \
-    --hsm_pin "${HSMTOOL_PIN}" \
-    --output_tar "${CONFIG_DIR}/spm/sku/sival/hsm_ca_root_certs.tar.gz"
+  run_hsm_init "${SIVAL_DIR}/ca_root_certgen.bash" "${CA_OFFLINE_ARGS[@]}" \
+    --output_tar "${SIVAL_DIR}/${HSM_CA_ROOT_CERTS_TAR_GZ}"
 
   # Export Intermediate CA CSRs from SPM HSM.
-  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/ca_intermediate_certgen.bash" \
-    --hsm_module "${HSMTOOL_MODULE}" \
-    --token "${SPM_HSM_TOKEN_SPM}" \
-    --hsm_pin "${HSMTOOL_PIN}" \
-    --output_tar "${CONFIG_DIR}/spm/sku/sival/hsm_ca_intermediate_csr.tar.gz" \
+  run_hsm_init "${SIVAL_DIR}/ca_intermediate_certgen.bash" "${CA_SPM_ARGS[@]}" \
+    --output_tar "${SIVAL_DIR}/${HSM_CA_INTERMEDIATE_CSR_TAR_GZ}" \
     --csr_only
 
   # Endorse Intermediate CA CSRs in offline HSM.
-  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/ca_intermediate_certgen.bash" \
-    --hsm_module "${HSMTOOL_MODULE}" \
-    --token "${SPM_HSM_TOKEN_OFFLINE}" \
-    --hsm_pin "${HSMTOOL_PIN}" \
-    --input_tar "${CONFIG_DIR}/spm/sku/sival/hsm_ca_intermediate_csr.tar.gz" \
-    --output_tar "${CONFIG_DIR}/spm/sku/sival/hsm_ca_intermediate_certs.tar.gz" \
+  run_hsm_init "${SIVAL_DIR}/ca_intermediate_certgen.bash" \
+    "${CA_OFFLINE_ARGS[@]}" \
+    --input_tar "${SIVAL_DIR}/${HSM_CA_INTERMEDIATE_CSR_TAR_GZ}:${SIVAL_DIR}/${HSM_CA_ROOT_CERTS_TAR_GZ}" \
+    --output_tar "${SIVAL_DIR}/${HSM_CA_INTERMEDIATE_CERTS_TAR_GZ}" \
     --sign_only
 fi
 

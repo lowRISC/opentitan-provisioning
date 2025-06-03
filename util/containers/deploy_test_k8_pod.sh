@@ -34,6 +34,20 @@ tar -xzf ${REPO_TOP}/bazel-bin/config/${CONFIG_SUBDIR}/spm/sku/release.tar.gz \
 tar -xzf ${REPO_TOP}/bazel-bin/config/${CONFIG_SUBDIR}/spm/sku/sival/release.tar.gz \
     -C ${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}/spm/sku/sival
 
+if [[ "${CONFIG_SUBDIR}" == "dev" ]]; then
+    TARGETS=("common" "cr" "pi" "ti")
+    for TARGET in "${TARGETS[@]}"; do
+        RELEASE_NAME="release"
+        if [[ "${TARGET}" != "common" ]]; then
+            RELEASE_NAME="${TARGET}01_release"
+        fi
+        bazelisk build --stamp //config/${CONFIG_SUBDIR}/spm/sku/eg/${TARGET}:${RELEASE_NAME}
+        mkdir -p ${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}/spm/sku/eg/${TARGET}
+        tar -xzf ${REPO_TOP}/bazel-bin/config/${CONFIG_SUBDIR}/spm/sku/eg/${TARGET}/${RELEASE_NAME}.tar.gz \
+            -C ${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}/spm/sku/eg/${TARGET}
+    done
+fi
+
 TOKEN_INIT_SCRIPT="${REPO_TOP}/config/token_init.sh"
 if [ -f "${TOKEN_INIT_SCRIPT}" ]; then
     echo "Initializing tokens ..."

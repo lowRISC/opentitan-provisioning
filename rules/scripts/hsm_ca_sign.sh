@@ -7,15 +7,15 @@ set -e
 
 # The script must be executed from its local directory.
 usage () {
-  echo "Usage: $0 --input_tar <input.tar.gz> --output_tar <output.tar.gz>"
+  echo "Usage: $0 --input_tar <input.tar.gz[:input2.tar.gz...]> --output_tar <output.tar.gz>"
   echo "  --hsm_module <pkcs.some>     Path to the PKCS#11 module."
   echo "  --token <token>              Token name."
   echo "  --softhsm_config <config>    Path to the SoftHSM config file. Optional."
   echo "  --hsm_pin <pin>              PIN for the token."
-  echo "  --input_tar <input.tar.gz>   Path to the input tarball."
-  echo "  --output_tar <output.tar.gz> Path to the output tarball."
-  echo "  --csr_only                   Only export CSRs, do not sign them."
-  echo "  --sign_only                  Only sign certificates, skip CSR generation."
+  echo "  --input_tar <input.tar.gz[:input2.tar.gz...]> Path to the input tarball(s), separated by colons. Optional."
+  echo "  --output_tar <output.tar.gz> Path to the output tarball. Optional."
+  echo "  --csr_only                   Only export CSRs, do not sign them. Optional."
+  echo "  --sign_only                  Only sign certificates, skip CSR generation. Optional."
   echo "  --help                       Show this help message."
   exit 1
 }
@@ -120,23 +120,25 @@ if [[ "${FLAGS_CSR_ONLY}" == true ]] && [[ "${FLAGS_SIGN_ONLY}" == true ]]; then
   exit 1
 fi
 
-if [[ -n "${FLAGS_IN_TAR}" && "${FLAGS_IN_TAR}" != *.tar.gz  ]]; then
-  echo "Error: Input tarball must have .tar.gz extension."
-  exit 1
-fi
-
 if [[ -n "${FLAGS_OUT_TAR}" && "${FLAGS_OUT_TAR}" != *.tar.gz  ]]; then
   echo "Error: Output tarball must have .tar.gz extension."
   exit 1
 fi
 
 if [[ -n "${FLAGS_IN_TAR}" ]]; then
-  if [[ ! -f "${FLAGS_IN_TAR}" ]]; then
-    echo "Error: Input tarball does not exist."
-    exit 1
-  fi
-  echo "Extracting input tarball ${FLAGS_IN_TAR}"
-  tar -xzf "${FLAGS_IN_TAR}"
+  IFS=':' read -ra TAR_FILES <<< "${FLAGS_IN_TAR}"
+  for tar_file in "${TAR_FILES[@]}"; do
+    if [[ "${tar_file}" != *.tar.gz  ]]; then
+      echo "Error: Input tarball '${tar_file}' must have .tar.gz extension."
+      exit 1
+    fi
+    if [[ ! -f "${tar_file}" ]]; then
+      echo "Error: Input tarball '${tar_file}' does not exist."
+      exit 1
+    fi
+    echo "Extracting input tarball ${tar_file}"
+    tar -xzf "${tar_file}"
+  done
 fi
 
 
