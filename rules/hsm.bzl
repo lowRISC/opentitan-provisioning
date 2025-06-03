@@ -536,52 +536,14 @@ def _hsmtool_genscripts(ctx):
     )
     return up_hson_file, down_hjson_file
 
-def _certgen_params(ctx):
-    """Returns the certificate generation parameters.
-
-    This function processes the certificate generation parameters
-    and returns the templates, keys, and endorsing keys.
-
-    Root certificates are added before non-root certificates, this
-    is to ensure that the root certificate is always generated first.
-
-    Args:
-        ctx: The rule context.
-    """
-    templates, keys, endorsing_keys = [], [], []
-
-    # First pass: Add root certs.
-    for cg in ctx.attr.certgen:
-        cg = cg[CertGenInfo]
-        if not cg.root_cert:
-            continue
-        templates.append(shell.quote(cg.config))
-        keys.append(shell.quote(cg.key))
-        endorsing_keys.append(shell.quote(cg.ca_key))
-
-    # Second pass: Add non-root certs.
-    for cg in ctx.attr.certgen:
-        cg = cg[CertGenInfo]
-        if cg.root_cert:
-            continue
-        templates.append(shell.quote(cg.config))
-        keys.append(shell.quote(cg.key))
-        endorsing_keys.append(shell.quote(cg.ca_key))
-
-    return templates, keys, endorsing_keys
-
 def _hsm_config_script_impl(ctx):
     out_file = ctx.actions.declare_file(ctx.label.name + ".bash")
     up_hson_file, down_hjson_file = _hsmtool_genscripts(ctx)
-    templates, keys, endorsing_keys = _certgen_params(ctx)
 
     substitutions = {
         "@@INIT_HJSON@@": shell.quote(up_hson_file.basename),
         "@@DESTROY_HJSON@@": shell.quote(down_hjson_file.basename),
         "@@HSMTOOL_BIN@@": shell.quote(ctx.executable._hsmtool.basename),
-        "@@CERTGEN_TEMPLATES@@": " ".join(templates),
-        "@@CERTGEN_KEYS@@": " ".join(keys),
-        "@@CERTGEN_ENDORSING_KEYS@@": " ".join(endorsing_keys),
     }
 
     ctx.actions.expand_template(
@@ -608,10 +570,6 @@ hsm_config_script = rule(
         "hsmtool_sequence": attr.label_keyed_string_dict(
             mandatory = True,
         ),
-        "certgen": attr.label_list(
-            default = [],
-            providers = [CertGenInfo],
-        ),
         "_runner_general": attr.label(
             default = "//rules/scripts:hsmtool_runner.template.sh",
             allow_single_file = True,
@@ -626,19 +584,114 @@ hsm_config_script = rule(
     executable = True,
 )
 
-def hsm_config_tar(name, hsmtool_sequence, certgen = [], **kwargs):
+def hsm_config_tar(name, hsmtool_sequence, **kwargs):
     """Creates a tarball with the HSM configuration.
 
     Args:
         name: The name of the tarball.
         hsmtool_sequence: The sequence of commands to run.
-        certgen: The certificate generation parameters.
         **kwargs: Additional attributes to pass to the rule.
     """
     hsm_config_script(
         name = name,
         hsmtool_sequence = hsmtool_sequence,
-        certgen = certgen,
+        **kwargs
+    )
+    pkg_tar(
+        name = name + "_pkg",
+        srcs = [
+            ":" + name,
+        ],
+        extension = "tar.gz",
+        include_runfiles = True,
+    )
+
+def _certgen_params(ctx):
+    """Returns the certificate generation parameters.
+
+    This function processes the certificate generation parameters
+    and returns the templates, keys, and endorsing keys.
+
+    Root certificates are added before non-root certificates, this
+    is to ensure that the root certificate is always generated first.
+
+    Args:
+        ctx: The rule context.
+    """
+    templates, keys, endorsing_keys = [], [], []
+
+    # First pass: Add root certs.
+    for cg in ctx.attr.certs:
+        cg = cg[CertGenInfo]
+        if not cg.root_cert:
+            continue
+        templates.append(shell.quote(cg.config))
+        keys.append(shell.quote(cg.key))
+        endorsing_keys.append(shell.quote(cg.ca_key))
+
+    # Second pass: Add non-root certs.
+    for cg in ctx.attr.certs:
+        cg = cg[CertGenInfo]
+        if cg.root_cert:
+            continue
+        templates.append(shell.quote(cg.config))
+        keys.append(shell.quote(cg.key))
+        endorsing_keys.append(shell.quote(cg.ca_key))
+
+    return templates, keys, endorsing_keys
+
+def _hsm_certgen_script_impl(ctx):
+    """Generates the certificate generation script.
+
+    Args:
+        ctx: The rule context.
+    """
+    out_file = ctx.actions.declare_file(ctx.label.name + ".bash")
+    templates, keys, endorsing_keys = _certgen_params(ctx)
+
+    substitutions = {
+        "@@CERTGEN_TEMPLATES@@": " ".join(templates),
+        "@@CERTGEN_KEYS@@": " ".join(keys),
+        "@@CERTGEN_ENDORSING_KEYS@@": " ".join(endorsing_keys),
+    }
+
+    ctx.actions.expand_template(
+        template = ctx.file._runner_ca_sign,
+        output = out_file,
+        substitutions = substitutions,
+        is_executable = True,
+    )
+
+    return DefaultInfo(
+        executable = out_file,
+    )
+
+hsm_certgen_script = rule(
+    implementation = _hsm_certgen_script_impl,
+    attrs = {
+        "certs": attr.label_list(
+            mandatory = True,
+            providers = [CertGenInfo],
+        ),
+        "_runner_ca_sign": attr.label(
+            default = "//rules/scripts:hsm_ca_sign.sh",
+            allow_single_file = True,
+        ),
+    },
+    executable = True,
+)
+
+def hsm_certgen_tar(name, certs, **kwargs):
+    """Creates a tarball with the certificate generation script.
+
+    Args:
+        name: The name of the tarball.
+        certs: The certificate generation parameters.
+        **kwargs: Additional attributes to pass to the rule.
+    """
+    hsm_certgen_script(
+        name = name,
+        certs = certs,
         **kwargs
     )
     pkg_tar(
@@ -834,15 +887,10 @@ def hsm_certificate_authority_root(name, curve):
         type = "ecdsa",
     )
 
-def hsm_certificate_authority_intermediate(name, curve, wrapping_key, wrapping_mechanism):
+def hsm_certificate_authority_intermediate(name, curve):
     hsm_key_template(
         name = name,
-        import_template_private = hsmtool_pk11_attrs({
-            "CKA_SENSITIVE": True,
-            "CKA_SIGN": True,
-            "CKA_TOKEN": True,
-            "CKA_EXTRACTABLE": False,
-        }),
+        export_public_only = True,
         import_template_public = hsmtool_pk11_attrs({
             "CKA_VERIFY": True,
             "CKA_TOKEN": True,
@@ -855,7 +903,7 @@ def hsm_certificate_authority_intermediate(name, curve, wrapping_key, wrapping_m
                 "CKA_LABEL": name + ".priv",
                 "CKA_SIGN": True,
                 "CKA_TOKEN": True,
-                "CKA_EXTRACTABLE": True,
+                "CKA_EXTRACTABLE": False,
                 "CKA_SENSITIVE": True,
             },
             public_template = {
@@ -866,8 +914,6 @@ def hsm_certificate_authority_intermediate(name, curve, wrapping_key, wrapping_m
             wrapping = False,
         ),
         type = "ecdsa",
-        wrapping_key = wrapping_key,
-        wrapping_mechanism = wrapping_mechanism,
     )
 
 def hsm_generic_secret(name, wrapping_key, wrapping_mechanism):

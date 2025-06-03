@@ -77,38 +77,91 @@ if [[ "dev" == "${CONFIG_SUBDIR}" ]]; then
     -o "${CONFIG_DIR}/spm/sku/spm_hsm_init.tar.gz"
 
   # Run the SKU initilization script in the offline HSM partition.
+  # Creates root CA private key and RMA wrap/unwrap key.
   run_hsm_init "${CONFIG_DIR}/spm/sku/sival/offline_init.bash" \
     -m "${HSMTOOL_MODULE}" \
     -t "${SPM_HSM_TOKEN_OFFLINE}" \
     -s "${SOFTHSM2_CONF_OFFLINE}" \
     -p "${HSMTOOL_PIN}"
 
+  # Exports RMA public key and high and low security seeds from the offline HSM
+  # partition.
   run_hsm_init "${CONFIG_DIR}/spm/sku/sival/offline_export.bash" \
     -m "${HSMTOOL_MODULE}" \
     -t "${SPM_HSM_TOKEN_OFFLINE}" \
     -s "${SOFTHSM2_CONF_OFFLINE}" \
     -p "${HSMTOOL_PIN}" \
     -i "${CONFIG_DIR}/spm/sku/spm_hsm_init.tar.gz" \
-    -o "${CONFIG_DIR}/spm/sku/sival/hsm_offline_init.tar.gz"
+    -o "${CONFIG_DIR}/spm/sku/sival/hsm_offline_export.tar.gz"
 
-  # Run the SKU initialization script in the SPM partition.
+  # Generate SPM private keys.
   run_hsm_init "${CONFIG_DIR}/spm/sku/sival/spm_sku_init.bash" \
     -m "${HSMTOOL_MODULE}" \
     -t "${SPM_HSM_TOKEN_SPM}" \
     -s "${SOFTHSM2_CONF_SPM}" \
     -p "${HSMTOOL_PIN}" \
-    -i "${CONFIG_DIR}/spm/sku/sival/hsm_offline_init.tar.gz" \
-    -o "${CONFIG_DIR}/spm/sku/sival/hsm_sival_sku.tar.gz"
-else
-  # In production, we only run the offline export script with the -c flag
-  # to generate the CA certificates. The -s flag is not used here.
-  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/offline_export.bash" \
+    -i "${CONFIG_DIR}/spm/sku/sival/hsm_offline_export.tar.gz"
+
+  # Generate Intermediate CA private keys.
+  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/spm_ca_keygen.bash" \
     -m "${HSMTOOL_MODULE}" \
-    -t "${SPM_HSM_TOKEN_OFFLINE}" \
-    -s "${SOFTHSM2_CONF_OFFLINE}" \
-    -p "${HSMTOOL_PIN}" \
-    -o "${CONFIG_DIR}/spm/sku/sival/hsm_offline_init.tar.gz" \
-    -c
+    -t "${SPM_HSM_TOKEN_SPM}" \
+    -s "${SOFTHSM2_CONF_SPM}" \
+    -p "${HSMTOOL_PIN}"
+
+  # Generate Root Certificate.
+  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/ca_root_certgen.bash" \
+    --hsm_module "${HSMTOOL_MODULE}" \
+    --token "${SPM_HSM_TOKEN_OFFLINE}" \
+    --softhsm_config "${SOFTHSM2_CONF_OFFLINE}" \
+    --hsm_pin "${HSMTOOL_PIN}" \
+    --output_tar "${CONFIG_DIR}/spm/sku/sival/hsm_ca_root_certs.tar.gz"
+
+  # Export Intermediate CA CSRs from SPM HSM.
+  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/ca_intermediate_certgen.bash" \
+    --hsm_module "${HSMTOOL_MODULE}" \
+    --token "${SPM_HSM_TOKEN_SPM}" \
+    --softhsm_config "${SOFTHSM2_CONF_SPM}" \
+    --hsm_pin "${HSMTOOL_PIN}" \
+    --output_tar "${CONFIG_DIR}/spm/sku/sival/hsm_ca_intermediate_csr.tar.gz" \
+    --csr_only
+
+  # Endorse Intermediate CA CSRs in offline HSM.
+  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/ca_intermediate_certgen.bash" \
+    --hsm_module "${HSMTOOL_MODULE}" \
+    --token "${SPM_HSM_TOKEN_OFFLINE}" \
+    --softhsm_config "${SOFTHSM2_CONF_OFFLINE}" \
+    --hsm_pin "${HSMTOOL_PIN}" \
+    --input_tar "${CONFIG_DIR}/spm/sku/sival/hsm_ca_intermediate_csr.tar.gz" \
+    --output_tar "${CONFIG_DIR}/spm/sku/sival/hsm_ca_intermediate_certs.tar.gz" \
+    --sign_only
+
+else
+  # In production mode, we only perform CA CSR and signing operations.
+
+  # Generate Root Certificate.
+  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/ca_root_certgen.bash" \
+    --hsm_module "${HSMTOOL_MODULE}" \
+    --token "${SPM_HSM_TOKEN_OFFLINE}" \
+    --hsm_pin "${HSMTOOL_PIN}" \
+    --output_tar "${CONFIG_DIR}/spm/sku/sival/hsm_ca_root_certs.tar.gz"
+
+  # Export Intermediate CA CSRs from SPM HSM.
+  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/ca_intermediate_certgen.bash" \
+    --hsm_module "${HSMTOOL_MODULE}" \
+    --token "${SPM_HSM_TOKEN_SPM}" \
+    --hsm_pin "${HSMTOOL_PIN}" \
+    --output_tar "${CONFIG_DIR}/spm/sku/sival/hsm_ca_intermediate_csr.tar.gz" \
+    --csr_only
+
+  # Endorse Intermediate CA CSRs in offline HSM.
+  run_hsm_init "${CONFIG_DIR}/spm/sku/sival/ca_intermediate_certgen.bash" \
+    --hsm_module "${HSMTOOL_MODULE}" \
+    --token "${SPM_HSM_TOKEN_OFFLINE}" \
+    --hsm_pin "${HSMTOOL_PIN}" \
+    --input_tar "${CONFIG_DIR}/spm/sku/sival/hsm_ca_intermediate_csr.tar.gz" \
+    --output_tar "${CONFIG_DIR}/spm/sku/sival/hsm_ca_intermediate_certs.tar.gz" \
+    --sign_only
 fi
 
 echo "HSM initialization complete."
