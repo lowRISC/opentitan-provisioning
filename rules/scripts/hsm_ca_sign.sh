@@ -206,7 +206,7 @@ certgen () {
   CERT_FILE="${OUTDIR_CA}/${ca_key}.pem"
 
 
-  
+
   if [[ "${FLAGS_SIGN_ONLY}" == false ]]; then
     # Generate a CSR for the CA key. This can be either a root CA or an
     # intermediate CA.
@@ -219,7 +219,7 @@ certgen () {
   else
     # Running in sign only mode means that the CSR is already present in the
     # input tarball and/or ca directory. Only need to check if the CSR file
-    # exists. 
+    # exists.
     if [[ ! -f "${CSR_FILE}" ]]; then
       echo "Error: CSR file ${CSR_FILE} does not exist."
       exit 1
@@ -266,6 +266,9 @@ certgen () {
       -CAkeyform engine \
       -CAkey "${ENDORSING_KEY}"
   fi
+
+  echo "Converting certificate for ${ca_key} to DER"
+  openssl x509 -in "${CERT_FILE}" -outform DER -out "${OUTDIR_CA}/${ca_key}.der"
 }
 
 for i in "${!CERTGEN_TEMPLATES[@]}"; do

@@ -117,18 +117,15 @@ CKA_VERIFY    | True  | True
 ### Intermediate Certificate Authority
 
 Intermediate Certificate Authority. Used to endorse Device Under Test (DUT)
-generated payloads. This key is deployed in the SPM HSM.
+generated payloads. This key is generated directly in the SPM HSM.
 
 > Note: Use the `hsm_certificate_authority_intermediate` macro to define this
 key.
 
-**Wrapping Configuration**
+**Key Generation**
 
-The following wrapping configuration shall be used for private keys.
-
-* Recommended mechanism: `VendorThalesAesKwp` or other approved `AesKwp`
-  mechanism.
-* Wrapping key: `Symmetric SKU-Specific Wrapping Key`
+The private key is generated directly in the SPM HSM and is not extractable.
+The CSR is generated in the SPM HSM and signed by the Root CA in the Offline HSM.
 
 #### Attributes
 
@@ -140,11 +137,11 @@ provisioning environment.
 
 Attribute       | SPM   | Offline
 ----------------|-------|--------
-CKA_DECRYPT     | False | False
-CKA_EXTRACTABLE | False | True
-CKA_SENSITIVE   | True  | True
-CKA_SIGN        | True  | True
-CKA_TOKEN       | True  | True
+CKA_DECRYPT     | False | N/A
+CKA_EXTRACTABLE | False | N/A
+CKA_SENSITIVE   | True  | N/A
+CKA_SIGN        | True  | N/A
+CKA_TOKEN       | True  | N/A
 
 **Public Key**
 
@@ -153,7 +150,6 @@ Attribute     | SPM   | Offline
 CKA_ENCRYPT   | False | False
 CKA_TOKEN     | True  | True
 CKA_VERIFY    | True  | True
-
 
 ## Generic Secrets
 

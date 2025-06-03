@@ -71,12 +71,40 @@ sival-token-losec: Low security generic securet used for token generation.
 The following sequence diagram shows the end to end SKU provisioning flow
 involving `Offline` and `SPM` HSMs.
 
-Each SKU should have three configuration bundles:
+Each SKU should have the following configuration bundles:
 
 1. SPM HSM Initialization
 2. SKU Initialization (Offline HSM)
 3. SKU Export (Offline HSM)
 4. SKU Import (SPM HSM)
+5. Certificate Authority Operations
+
+### Certificate Authority Operations
+
+The certificate authority operations are split into three main steps:
+
+1. Root CA Certificate Generation (Offline HSM)
+2. Intermediate CA CSR Generation (SPM HSM)
+3. Intermediate CA CSR Signing (Offline HSM)
+
+```mermaid
+sequenceDiagram
+    participant Offline
+    participant SPM
+    participant File
+    autonumber
+
+    note left of Offline: Root CA Certificate Generation
+    Offline->>File: generate-root-cert(opentitan-ca-root)
+
+    note left of SPM: Intermediate CA CSR Generation
+    SPM->>SPM: ecdsa-generate(sival-dice-key-p256)
+    SPM->>File: generate-csr(sival-dice-key-p256)
+
+    note left of Offline: Intermediate CA CSR Signing
+    File->>Offline: import-csr(sival-dice-key-p256)
+    Offline->>File: sign-csr(opentitan-ca-root, sival-dice-key-p256)
+```
 
 ### Build SKU
 
@@ -158,11 +186,6 @@ sequenceDiagram
 
     note left of Offline: Offline - HSM SKU Keygen
     Offline->>Offline: rsa-generate(sku-rsa-rma)
-
-    loop all <application> endorsement certs
-        Offline->>Offline: ecdsa-generate(sku-endorse-cert-<application>-key)
-    end
-
     Offline->>Offline: generic-secret-generate(sku-token-hisec)
     Offline->>Offline: generic-secret-generate(sku-token-losec)
 ```
@@ -194,11 +217,6 @@ sequenceDiagram
     note left of Offline: Offline - SKU Key Export
     File->>Offline: rsa-import(spm-rsa-wrap)
     Offline->File: wrap(spm-rsa-wrap, sku-aes-wrap)
-
-    loop left all <application> endorsement certs
-        Offline->>File: wrap(sku-aes-wrap, sku-endorse-cert-<application>-key)
-    end
-
     Offline->>File: wrap(sku-aes-wrap, sku-token-hisec)
     Offline->>File: wrap(sku-aes-wrap, sku-token-losec)
 ```
@@ -243,12 +261,9 @@ sequenceDiagram
 
     note left of File: SPM SKU Initialization
     File->>SPM: unwrap(spm-rsa-unwrap, sku-aes-wrap)
-    loop all <application> endorsement certs
-        File->>SPM: unwrap(sku-aes-wrap, sku-endorse-cert-<application>-key)
-    end
-
+    SPM->>SPM: ecdsa-generate(sival-dice-key-p256)
     File->>SPM: unwrap(sku-aes-wrap, sku-token-hisec)
-    File->>SPM: unwrap(spm-rsa-wrap, sku-aes-wrap)
+    File->>SPM: unwrap(sku-aes-wrap, sku-token-losec)
 ```
 
 1. Expand the contents of `sival_sku_release.tar.gz`.
@@ -257,15 +272,9 @@ sequenceDiagram
 $ tar vxf sival_sku_release.tar.gz
 ```
 
-2. Run SKU export scripts.
+2. Run scripts
 
-```shell
-$ ./spm_sku_init.bash \
-  -m "${HSMTOOL_MODULE}" \
-  -t "${SPM_HSM_TOKEN_SPM}" \
-  -p "${HSMTOOL_PIN}" \
-  -i offline_export_sival_sku.tar.gz
-```
+See `token_init.sh` script for examples.
 
 ## Troubleshooting
 
