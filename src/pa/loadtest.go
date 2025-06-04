@@ -16,6 +16,7 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bazelbuild/rules_go/go/tools/bazel"
@@ -49,6 +50,7 @@ var (
 	clientCert          = flag.String("client_cert", "", "File path to the PEM encoding of the client's certificate chain")
 	caRootCerts         = flag.String("ca_root_certs", "", "File path to the PEM encoding of the CA root certificates")
 	testSKUAuth         = flag.String("sku_auth", "test_password", "The SKU authorization password to use.")
+	skuNames            = flag.String("sku_names", "", "Comma-separated list of SKUs to test (e.g., sival,cr01,pi01,ti01). Required.")
 	parallelClients     = flag.Int("parallel_clients", 0, "The total number of clients to run concurrently")
 	totalCallsPerMethod = flag.Int("total_calls_per_method", 0, "The total number of calls to execute during the load test")
 	delayPerCall        = flag.Duration("delay_per_call", 10*time.Millisecond, "Delay between client calls used to emulate tester timeing. Default 100ms")
@@ -405,6 +407,10 @@ func run(ctx context.Context, cg *clientGroup, numCalls int, skuName string, tes
 func main() {
 	flag.Parse()
 
+	if *skuNames == "" {
+		log.Fatalf("sku_names is required")
+	}
+
 	type result struct {
 		skuName  string
 		testName string
@@ -412,53 +418,54 @@ func main() {
 		msg      string
 	}
 	results := []result{}
+	parsedSkuNames := strings.Split(*skuNames, ",")
 
-	for _, t := range []struct {
-		skuName  string
+	tests := []struct {
 		testName string
 		testFunc callFunc
 	}{
 		{
-			skuName:  "sival",
 			testName: "OT:DeriveTokens",
 			testFunc: testOTDeriveTokens,
 		},
 		{
-			skuName:  "sival",
 			testName: "OT:GetCaSerialNumbers",
 			testFunc: testOTGetCaSerialNumbers,
 		},
 		{
-			skuName:  "sival",
 			testName: "OT:EndorseCerts",
 			testFunc: NewEndorseCertTest(),
 		},
 		{
-			skuName:  "sival",
 			testName: "OT:RegisterDevice",
 			testFunc: testOTRegisterDevice,
 		},
-	} {
-		log.Printf("sku: %q", t.skuName)
-		result := result{skuName: t.skuName, testName: t.testName}
-		ctx := context.Background()
-		cg, err := newClientGroup(ctx, *parallelClients, *totalCallsPerMethod, *delayPerCall, t.skuName)
-		if err != nil {
-			result.pass = false
-			result.msg = fmt.Sprintf("failed to initialize client tasks: %v", err)
-			results = append(results, result)
-			continue
+	}
+
+	for _, skuName := range parsedSkuNames {
+		log.Printf("Processing SKU: %q", skuName)
+		for _, t := range tests {
+			log.Printf("sku: %q, test: %q", skuName, t.testName)
+			currentResult := result{skuName: skuName, testName: t.testName}
+			ctx := context.Background()
+			cg, err := newClientGroup(ctx, *parallelClients, *totalCallsPerMethod, *delayPerCall, skuName)
+			if err != nil {
+				currentResult.pass = false
+				currentResult.msg = fmt.Sprintf("failed to initialize client tasks: %v", err)
+				results = append(results, currentResult)
+				continue
+			}
+			log.Printf("Running test %q for SKU %q", t.testName, skuName)
+			if err := run(ctx, cg, *totalCallsPerMethod, skuName, t.testFunc); err != nil {
+				currentResult.pass = false
+				currentResult.msg = fmt.Sprintf("failed to execute test: %v", err)
+				results = append(results, currentResult)
+				continue
+			}
+			currentResult.pass = true
+			currentResult.msg = "PASS"
+			results = append(results, currentResult)
 		}
-		log.Printf("Running test %q", t.testName)
-		if err := run(ctx, cg, *totalCallsPerMethod, t.skuName, t.testFunc); err != nil {
-			result.pass = false
-			result.msg = fmt.Sprintf("failed to execute test: %v", err)
-			results = append(results, result)
-			continue
-		}
-		result.pass = true
-		result.msg = "PASS"
-		results = append(results, result)
 	}
 
 	failed := 0

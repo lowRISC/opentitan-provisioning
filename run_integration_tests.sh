@@ -8,6 +8,11 @@ set -e
 # Build and deploy the provisioning infrastructure.
 source util/integration_test_setup.sh
 
+SKU_NAMES="sival,cr01,pi01,ti01"
+if [[ "${OT_PROV_PROD_EN}" == "yes" ]]; then
+  SKU_NAMES="sival"
+fi
+
 # Run the PA loadtest.
 echo "Running PA loadtest ..."
 bazelisk run //src/pa:loadtest -- \
@@ -18,7 +23,8 @@ bazelisk run //src/pa:loadtest -- \
    --pa_address="${OTPROV_DNS_PA}:${OTPROV_PORT_PA}" \
    --sku_auth="test_password" \
    --parallel_clients=2 \
-   --total_calls_per_method=4
+   --total_calls_per_method=4 \
+   --sku_names="${SKU_NAMES}"
 echo "Done."
 
 # Run the CP and FT flows (default to hyper340 since that is installed in CI).
