@@ -22,7 +22,6 @@ publicKeys:
 attributes:
     SeedSecHi: eg-kdf-hisec-v0
     SeedSecLo: eg-kdf-losec-v0
-    KdfMechanism: HKDF
     WASKeyLabel: eg-kdf-hisec-v0
     WrappingMechanism: RsaPkcs
     WrappingKeyLabel: sku-eg-rsa-rma-v0.pub

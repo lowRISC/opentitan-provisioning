@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-sku: "pi01"
+sku: "cr01"
 slotId: 0
 numSessions: 3
 symmetricKeys:
@@ -10,12 +10,12 @@ symmetricKeys:
   - name: eg-kdf-losec-v0
 certs:
   - name: dice-ica
-    path: sku/eg/pi/ca/pi01-ica-dice-key-p256-v0.priv.der
+    path: sku/eg/cr/ca/cr01-ica-dice-key-p256-v0.priv.der
   - name: ext-ica
-    path: sku/eg/pi/ca/pi01-ica-ext-key-p256-v0.priv.der
+    path: sku/eg/cr/ca/cr01-ica-ext-key-p256-v0.priv.der
 privateKeys:
-    - name: pi01-ica-dice-key-p256-v0.priv
-    - name: pi01-ica-ext-key-p256-v0.priv
+    - name: cr01-ica-dice-key-p256-v0.priv
+    - name: cr01-ica-ext-key-p256-v0.priv
     - name: spm-hsm-id-v0.priv
 publicKeys:
     - name: sku-eg-rsa-rma-v0.pub
@@ -23,8 +23,8 @@ attributes:
     SeedSecHi: eg-kdf-hisec-v0
     SeedSecLo: eg-kdf-losec-v0
     WASKeyLabel: eg-kdf-hisec-v0
-    WrappingMechanism: RsaPkcs
+    WrappingMechanism: RsaOaep
     WrappingKeyLabel: sku-eg-rsa-rma-v0.pub
-    SigningKey/Dice/v0: pi01-ica-dice-key-p256-v0.priv
-    SigningKey/Ext/v0: pi01-ica-ext-key-p256-v0.priv
+    SigningKey/Dice/v0: cr01-ica-dice-key-p256-v0.priv
+    SigningKey/Ext/v0: cr01-ica-ext-key-p256-v0.priv
     SigningKey/Identity/v0: spm-hsm-id-v0.priv

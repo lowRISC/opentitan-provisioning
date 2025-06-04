@@ -1,0 +1,111 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load(
+    "//rules:hsm.bzl",
+    "hsm_certgen",
+    "hsm_certgen_tar",
+    "hsm_certificate_authority_root",
+    "hsm_config_tar",
+    "hsm_generic_secret",
+    "hsm_sku_rma_key",
+    "hsm_sku_wrapping_key",
+)
+load(
+    "//rules:hsmtool.bzl",
+    "HSMTOOL_CONST",
+)
+
+package(default_visibility = ["//visibility:public"])
+
+hsm_sku_wrapping_key(
+    name = "eg-aes-wrap-v0",
+    wrapping_key = "//config/prod/spm/sku:spm-rsa-wrap-v0",
+    wrapping_mechanism = "RsaPkcsOaep",
+)
+
+hsm_sku_rma_key(
+    name = "sku-eg-rsa-rma-v0",
+)
+
+hsm_certificate_authority_root(
+    name = "opentitan-ca-root-v0",
+    curve = HSMTOOL_CONST.ECC_CURVE.PRIME256V1,
+)
+
+hsm_generic_secret(
+    name = "eg-kdf-hisec-v0",
+    wrapping_key = ":eg-aes-wrap-v0",
+    wrapping_mechanism = "VendorThalesAesKwp",
+)
+
+hsm_generic_secret(
+    name = "eg-kdf-losec-v0",
+    wrapping_key = ":eg-aes-wrap-v0",
+    wrapping_mechanism = "VendorThalesAesKwp",
+)
+
+hsm_certgen(
+    name = "ca_root",
+    config = ":ca_root.conf",
+    key = ":opentitan-ca-root-v0",
+    root_cert = True,
+)
+
+hsm_config_tar(
+    name = "offline_init",
+    hsmtool_sequence = {
+        ":opentitan-ca-root-v0": "keygen",
+        ":eg-aes-wrap-v0": "keygen",
+        ":eg-kdf-hisec-v0": "keygen",
+        ":eg-kdf-losec-v0": "keygen",
+        ":sku-eg-rsa-rma-v0": "keygen",
+    },
+)
+
+hsm_config_tar(
+    name = "offline_export",
+    hsmtool_sequence = {
+        "//config/prod/spm/sku:spm-rsa-wrap-v0": "import",
+        ":eg-aes-wrap-v0": "export",
+        ":eg-kdf-hisec-v0": "export",
+        ":eg-kdf-losec-v0": "export",
+        ":sku-eg-rsa-rma-v0": "export",
+    },
+)
+
+# Initialize the SPM instance with the shared secrets produced by
+# offline_export.
+hsm_config_tar(
+    name = "spm_sku_init",
+    hsmtool_sequence = {
+        ":eg-aes-wrap-v0": "import",
+        ":eg-kdf-hisec-v0": "import",
+        ":eg-kdf-losec-v0": "import",
+        ":sku-eg-rsa-rma-v0": "import",
+    },
+)
+
+hsm_certgen_tar(
+    name = "ca_root_certgen",
+    certs = [
+        ":ca_root",
+    ],
+)
+
+pkg_tar(
+    name = "release",
+    srcs = [
+        ":ca_root_certgen",
+        ":offline_export",
+        ":offline_init",
+        ":spm_sku_init",
+    ] + [
+        # Certificate template files.
+        ":ca_root.conf",
+    ],
+    extension = "tar.gz",
+    include_runfiles = True,
+)
