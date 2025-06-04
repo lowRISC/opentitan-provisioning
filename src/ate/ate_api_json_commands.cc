@@ -274,7 +274,7 @@ DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob, dut_spi_frame_t *result,
   ot::dut_commands::PersoBlobJSON blob_cmd;
   if (blob == nullptr || blob->num_objects == 0 ||
       blob->next_free > sizeof(blob->body)) {
-    LOG(ERROR) << "Invalid perso blob" << blob->num_objects << ", "
+    LOG(ERROR) << "Invalid perso blob " << blob->num_objects << ", "
                << blob->next_free;
     return -1;
   }

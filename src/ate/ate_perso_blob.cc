@@ -347,6 +347,7 @@ DLLEXPORT int PackPersoBlob(size_t cert_count,
 
     // Update the next free offset in the blob.
     blob->next_free += obj_size;
+    blob->num_objects++;
   }
   return 0;
 }

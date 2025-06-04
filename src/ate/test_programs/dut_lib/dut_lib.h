@@ -36,27 +36,14 @@ class DutLib {
    */
   void DutBootstrap(const std::string& bin);
   /**
-   * Waits for a GPIO pin to toggle high.
-   */
-  void DutWaitForGpioState(const char* pin, bool state, uint64_t timeout_ms);
-  /**
    * Calls opentitanlib test util to wait for a message over the SPI console.
    */
   void DutConsoleWaitForRx(const char* msg, uint64_t timeout_ms);
   /**
-   * Calls opentitanlib test util to receive a message over the SPI console.
-   */
-  std::string DutConsoleRx(bool quiet, uint64_t timeout_ms);
-  /**
    * Calls opentitanlib test util to send a message over the SPI console.
    */
-  void DutConsoleTx(std::string& msg);
-  /**
-   * Calls opentitanlib methods to send a CP provisioning data UJSON payload
-   * over the SPI console to the DUT.
-   */
-  void DutTxCpProvisioningData(const uint8_t* spi_frame, size_t spi_frame_size,
-                               uint64_t timeout_ms);
+  void DutConsoleTx(const std::string& sync_msg, const uint8_t* spi_frame,
+                    size_t spi_frame_size, uint64_t timeout_ms);
   /**
    * Calls opentitanlib methods to receive the CP device ID UJSON payload over
    * the SPI console from the DUT.
@@ -74,29 +61,11 @@ class DutLib {
   void DutLcTransition(const std::string& openocd, const uint8_t* token,
                        size_t token_size, uint32_t target_lc_state);
   /**
-   * Calls opentitanlib methods to send the RMA unlock token hash over the SPI
-   * console to the DUT.
-   */
-  void DutTxFtRmaUnlockTokenHash(const uint8_t* spi_frame,
-                                 size_t spi_frame_size, uint64_t timeout_ms);
-  /**
-   * Calls opentitanlib methods to send the CA serial numbers over the SPI
-   * console to the DUT so the DUT can generate TBS certificates.
-   */
-  void DutTxFtCaSerialNums(const uint8_t* spi_frame, size_t spi_frame_size,
-                           uint64_t timeout_ms);
-  /**
    * Calls opentitanlib methods to receive the perso blob from the DUT, which
    * contains the TBS certificates to be endorsed.
    */
   void DutRxFtPersoBlob(bool quiet, uint64_t timeout_ms, size_t* num_objs,
                         size_t* next_free, uint8_t* body);
-  /**
-   * Calls opentitanlib methods to send the perso blob back to the DUT, which
-   * contains the TBS certificates to be endorsed.
-   */
-  void DutTxFtPersoBlob(const uint8_t* spi_frame, size_t spi_frame_size,
-                        uint64_t timeout_ms);
 
  private:
   // Must be 2x the opentitanlib UartConsole buffer size defined here:

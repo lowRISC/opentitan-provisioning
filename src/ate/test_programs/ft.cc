@@ -283,12 +283,13 @@ int main(int argc, char **argv) {
   dut->DutBootstrap(ft_perso_bin_path);
   dut->DutConsoleWaitForRx("Bootstrap requested.", /*timeout_ms=*/1000);
   dut->DutBootstrap(ft_fw_bundle_path);
-  dut->DutTxFtRmaUnlockTokenHash(rma_token_spi_frame.payload,
-                                 rma_token_spi_frame.cursor,
-                                 /*timeout_ms=*/1000);
-  dut->DutTxFtCaSerialNums(ca_serial_numbers_spi_frame.payload,
-                           ca_serial_numbers_spi_frame.cursor,
-                           /*timeout_ms=*/1000);
+  dut->DutConsoleTx("Waiting For RMA Unlock Token Hash ...",
+                    rma_token_spi_frame.payload, rma_token_spi_frame.cursor,
+                    /*timeout_ms=*/1000);
+  dut->DutConsoleTx("Waiting for certificate inputs ...",
+                    ca_serial_numbers_spi_frame.payload,
+                    ca_serial_numbers_spi_frame.cursor,
+                    /*timeout_ms=*/1000);
 
   // Receive the TBS certs and other provisioning data from the DUT.
   perso_blob_t perso_blob_from_dut = {
@@ -342,14 +343,34 @@ int main(int argc, char **argv) {
 
   // Send the endorsed certs back to the device.
   perso_blob_t perso_blob_from_ate;
+  constexpr size_t kNumPersoBlobMaxNumSpiFrames = 10;
+  dut_spi_frame_t perso_blob_from_ate_spi_frames[kNumPersoBlobMaxNumSpiFrames];
+  size_t num_perso_blob_spi_frames = kNumPersoBlobMaxNumSpiFrames;
   if (PackPersoBlob(num_tbs_certs, endorse_certs_responses,
                     &perso_blob_from_ate) != 0) {
     LOG(ERROR) << "Failed to repack the perso blob.";
     return -1;
   }
-  dut->DutTxFtPersoBlob(ca_serial_numbers_spi_frame.payload,
-                        ca_serial_numbers_spi_frame.cursor,
+  if (PersoBlobToJson(&perso_blob_from_ate, perso_blob_from_ate_spi_frames,
+                      &num_perso_blob_spi_frames) != 0) {
+    LOG(ERROR) << "PersoBlobToJson failed.";
+    return -1;
+  }
+  const char *perso_blob_sync_msg = "Importing endorsed certificates ...";
+  const char *empty_sync_msg = "";
+  for (size_t i = 0; i < num_perso_blob_spi_frames; ++i) {
+    if (i == 0) {
+      dut->DutConsoleTx(perso_blob_sync_msg,
+                        perso_blob_from_ate_spi_frames[i].payload,
+                        perso_blob_from_ate_spi_frames[i].cursor,
                         /*timeout_ms=*/1000);
+    } else {
+      dut->DutConsoleTx(empty_sync_msg,
+                        perso_blob_from_ate_spi_frames[i].payload,
+                        perso_blob_from_ate_spi_frames[i].cursor,
+                        /*timeout_ms=*/1000);
+    }
+  }
 
   // TODO(timothytrippel): Check the cert chains validate.
   // TODO(timothytrippel): Register the device.

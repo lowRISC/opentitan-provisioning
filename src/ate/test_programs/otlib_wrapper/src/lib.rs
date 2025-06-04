@@ -3,18 +3,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::ffi::CStr;
-use std::io::Write;
 use std::os::raw::c_char;
 use std::path::PathBuf;
 use std::slice;
 use std::str::FromStr;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use anyhow::Result;
 use arrayvec::ArrayVec;
-use crc::{Crc, CRC_32_ISO_HDLC};
-use regex::Regex;
-use zerocopy::AsBytes;
 
 use cp_lib::reset_and_lock;
 use opentitanlib::app::TransportWrapper;
@@ -26,7 +21,7 @@ use opentitanlib::backend::verilator::VerilatorOpts;
 use opentitanlib::bootstrap::{BootstrapOptions, BootstrapProtocol};
 use opentitanlib::console::spi::SpiConsoleDevice;
 use opentitanlib::dif::lc_ctrl::{DifLcCtrlState, LcCtrlReg};
-use opentitanlib::io::console::{ConsoleDevice, ConsoleError};
+use opentitanlib::io::console::ConsoleDevice;
 use opentitanlib::io::gpio::{PinMode, PullMode};
 use opentitanlib::io::jtag::{JtagParams, JtagTap};
 use opentitanlib::io::spi::SpiParams;
@@ -39,7 +34,7 @@ use opentitanlib::test_utils::load_sram_program::{
     ExecutionMode, ExecutionResult, SramProgramParams,
 };
 use opentitanlib::test_utils::rpc::ConsoleRecv;
-use opentitanlib::uart::console::{ExitStatus, UartConsole};
+use opentitanlib::uart::console::UartConsole;
 use ujson_lib::provisioning_data::{ManufCpProvisioningDataOut, PersoBlob};
 
 #[no_mangle]
@@ -216,44 +211,6 @@ pub extern "C" fn OtLibBootstrap(transport: *const TransportWrapper, bin: *mut c
 }
 
 #[no_mangle]
-pub extern "C" fn OtLibWaitForGpioState(
-    transport: *const TransportWrapper,
-    pin: *mut c_char,
-    state: bool,
-    timeout_ms: u64,
-) {
-    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
-    // the call to `OtLibFpgaTransportInit(...)` above.
-    let transport: &TransportWrapper = unsafe { &*transport };
-
-    // Unpack pin string.
-    // SAFETY: The pin string must be set by the caller and be valid.
-    let pin_cstr = unsafe { CStr::from_ptr(pin) };
-    let pin_str = pin_cstr.to_str().unwrap();
-
-    // Get handle to SPI console.
-    let status_pin = &transport.gpio_pin(pin_str).unwrap();
-    let _ = status_pin
-        .set_mode(PinMode::Input)
-        .expect("Unable to set GPIO pin mode.");
-    let _ = status_pin
-        .set_pull_mode(PullMode::None)
-        .expect("Unable to set GPIO pull mode.");
-
-    // Wait for pin to reach the specified state.
-    let timeout = Duration::from_millis(timeout_ms);
-    let deadline = Instant::now() + timeout;
-    loop {
-        if Instant::now() > deadline {
-            panic!("Timed out waiting for a GPIO to toggle.");
-        }
-        if status_pin.read().expect("failed to read GPIO pin.") == state {
-            break;
-        }
-    }
-}
-
-#[no_mangle]
 pub extern "C" fn OtLibConsoleWaitForRx(
     transport: *const TransportWrapper,
     c_msg: *mut c_char,
@@ -288,121 +245,10 @@ pub extern "C" fn OtLibConsoleWaitForRx(
     let _ = UartConsole::wait_for(&spi_console, msg, Duration::from_millis(timeout_ms)).unwrap();
 }
 
-fn check_console_crc(json_str: &str, crc_str: &str) -> Result<()> {
-    let crc = crc_str.parse::<u32>()?;
-    let actual_crc = Crc::<u32>::new(&CRC_32_ISO_HDLC).checksum(json_str.as_bytes());
-    if crc != actual_crc {
-        return Err(
-            ConsoleError::GenericError("CRC didn't match received json body.".into()).into(),
-        );
-    }
-    Ok(())
-}
-
 #[no_mangle]
-pub extern "C" fn OtLibConsoleRx(
+pub extern "C" fn OtLibConsoleTx(
     transport: *const TransportWrapper,
-    quiet: bool,
-    timeout_ms: u64,
-    msg: *mut u8,
-    msg_size: *mut usize,
-) {
-    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
-    // the call to `OtLibFpgaTransportInit(...)` above.
-    let transport: &TransportWrapper = unsafe { &*transport };
-
-    // Get handle to SPI console.
-    let spi = transport.spi("BOOTSTRAP").unwrap();
-    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").unwrap();
-    let _ = device_console_tx_ready_pin.set_mode(PinMode::Input);
-    let _ = device_console_tx_ready_pin.set_pull_mode(PullMode::None);
-    let spi_console = SpiConsoleDevice::new(
-        &*spi,
-        Some(device_console_tx_ready_pin),
-        /*ignore_frame_num=*/ true,
-    )
-    .unwrap();
-
-    // Instantiate a "UartConsole", which is really just a console buffer.
-    let mut console = UartConsole {
-        timeout: Some(Duration::from_millis(timeout_ms)),
-        timestamp: true,
-        newline: true,
-        exit_success: Some(Regex::new(r"RESP_OK:(.*) CRC:([0-9]+)\n").unwrap()),
-        exit_failure: Some(Regex::new(r"RESP_ERR:(.*) CRC:([0-9]+)\n").unwrap()),
-        ..Default::default()
-    };
-
-    // Select if we should silence STDOUT.
-    let mut stdout = std::io::stdout();
-    let out = if !quiet {
-        let w: &mut dyn Write = &mut stdout;
-        Some(w)
-    } else {
-        None
-    };
-
-    // Receive the payload from DUT.
-    // SAFETY: msg_size should be a valid pointer to memory allocated by the caller.
-    let msg_size = unsafe { &mut *msg_size };
-    // SAFETY: msg should be a valid pointer to memory allocated by the caller.
-    let msg = unsafe { std::slice::from_raw_parts_mut(msg, *msg_size) };
-    let result = console.interact(&spi_console, None, out).unwrap();
-    match result {
-        ExitStatus::ExitSuccess => {
-            let cap = console
-                .captures(ExitStatus::ExitSuccess)
-                .expect("RESP_OK capture");
-            let json_str = cap.get(1).expect("RESP_OK group").as_str();
-            let crc_str = cap.get(2).expect("CRC group").as_str();
-            check_console_crc(json_str, crc_str).unwrap();
-            msg[..json_str.len()].copy_from_slice(json_str.as_bytes());
-            *msg_size = json_str.len();
-        }
-        ExitStatus::ExitFailure => {
-            let cap = console
-                .captures(ExitStatus::ExitFailure)
-                .expect("RESP_ERR capture");
-            let json_str = cap.get(1).expect("RESP_OK group").as_str();
-            let crc_str = cap.get(2).expect("CRC group").as_str();
-            check_console_crc(json_str, crc_str).unwrap();
-            panic!("{}", json_str)
-        }
-        ExitStatus::Timeout => panic!("Timed Out"),
-        _ => panic!("Impossible result: {:?}", result),
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn OtLibConsoleTx(transport: *const TransportWrapper, c_msg: *mut c_char) {
-    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
-    // the call to `OtLibFpgaTransportInit(...)` above.
-    let transport: &TransportWrapper = unsafe { &*transport };
-
-    // Unpack msg string.
-    // SAFETY: The expected message string must be set by the caller and be valid.
-    let msg_cstr = unsafe { CStr::from_ptr(c_msg) };
-    let msg = msg_cstr.to_str().unwrap();
-
-    // Get handle to SPI console.
-    let spi = transport.spi("BOOTSTRAP").unwrap();
-    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").unwrap();
-    let _ = device_console_tx_ready_pin.set_mode(PinMode::Input);
-    let _ = device_console_tx_ready_pin.set_pull_mode(PullMode::None);
-    let spi_console = SpiConsoleDevice::new(
-        &*spi,
-        Some(device_console_tx_ready_pin),
-        /*ignore_frame_num=*/ true,
-    )
-    .unwrap();
-
-    // Send string to console.
-    spi_console.console_write(msg.as_bytes()).unwrap();
-}
-
-#[no_mangle]
-pub extern "C" fn OtLibTxCpProvisioningData(
-    transport: *const TransportWrapper,
+    sync_msg: *mut c_char,
     spi_frame: *mut u8,
     spi_frame_size: usize,
     timeout_ms: u64,
@@ -411,12 +257,14 @@ pub extern "C" fn OtLibTxCpProvisioningData(
     // the call to `OtLibFpgaTransportInit(...)` above.
     let transport: &TransportWrapper = unsafe { &*transport };
 
-    // SAFETY: spi_frame should be a valid pointer to memory allocated by the caller.
-    let spi_frame = unsafe { std::slice::from_raw_parts_mut(spi_frame, spi_frame_size) };
+    // Unpack msg string.
+    // SAFETY: The expected sync message string must be set by the caller and be valid.
+    let sync_msg_cstr = unsafe { CStr::from_ptr(sync_msg) };
+    let sync_str = sync_msg_cstr.to_str().unwrap();
 
     // Get handle to SPI console.
     let spi = transport.spi("BOOTSTRAP").unwrap();
-    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").expect("Unable to get GPIO pin.");
+    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").unwrap();
     let _ = device_console_tx_ready_pin.set_mode(PinMode::Input);
     let _ = device_console_tx_ready_pin.set_pull_mode(PullMode::None);
     let spi_console = SpiConsoleDevice::new(
@@ -424,16 +272,18 @@ pub extern "C" fn OtLibTxCpProvisioningData(
         Some(device_console_tx_ready_pin),
         /*ignore_frame_num=*/ true,
     )
-    .expect("Unable to create SPI console.");
+    .unwrap();
 
-    // Send the UJSON CP data payload to the DUT over the console.
-    let _ = UartConsole::wait_for(
-        &spi_console,
-        r"Waiting for CP provisioning data ...",
-        Duration::from_millis(timeout_ms),
-    );
+    // Wait for the sync message over the console.
+    if sync_str.len() > 0 {
+        let _ = UartConsole::wait_for(&spi_console, sync_str, Duration::from_millis(timeout_ms))
+            .expect(&format!("Device sync ({}) message missed.", sync_str).to_string());
+    }
+
+    // Send data to the DUT over the console.
+    let spi_frame_slice = unsafe { slice::from_raw_parts(spi_frame as *const u8, spi_frame_size) };
     spi_console
-        .console_write(spi_frame.as_bytes())
+        .console_write(spi_frame_slice)
         .expect("Unable to write to console.");
 }
 
@@ -604,81 +454,6 @@ pub extern "C" fn OtLibLcTransition(
 }
 
 #[no_mangle]
-pub extern "C" fn OtLibTxRmaUnlockTokenHash(
-    transport: *const TransportWrapper,
-    spi_frame: *mut u8,
-    spi_frame_size: usize,
-    timeout_ms: u64,
-) {
-    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
-    // the call to `OtLibFpgaTransportInit(...)` above.
-    let transport: &TransportWrapper = unsafe { &*transport };
-
-    // SAFETY: spi_frame should be a valid pointer to memory allocated by the caller.
-    let spi_frame = unsafe { std::slice::from_raw_parts_mut(spi_frame, spi_frame_size) };
-
-    // Get handle to SPI console.
-    let spi = transport.spi("BOOTSTRAP").unwrap();
-    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").expect("Unable to get GPIO pin.");
-    let _ = device_console_tx_ready_pin.set_mode(PinMode::Input);
-    let _ = device_console_tx_ready_pin.set_pull_mode(PullMode::None);
-    let spi_console = SpiConsoleDevice::new(
-        &*spi,
-        Some(device_console_tx_ready_pin),
-        /*ignore_frame_num=*/ true,
-    )
-    .expect("Unable to create SPI console.");
-
-    // Send the UJSON data payload to the DUT over the console.
-    let _ = UartConsole::wait_for(
-        &spi_console,
-        r"Waiting For RMA Unlock Token Hash ...",
-        Duration::from_millis(timeout_ms),
-    );
-    spi_console
-        .console_write(spi_frame.as_bytes())
-        .expect("Unable to write to console.");
-}
-
-#[no_mangle]
-pub extern "C" fn OtLibTxCaSerialNums(
-    transport: *const TransportWrapper,
-    spi_frame: *mut u8,
-    spi_frame_size: usize,
-    timeout_ms: u64,
-) {
-    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
-    // the call to `OtLibFpgaTransportInit(...)` above.
-    let transport: &TransportWrapper = unsafe { &*transport };
-
-    // SAFETY: spi_frame should be a valid pointer to memory allocated by the caller.
-    let spi_frame = unsafe { std::slice::from_raw_parts_mut(spi_frame, spi_frame_size) };
-
-    // Get handle to SPI console.
-    let spi = transport.spi("BOOTSTRAP").unwrap();
-    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").expect("Unable to get GPIO pin.");
-    let _ = device_console_tx_ready_pin.set_mode(PinMode::Input);
-    let _ = device_console_tx_ready_pin.set_pull_mode(PullMode::None);
-    let spi_console = SpiConsoleDevice::new(
-        &*spi,
-        Some(device_console_tx_ready_pin),
-        /*ignore_frame_num=*/ true,
-    )
-    .expect("Unable to create SPI console.");
-
-    // Send the UJSON data payload to the DUT over the console.
-    let _ = UartConsole::wait_for(
-        &spi_console,
-        r"Waiting for certificate inputs ...\n",
-        Duration::from_millis(timeout_ms),
-    )
-    .expect("CA serial numbers device sync message missed.");
-    spi_console
-        .console_write(spi_frame.as_bytes())
-        .expect("Unable to write to console.");
-}
-
-#[no_mangle]
 pub extern "C" fn OtLibRxPersoBlob(
     transport: *const TransportWrapper,
     quiet: bool,
@@ -717,42 +492,4 @@ pub extern "C" fn OtLibRxPersoBlob(
     *num_objects = perso_blob.num_objs;
     body[..perso_blob.body.len()].copy_from_slice(perso_blob.body.as_slice());
     *next_free = perso_blob.next_free;
-}
-
-#[no_mangle]
-pub extern "C" fn OtLibTxPersoBlob(
-    transport: *const TransportWrapper,
-    spi_frame: *mut u8,
-    spi_frame_size: usize,
-    timeout_ms: u64,
-) {
-    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
-    // the call to `OtLibFpgaTransportInit(...)` above.
-    let transport: &TransportWrapper = unsafe { &*transport };
-
-    // SAFETY: spi_frame should be a valid pointer to memory allocated by the caller.
-    let spi_frame = unsafe { std::slice::from_raw_parts_mut(spi_frame, spi_frame_size) };
-
-    // Get handle to SPI console.
-    let spi = transport.spi("BOOTSTRAP").unwrap();
-    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").expect("Unable to get GPIO pin.");
-    let _ = device_console_tx_ready_pin.set_mode(PinMode::Input);
-    let _ = device_console_tx_ready_pin.set_pull_mode(PullMode::None);
-    let spi_console = SpiConsoleDevice::new(
-        &*spi,
-        Some(device_console_tx_ready_pin),
-        /*ignore_frame_num=*/ true,
-    )
-    .expect("Unable to create SPI console.");
-
-    // Send the UJSON data payload to the DUT over the console.
-    let _ = UartConsole::wait_for(
-        &spi_console,
-        r"Importing endorsed certificates ...\n",
-        Duration::from_millis(timeout_ms),
-    )
-    .expect("Perso blob device RX sync message missed.");
-    spi_console
-        .console_write(spi_frame.as_bytes())
-        .expect("Unable to write to console.");
 }

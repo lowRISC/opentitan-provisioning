@@ -230,8 +230,9 @@ int main(int argc, char **argv) {
   dut->DutFpgaLoadBitstream(fpga_bitstream_path);
   dut->DutLoadSramElf(openocd_path, sram_elf_path, /*wait_for_done=*/false,
                       /*timeout_ms=*/1000);
-  dut->DutTxCpProvisioningData(spi_frame.payload, spi_frame.cursor,
-                               /*timeout_ms=*/1000);
+  dut->DutConsoleTx("Waiting for CP provisioning data ...", spi_frame.payload,
+                    spi_frame.cursor,
+                    /*timeout_ms=*/1000);
   std::string cp_device_id_str = dut->DutRxCpDeviceId(/*quiet=*/false,
                                                       /*timeout_ms=*/1000);
   LOG(INFO) << "CP Device ID: " << cp_device_id_str;

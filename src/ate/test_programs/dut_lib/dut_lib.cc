@@ -26,11 +26,9 @@ void OtLibWaitForGpioState(void* transport, const char* pin, bool state,
                            uint64_t timeout_ms);
 void OtLibConsoleWaitForRx(void* transport, const char* msg,
                            uint64_t timeout_ms);
-void OtLibConsoleRx(void* transport, bool quiet, uint64_t timeout_ms,
-                    uint8_t* msg, size_t* msg_size);
-void OtLibConsoleTx(void* transport, const char* msg);
-void OtLibTxCpProvisioningData(void* transport, const uint8_t* spi_frame,
-                               size_t spi_frame_size, uint64_t timeout_ms);
+void OtLibConsoleTx(void* transport, const char* sync_msg,
+                    const uint8_t* spi_frame, size_t spi_frame_size,
+                    uint64_t timeout_ms);
 void OtLibRxCpDeviceId(void* transport, bool quiet, uint64_t timeout_ms,
                        uint8_t* cp_device_id_str,
                        size_t* cp_device_id_str_size);
@@ -38,14 +36,8 @@ void OtLibResetAndLock(void* transport, const char* openocd);
 void OtLibLcTransition(void* transport, const char* openocd,
                        const uint8_t* token, size_t token_size,
                        uint32_t target_lc_state);
-void OtLibTxRmaUnlockTokenHash(void* transport, const uint8_t* spi_frame,
-                               size_t spi_frame_size, uint64_t timeout_ms);
-void OtLibTxCaSerialNums(void* transport, const uint8_t* spi_frame,
-                         size_t spi_frame_size, uint64_t timeout_ms);
 void OtLibRxPersoBlob(void* transport, bool quiet, uint64_t timeout_ms,
                       size_t* num_objects, size_t* next_free, uint8_t* body);
-void OtLibTxPersoBlob(void* transport, const uint8_t* spi_frame,
-                      size_t spi_frame_size, uint64_t timeout_ms);
 }
 
 std::unique_ptr<DutLib> DutLib::Create(const std::string& fpga) {
@@ -70,38 +62,16 @@ void DutLib::DutBootstrap(const std::string& bin) {
   OtLibBootstrap(transport_, bin.c_str());
 }
 
-void DutLib::DutWaitForGpioState(const char* pin, bool state,
-                                 uint64_t timeout_ms) {
-  LOG(INFO) << "in DutLib::DutWaitForGpioState";
-  OtLibWaitForGpioState(transport_, pin, state, timeout_ms);
-}
-
 void DutLib::DutConsoleWaitForRx(const char* msg, uint64_t timeout_ms) {
   LOG(INFO) << "in DutLib::DutConsoleWaitForRx";
   OtLibConsoleWaitForRx(transport_, msg, timeout_ms);
 }
 
-std::string DutLib::DutConsoleRx(bool quiet, uint64_t timeout_ms) {
-  LOG(INFO) << "in DutLib::DutConsoleRx";
-  size_t msg_size = kMaxRxMsgSizeInBytes;
-  std::string result(kMaxRxMsgSizeInBytes, '\0');
-  OtLibConsoleRx(transport_, quiet, timeout_ms,
-                 reinterpret_cast<uint8_t*>(const_cast<char*>(result.data())),
-                 &msg_size);
-  result.resize(msg_size);
-  return result;
-}
-
-void DutLib::DutConsoleTx(std::string& msg) {
+void DutLib::DutConsoleTx(const std::string& sync_msg, const uint8_t* spi_frame,
+                          size_t spi_frame_size, uint64_t timeout_ms) {
   LOG(INFO) << "in DutLib::DutConsoleTx";
-  OtLibConsoleTx(transport_, msg.c_str());
-}
-
-void DutLib::DutTxCpProvisioningData(const uint8_t* spi_frame,
-                                     size_t spi_frame_size,
-                                     uint64_t timeout_ms) {
-  LOG(INFO) << "in DutLib::DutTxCpProvisioningData";
-  OtLibTxCpProvisioningData(transport_, spi_frame, spi_frame_size, timeout_ms);
+  OtLibConsoleTx(transport_, sync_msg.c_str(), spi_frame, spi_frame_size,
+                 timeout_ms);
 }
 
 std::string DutLib::DutRxCpDeviceId(bool quiet, uint64_t timeout_ms) {
@@ -128,29 +98,10 @@ void DutLib::DutLcTransition(const std::string& openocd, const uint8_t* token,
                     target_lc_state);
 }
 
-void DutLib::DutTxFtRmaUnlockTokenHash(const uint8_t* spi_frame,
-                                       size_t spi_frame_size,
-                                       uint64_t timeout_ms) {
-  LOG(INFO) << "in DutLib::DutTxFtRmaUnlockTokenHash";
-  OtLibTxRmaUnlockTokenHash(transport_, spi_frame, spi_frame_size, timeout_ms);
-}
-
-void DutLib::DutTxFtCaSerialNums(const uint8_t* spi_frame,
-                                 size_t spi_frame_size, uint64_t timeout_ms) {
-  LOG(INFO) << "in DutLib::DutTxFtCaSerialNums";
-  OtLibTxCaSerialNums(transport_, spi_frame, spi_frame_size, timeout_ms);
-}
-
 void DutLib::DutRxFtPersoBlob(bool quiet, uint64_t timeout_ms, size_t* num_objs,
                               size_t* next_free, uint8_t* body) {
   LOG(INFO) << "in DutLib::DutRxFtPersoBlob";
   OtLibRxPersoBlob(transport_, quiet, timeout_ms, num_objs, next_free, body);
-}
-
-void DutLib::DutTxFtPersoBlob(const uint8_t* spi_frame, size_t spi_frame_size,
-                              uint64_t timeout_ms) {
-  LOG(INFO) << "in DutLib::DutTxFtPersoBlob";
-  OtLibTxPersoBlob(transport_, spi_frame, spi_frame_size, timeout_ms);
 }
 
 }  // namespace test_programs
