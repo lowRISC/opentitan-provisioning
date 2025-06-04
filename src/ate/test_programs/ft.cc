@@ -340,7 +340,17 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  // TODO(timothytrippel): Send the endorsed certs back to the device.
+  // Send the endorsed certs back to the device.
+  perso_blob_t perso_blob_from_ate;
+  if (PackPersoBlob(num_tbs_certs, endorse_certs_responses,
+                    &perso_blob_from_ate) != 0) {
+    LOG(ERROR) << "Failed to repack the perso blob.";
+    return -1;
+  }
+  dut->DutTxFtPersoBlob(ca_serial_numbers_spi_frame.payload,
+                        ca_serial_numbers_spi_frame.cursor,
+                        /*timeout_ms=*/1000);
+
   // TODO(timothytrippel): Check the cert chains validate.
   // TODO(timothytrippel): Register the device.
 

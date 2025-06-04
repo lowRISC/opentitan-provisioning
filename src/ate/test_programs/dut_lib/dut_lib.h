@@ -91,6 +91,12 @@ class DutLib {
    */
   void DutRxFtPersoBlob(bool quiet, uint64_t timeout_ms, size_t* num_objs,
                         size_t* next_free, uint8_t* body);
+  /**
+   * Calls opentitanlib methods to send the perso blob back to the DUT, which
+   * contains the TBS certificates to be endorsed.
+   */
+  void DutTxFtPersoBlob(const uint8_t* spi_frame, size_t spi_frame_size,
+                        uint64_t timeout_ms);
 
  private:
   // Must be 2x the opentitanlib UartConsole buffer size defined here:

@@ -44,6 +44,8 @@ void OtLibTxCaSerialNums(void* transport, const uint8_t* spi_frame,
                          size_t spi_frame_size, uint64_t timeout_ms);
 void OtLibRxPersoBlob(void* transport, bool quiet, uint64_t timeout_ms,
                       size_t* num_objects, size_t* next_free, uint8_t* body);
+void OtLibTxPersoBlob(void* transport, const uint8_t* spi_frame,
+                      size_t spi_frame_size, uint64_t timeout_ms);
 }
 
 std::unique_ptr<DutLib> DutLib::Create(const std::string& fpga) {
@@ -143,6 +145,12 @@ void DutLib::DutRxFtPersoBlob(bool quiet, uint64_t timeout_ms, size_t* num_objs,
                               size_t* next_free, uint8_t* body) {
   LOG(INFO) << "in DutLib::DutRxFtPersoBlob";
   OtLibRxPersoBlob(transport_, quiet, timeout_ms, num_objs, next_free, body);
+}
+
+void DutLib::DutTxFtPersoBlob(const uint8_t* spi_frame, size_t spi_frame_size,
+                              uint64_t timeout_ms) {
+  LOG(INFO) << "in DutLib::DutTxFtPersoBlob";
+  OtLibTxPersoBlob(transport_, spi_frame, spi_frame_size, timeout_ms);
 }
 
 }  // namespace test_programs

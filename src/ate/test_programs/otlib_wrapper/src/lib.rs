@@ -706,7 +706,7 @@ pub extern "C" fn OtLibRxPersoBlob(
     // Receive the UJSON data payload from the DUT over the console.
     let timeout = Duration::from_millis(timeout_ms);
     let _ = UartConsole::wait_for(&spi_console, r"Exporting TBS certificates ...", timeout)
-        .expect("Perso blob device sync message missed.");
+        .expect("Perso blob device TX sync message missed.");
     let perso_blob = PersoBlob::recv(&spi_console, timeout, quiet, /*skip_crc=*/ true)
         .expect("Could not receive perso blob from DUT.");
     // SAFETY: the size pointers below should be a valid pointers to memory allocated by the caller.
@@ -717,4 +717,42 @@ pub extern "C" fn OtLibRxPersoBlob(
     *num_objects = perso_blob.num_objs;
     body[..perso_blob.body.len()].copy_from_slice(perso_blob.body.as_slice());
     *next_free = perso_blob.next_free;
+}
+
+#[no_mangle]
+pub extern "C" fn OtLibTxPersoBlob(
+    transport: *const TransportWrapper,
+    spi_frame: *mut u8,
+    spi_frame_size: usize,
+    timeout_ms: u64,
+) {
+    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
+    // the call to `OtLibFpgaTransportInit(...)` above.
+    let transport: &TransportWrapper = unsafe { &*transport };
+
+    // SAFETY: spi_frame should be a valid pointer to memory allocated by the caller.
+    let spi_frame = unsafe { std::slice::from_raw_parts_mut(spi_frame, spi_frame_size) };
+
+    // Get handle to SPI console.
+    let spi = transport.spi("BOOTSTRAP").unwrap();
+    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").expect("Unable to get GPIO pin.");
+    let _ = device_console_tx_ready_pin.set_mode(PinMode::Input);
+    let _ = device_console_tx_ready_pin.set_pull_mode(PullMode::None);
+    let spi_console = SpiConsoleDevice::new(
+        &*spi,
+        Some(device_console_tx_ready_pin),
+        /*ignore_frame_num=*/ true,
+    )
+    .expect("Unable to create SPI console.");
+
+    // Send the UJSON data payload to the DUT over the console.
+    let _ = UartConsole::wait_for(
+        &spi_console,
+        r"Importing endorsed certificates ...\n",
+        Duration::from_millis(timeout_ms),
+    )
+    .expect("Perso blob device RX sync message missed.");
+    spi_console
+        .console_write(spi_frame.as_bytes())
+        .expect("Unable to write to console.");
 }
