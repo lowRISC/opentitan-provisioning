@@ -59,18 +59,6 @@ namespace {
 using provisioning::VersionFormatted;
 using provisioning::test_programs::DutLib;
 
-// Returns `filename` content in a std::string format
-absl::StatusOr<std::string> ReadFile(const std::string &filename) {
-  auto output_stream = std::ostringstream();
-  std::ifstream file_stream(filename);
-  if (!file_stream.is_open()) {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Unable to open file: \"", filename, "\""));
-  }
-  output_stream << file_stream.rdbuf();
-  return output_stream.str();
-}
-
 absl::StatusOr<ate_client_ptr> AteClientNew(void) {
   client_options_t options;
 

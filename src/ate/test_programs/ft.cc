@@ -62,18 +62,6 @@ namespace {
 using provisioning::VersionFormatted;
 using provisioning::test_programs::DutLib;
 
-// Returns `filename` content in a std::string format
-absl::StatusOr<std::string> ReadFile(const std::string &filename) {
-  auto output_stream = std::ostringstream();
-  std::ifstream file_stream(filename);
-  if (!file_stream.is_open()) {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Unable to open file: \"", filename, "\""));
-  }
-  output_stream << file_stream.rdbuf();
-  return output_stream.str();
-}
-
 absl::StatusOr<ate_client_ptr> AteClientNew(void) {
   client_options_t options;
 
@@ -116,16 +104,6 @@ absl::StatusOr<std::string> ValidateFilePathInput(std::string path) {
   }
   return absl::InvalidArgumentError(
       absl::StrCat("Unable to open file: \"", path, "\""));
-}
-
-std::string BytesToHexStr(const char *bytes, size_t len) {
-  std::stringstream ss;
-  ss << std::hex << std::uppercase << std::setfill('0');
-  for (size_t i = 0; i < len; ++i) {
-    ss << std::setw(2)
-       << static_cast<int>(static_cast<unsigned char>(bytes[i]));
-  }
-  return ss.str();
 }
 
 bool SetDiversificationString(uint8_t *diversifier, const std::string &str) {
