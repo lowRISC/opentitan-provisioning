@@ -22,16 +22,13 @@ void OtLibFpgaLoadBitstream(void* transport, const char* fpga_bitstream);
 void OtLibLoadSramElf(void* transport, const char* openocd, const char* elf,
                       bool wait_for_done, uint64_t timeout_ms);
 void OtLibBootstrap(void* transport, const char* bin);
-void OtLibWaitForGpioState(void* transport, const char* pin, bool state,
-                           uint64_t timeout_ms);
 void OtLibConsoleWaitForRx(void* transport, const char* msg,
                            uint64_t timeout_ms);
+void OtLibConsoleRx(void* transport, const char* sync_msg, uint8_t* spi_frame,
+                    size_t* spi_frame_size, bool quiet, uint64_t timeout_ms);
 void OtLibConsoleTx(void* transport, const char* sync_msg,
                     const uint8_t* spi_frame, size_t spi_frame_size,
                     uint64_t timeout_ms);
-void OtLibRxCpDeviceId(void* transport, bool quiet, uint64_t timeout_ms,
-                       uint8_t* cp_device_id_str,
-                       size_t* cp_device_id_str_size);
 void OtLibResetAndLock(void* transport, const char* openocd);
 void OtLibLcTransition(void* transport, const char* openocd,
                        const uint8_t* token, size_t token_size,
@@ -67,23 +64,19 @@ void DutLib::DutConsoleWaitForRx(const char* msg, uint64_t timeout_ms) {
   OtLibConsoleWaitForRx(transport_, msg, timeout_ms);
 }
 
+void DutLib::DutConsoleRx(const std::string& sync_msg, uint8_t* spi_frame,
+                          size_t* spi_frame_size, bool quiet,
+                          uint64_t timeout_ms) {
+  LOG(INFO) << "in DutLib::DutConsoleRx";
+  OtLibConsoleRx(transport_, sync_msg.c_str(), spi_frame, spi_frame_size, quiet,
+                 timeout_ms);
+}
+
 void DutLib::DutConsoleTx(const std::string& sync_msg, const uint8_t* spi_frame,
                           size_t spi_frame_size, uint64_t timeout_ms) {
   LOG(INFO) << "in DutLib::DutConsoleTx";
   OtLibConsoleTx(transport_, sync_msg.c_str(), spi_frame, spi_frame_size,
                  timeout_ms);
-}
-
-std::string DutLib::DutRxCpDeviceId(bool quiet, uint64_t timeout_ms) {
-  LOG(INFO) << "in DutLib::DutRxCpDeviceId";
-  size_t cp_device_id_str_size = kMaxRxMsgSizeInBytes;
-  std::string cp_device_id_str(kMaxRxMsgSizeInBytes, '\0');
-  OtLibRxCpDeviceId(
-      transport_, quiet, timeout_ms,
-      reinterpret_cast<uint8_t*>(const_cast<char*>(cp_device_id_str.data())),
-      &cp_device_id_str_size);
-  cp_device_id_str.resize(cp_device_id_str_size);
-  return cp_device_id_str;
 }
 
 void DutLib::DutResetAndLock(const std::string& openocd) {

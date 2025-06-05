@@ -155,12 +155,12 @@ typedef struct HardwareOrigin {
   uint16_t silicon_creator_id;
   uint16_t product_id;
   uint64_t device_identification_number;
+  uint32_t reserved;
 } hardware_origin_t;
 
 typedef struct DeviceId {
   hardware_origin_t hardware_origin;
   uint8_t sku_specific[kSkuSpecificSize];
-  uint32_t crc32;
 } device_id_t;
 #pragma pack(pop)
 static_assert(sizeof(device_id_t) == 32, "device_id_t must be 32 bytes long");

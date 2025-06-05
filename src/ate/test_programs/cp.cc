@@ -221,9 +221,20 @@ int main(int argc, char **argv) {
   dut->DutConsoleTx("Waiting for CP provisioning data ...", spi_frame.payload,
                     spi_frame.cursor,
                     /*timeout_ms=*/1000);
-  std::string cp_device_id_str = dut->DutRxCpDeviceId(/*quiet=*/false,
-                                                      /*timeout_ms=*/1000);
-  LOG(INFO) << "CP Device ID: " << cp_device_id_str;
+  dut_spi_frame_t devid_spi_frame;
+  dut->DutConsoleRx("Exporting CP device ID ...", devid_spi_frame.payload,
+                    &devid_spi_frame.cursor,
+                    /*quiet=*/false,
+                    /*timeout_ms=*/1000);
+  device_id_bytes_t device_id_bytes = {.raw = {0}};
+  if (DeviceIdFromJson(&devid_spi_frame, &device_id_bytes) != 0) {
+    LOG(ERROR) << "TokensToJson failed.";
+    return -1;
+  }
+  uint32_t *device_id_words = reinterpret_cast<uint32_t *>(device_id_bytes.raw);
+  LOG(INFO) << absl::StrFormat("CP Device ID: 0x%08x%08x%08x%08x",
+                               device_id_words[3], device_id_words[2],
+                               device_id_words[1], device_id_words[0]);
 
   // Lock the chip and close session with PA.
   dut->DutResetAndLock(openocd_path);

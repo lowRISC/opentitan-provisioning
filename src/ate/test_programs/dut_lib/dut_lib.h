@@ -40,15 +40,15 @@ class DutLib {
    */
   void DutConsoleWaitForRx(const char* msg, uint64_t timeout_ms);
   /**
+   * Calls opentitanlib test util to receive a message over the SPI console.
+   */
+  void DutConsoleRx(const std::string& sync_msg, uint8_t* spi_frame,
+                    size_t* spi_frame_size, bool quiet, uint64_t timeout_ms);
+  /**
    * Calls opentitanlib test util to send a message over the SPI console.
    */
   void DutConsoleTx(const std::string& sync_msg, const uint8_t* spi_frame,
                     size_t spi_frame_size, uint64_t timeout_ms);
-  /**
-   * Calls opentitanlib methods to receive the CP device ID UJSON payload over
-   * the SPI console from the DUT.
-   */
-  std::string DutRxCpDeviceId(bool quiet, uint64_t timeout_ms);
   /**
    * Calls opentitanlib test util to execute a life cycle transition to
    * TestLocked0 (from TestUnlocked0).

@@ -130,7 +130,7 @@ DLLEXPORT int DeviceIdFromJson(const dut_spi_frame_t *frame,
     return -1;
   }
 
-  for (int i = 0; i < device_id_cmd.cp_device_id_size(); ++i) {
+  for (size_t i = 0; i < device_id_cmd.cp_device_id_size(); ++i) {
     uint32_t value = device_id_cmd.cp_device_id(i);
     memcpy(device_id->raw + i * sizeof(uint32_t), &value, sizeof(uint32_t));
   }
