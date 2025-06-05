@@ -8,11 +8,7 @@ load(
     "hsm_certgen",
     "hsm_certgen_tar",
     "hsm_certificate_authority_intermediate",
-    "hsm_certificate_authority_root",
     "hsm_config_tar",
-    "hsm_generic_secret",
-    "hsm_sku_rma_key",
-    "hsm_sku_wrapping_key",
 )
 load(
     "//rules:hsmtool.bzl",
@@ -21,84 +17,16 @@ load(
 
 package(default_visibility = ["//visibility:public"])
 
-hsm_sku_wrapping_key(
-    name = "sival-aes-wrap-v0",
-    wrapping_key = "//config/dev/spm/sku:spm-rsa-wrap-v0",
-    wrapping_mechanism = "RsaPkcsOaep",
-)
-
-hsm_sku_rma_key(
-    name = "sku-sival-rsa-rma-v0",
-)
-
-hsm_certificate_authority_root(
-    name = "opentitan-ca-root-v0",
-    curve = HSMTOOL_CONST.ECC_CURVE.PRIME256V1,
-)
-
 hsm_certificate_authority_intermediate(
     name = "sival-dice-key-p256-v0",
     curve = HSMTOOL_CONST.ECC_CURVE.PRIME256V1,
 )
 
-hsm_generic_secret(
-    name = "sival-kdf-hisec-v0",
-    wrapping_key = ":sival-aes-wrap-v0",
-    wrapping_mechanism = "VendorThalesAesKwp",
-)
-
-hsm_generic_secret(
-    name = "sival-kdf-losec-v0",
-    wrapping_key = ":sival-aes-wrap-v0",
-    wrapping_mechanism = "VendorThalesAesKwp",
-)
-
-hsm_certgen(
-    name = "ca_root",
-    config = ":ca_root.conf",
-    key = ":opentitan-ca-root-v0",
-    root_cert = True,
-)
-
 hsm_certgen(
     name = "ca_int_dice",
-    ca_key = ":opentitan-ca-root-v0",
+    ca_key = "//config/prod/spm/sku/eg/common:opentitan-ca-root-v0",
     config = ":ca_int_dice.conf",
     key = ":sival-dice-key-p256-v0",
-)
-
-hsm_config_tar(
-    name = "offline_init",
-    hsmtool_sequence = {
-        ":opentitan-ca-root-v0": "keygen",
-        ":sival-aes-wrap-v0": "keygen",
-        ":sival-kdf-hisec-v0": "keygen",
-        ":sival-kdf-losec-v0": "keygen",
-        ":sku-sival-rsa-rma-v0": "keygen",
-    },
-)
-
-hsm_config_tar(
-    name = "offline_export",
-    hsmtool_sequence = {
-        "//config/dev/spm/sku:spm-rsa-wrap-v0": "import",
-        ":sival-aes-wrap-v0": "export",
-        ":sival-kdf-hisec-v0": "export",
-        ":sival-kdf-losec-v0": "export",
-        ":sku-sival-rsa-rma-v0": "export",
-    },
-)
-
-# Initialize the SPM instance with the shared secrets produced by
-# offline_export.
-hsm_config_tar(
-    name = "spm_sku_init",
-    hsmtool_sequence = {
-        ":sival-aes-wrap-v0": "import",
-        ":sival-kdf-hisec-v0": "import",
-        ":sival-kdf-losec-v0": "import",
-        ":sku-sival-rsa-rma-v0": "import",
-    },
 )
 
 hsm_config_tar(
@@ -106,13 +34,6 @@ hsm_config_tar(
     hsmtool_sequence = {
         ":sival-dice-key-p256-v0": "keygen",
     },
-)
-
-hsm_certgen_tar(
-    name = "ca_root_certgen",
-    certs = [
-        ":ca_root",
-    ],
 )
 
 hsm_certgen_tar(
@@ -126,15 +47,10 @@ pkg_tar(
     name = "release",
     srcs = [
         ":ca_intermediate_certgen",
-        ":ca_root_certgen",
-        ":offline_export",
-        ":offline_init",
         ":spm_ca_keygen",
-        ":spm_sku_init",
     ] + [
         # Certificate template files.
         ":ca_int_dice.conf",
-        ":ca_root.conf",
     ],
     extension = "tar.gz",
     include_runfiles = True,

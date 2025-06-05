@@ -9,9 +9,6 @@ set -e
 source util/integration_test_setup.sh
 
 SKU_NAMES="sival,cr01,pi01,ti01"
-if [[ "${OT_PROV_PROD_EN}" == "yes" ]]; then
-  SKU_NAMES="sival"
-fi
 
 # Run the PA loadtest.
 echo "Running PA loadtest ..."

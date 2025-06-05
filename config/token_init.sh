@@ -21,6 +21,8 @@ EG_CR_DIR="${SPM_SKU_EG_DIR}/cr"
 EG_PI_DIR="${SPM_SKU_EG_DIR}/pi"
 EG_TI_DIR="${SPM_SKU_EG_DIR}/ti"
 
+SKU_DIRS=("${SIVAL_DIR}" "${EG_CR_DIR}" "${EG_PI_DIR}" "${EG_TI_DIR}")
+
 # Common HSM archive filenames
 HSM_CA_INTERMEDIATE_CSR_TAR_GZ="hsm_ca_intermediate_csr.tar.gz"
 HSM_CA_INTERMEDIATE_CERTS_TAR_GZ="hsm_ca_intermediate_certs.tar.gz"
@@ -83,12 +85,12 @@ function run_hsm_init() {
 function create_hsm_args() {
   local token="$1"
   local softhsm_conf="$2"
-  
+
   echo "(
-    \"--hsm_module\" \"${HSMTOOL_MODULE}\" 
-    \"--token\" \"${token}\" 
-    \"--softhsm_config\" \"${softhsm_conf}\" 
-    \"--hsm_pin\" \"${HSMTOOL_PIN}\" 
+    \"--hsm_module\" \"${HSMTOOL_MODULE}\"
+    \"--token\" \"${token}\"
+    \"--softhsm_config\" \"${softhsm_conf}\"
+    \"--hsm_pin\" \"${HSMTOOL_PIN}\"
   )"
 }
 
@@ -117,12 +119,10 @@ if [[ "dev" == "${CONFIG_SUBDIR}" ]]; then
   run_hsm_init "${EG_COMMON_DIR}/spm_sku_init.bash" "${SPM_ARGS[@]}" \
     --input_tar "${EG_COMMON_DIR}/hsm_offline_export.tar.gz"
 
-  
-  SKU_DIRS=("${SIVAL_DIR}" "${EG_CR_DIR}" "${EG_PI_DIR}" "${EG_TI_DIR}")
   CA_KEYGEN_SCRIPTS=(
-    "spm_ca_keygen.bash" 
-    "cr01_spm_ca_keygen.bash" 
-    "pi01_spm_ca_keygen.bash" 
+    "spm_ca_keygen.bash"
+    "cr01_spm_ca_keygen.bash"
+    "pi01_spm_ca_keygen.bash"
     "ti01_spm_ca_keygen.bash"
   )
 
@@ -134,54 +134,37 @@ if [[ "dev" == "${CONFIG_SUBDIR}" ]]; then
   # Create CA argument arrays using the helper function with long args
   eval "CA_SPM_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_SPM}" "${SOFTHSM2_CONF_SPM}")"
   eval "CA_OFFLINE_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_OFFLINE}" "${SOFTHSM2_CONF_OFFLINE}")"
-
-  # Generate Root Certificate.
-  run_hsm_init "${EG_COMMON_DIR}/ca_root_certgen.bash" "${CA_OFFLINE_ARGS[@]}" \
-    --output_tar "${EG_COMMON_DIR}/${HSM_CA_ROOT_CERTS_TAR_GZ}"
-
-  CA_CERTGEN_SCRIPTS=(
-    "ca_intermediate_certgen.bash" 
-    "cr01_ca_intermediate_certgen.bash" 
-    "pi01_ca_intermediate_certgen.bash" 
-    "ti01_ca_intermediate_certgen.bash"
-  )
-
-  # Export Intermediate CA CSRs from SPM HSM.
-  for i in "${!SKU_DIRS[@]}"; do
-    run_hsm_init "${SKU_DIRS[i]}/${CA_CERTGEN_SCRIPTS[i]}" "${CA_SPM_ARGS[@]}" \
-      --output_tar "${SKU_DIRS[i]}/${HSM_CA_INTERMEDIATE_CSR_TAR_GZ}" \
-      --csr_only
-  done
-
-  # Endorse Intermediate CA CSRs in offline HSM.
-  for i in "${!SKU_DIRS[@]}"; do
-    run_hsm_init "${SKU_DIRS[i]}/${CA_CERTGEN_SCRIPTS[i]}" "${CA_OFFLINE_ARGS[@]}" \
-      --input_tar "${SKU_DIRS[i]}/${HSM_CA_INTERMEDIATE_CSR_TAR_GZ}:${EG_COMMON_DIR}/${HSM_CA_ROOT_CERTS_TAR_GZ}" \
-      --output_tar "${SKU_DIRS[i]}/${HSM_CA_INTERMEDIATE_CERTS_TAR_GZ}" \
-      --sign_only
-  done
-
 else
   # In production mode, we only perform CA CSR and signing operations.
   # Create CA argument arrays using the helper function with long args
   eval "CA_SPM_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_SPM}" "")"
   eval "CA_OFFLINE_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_OFFLINE}" "")"
-
-  # Generate Root Certificate.
-  run_hsm_init "${SIVAL_DIR}/ca_root_certgen.bash" "${CA_OFFLINE_ARGS[@]}" \
-    --output_tar "${SIVAL_DIR}/${HSM_CA_ROOT_CERTS_TAR_GZ}"
-
-  # Export Intermediate CA CSRs from SPM HSM.
-  run_hsm_init "${SIVAL_DIR}/ca_intermediate_certgen.bash" "${CA_SPM_ARGS[@]}" \
-    --output_tar "${SIVAL_DIR}/${HSM_CA_INTERMEDIATE_CSR_TAR_GZ}" \
-    --csr_only
-
-  # Endorse Intermediate CA CSRs in offline HSM.
-  run_hsm_init "${SIVAL_DIR}/ca_intermediate_certgen.bash" \
-    "${CA_OFFLINE_ARGS[@]}" \
-    --input_tar "${SIVAL_DIR}/${HSM_CA_INTERMEDIATE_CSR_TAR_GZ}:${SIVAL_DIR}/${HSM_CA_ROOT_CERTS_TAR_GZ}" \
-    --output_tar "${SIVAL_DIR}/${HSM_CA_INTERMEDIATE_CERTS_TAR_GZ}" \
-    --sign_only
 fi
+
+# Generate Root Certificate.
+run_hsm_init "${EG_COMMON_DIR}/ca_root_certgen.bash" "${CA_OFFLINE_ARGS[@]}" \
+  --output_tar "${EG_COMMON_DIR}/${HSM_CA_ROOT_CERTS_TAR_GZ}"
+
+CA_CERTGEN_SCRIPTS=(
+  "ca_intermediate_certgen.bash"
+  "cr01_ca_intermediate_certgen.bash"
+  "pi01_ca_intermediate_certgen.bash"
+  "ti01_ca_intermediate_certgen.bash"
+)
+
+# Export Intermediate CA CSRs from SPM HSM.
+for i in "${!SKU_DIRS[@]}"; do
+  run_hsm_init "${SKU_DIRS[i]}/${CA_CERTGEN_SCRIPTS[i]}" "${CA_SPM_ARGS[@]}" \
+    --output_tar "${SKU_DIRS[i]}/${HSM_CA_INTERMEDIATE_CSR_TAR_GZ}" \
+    --csr_only
+done
+
+# Endorse Intermediate CA CSRs in offline HSM.
+for i in "${!SKU_DIRS[@]}"; do
+  run_hsm_init "${SKU_DIRS[i]}/${CA_CERTGEN_SCRIPTS[i]}" "${CA_OFFLINE_ARGS[@]}" \
+    --input_tar "${SKU_DIRS[i]}/${HSM_CA_INTERMEDIATE_CSR_TAR_GZ}:${EG_COMMON_DIR}/${HSM_CA_ROOT_CERTS_TAR_GZ}" \
+    --output_tar "${SKU_DIRS[i]}/${HSM_CA_INTERMEDIATE_CERTS_TAR_GZ}" \
+    --sign_only
+done
 
 echo "HSM initialization complete."
