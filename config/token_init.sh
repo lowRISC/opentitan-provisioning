@@ -5,12 +5,12 @@
 
 set -e
 
-if [[ -z "${CONFIG_SUBDIR}" ]]; then
-  echo "Error: CONFIG_SUBDIR environment variable is not set."
+if [[ -z "${DEPLOY_ENV}" ]]; then
+  echo "Error: DEPLOY_ENV environment variable is not set."
   exit 1
 fi
 
-CONFIG_DIR="${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}"
+CONFIG_DIR="${OPENTITAN_VAR_DIR}/config"
 SPM_SKU_DIR="${CONFIG_DIR}/spm/sku"
 SPM_SKU_EG_DIR="${SPM_SKU_DIR}/eg"
 
@@ -29,8 +29,8 @@ HSM_CA_INTERMEDIATE_CERTS_TAR_GZ="hsm_ca_intermediate_certs.tar.gz"
 HSM_CA_ROOT_CERTS_TAR_GZ="hsm_ca_root_certs.tar.gz"
 
 # Source environment variables or exit with error
-source "${CONFIG_DIR}/env/spm.env" || {
-  echo "Error: Failed to source ${CONFIG_DIR}/env/spm.env"
+source "${CONFIG_DIR}/env/${DEPLOY_ENV}/spm.env" || {
+  echo "Error: Failed to source ${CONFIG_DIR}/env/${DEPLOY_ENV}/spm.env"
   exit 1
 }
 
@@ -94,7 +94,7 @@ function create_hsm_args() {
   )"
 }
 
-if [[ "dev" == "${CONFIG_SUBDIR}" ]]; then
+if [[ "dev" == "${DEPLOY_ENV}" ]]; then
   # Create argument arrays using the helper function
   eval "SPM_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_SPM}" "${SOFTHSM2_CONF_SPM}")"
   eval "OFFLINE_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_OFFLINE}" "${SOFTHSM2_CONF_OFFLINE}")"

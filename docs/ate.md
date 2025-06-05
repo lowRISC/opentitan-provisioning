@@ -24,9 +24,9 @@ bazelisk build //src/ate:ate_main
 bazel-bin/src/ate/ate_main \
     --target=localhost:5001 \
     --enable_mtls \
-    --client_key=$(pwd)/config/dev/certs/out/ate-client-key.pem \
-    --client_cert=$(pwd)/config/dev/certs/out/ate-client-cert.pem \
-    --ca_root_certs=$(pwd)/config/dev/certs/out/ca-cert.pem
+    --client_key=$(pwd)/config/certs/out/ate-client-key.pem \
+    --client_cert=$(pwd)/config/certs/out/ate-client-cert.pem \
+    --ca_root_certs=$(pwd)/config/certs/out/ca-cert.pem
 ```
 
 ## Read More

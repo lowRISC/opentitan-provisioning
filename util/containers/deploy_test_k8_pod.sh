@@ -5,51 +5,43 @@
 
 set -e
 
-readonly REPO_TOP=$(git rev-parse --show-toplevel)
-
-# Build release containers.
-bazelisk build --stamp //release:fakeregistry_containers_tar
-bazelisk build --stamp //release:hsmutils
-bazelisk build --stamp //release:provisioning_appliance_containers_tar
-bazelisk build --stamp //release:proxybuffer_containers_tar
-bazelisk build --stamp //release:softhsm_dev
-
 # Deploy the provisioning appliance services.
 export CONTAINERS_ONLY="yes"
 
-CONFIG_SUBDIR="dev"
+DEPLOY_ENV="dev"
 if [[ -n "${OT_PROV_PROD_EN}" ]]; then
-    CONFIG_SUBDIR="prod"
+    DEPLOY_ENV="prod"
 fi
 
-. ${REPO_TOP}/config/${CONFIG_SUBDIR}/env/spm.env
-${REPO_TOP}/config/deploy.sh ${CONFIG_SUBDIR} ${REPO_TOP}/bazel-bin/release
+if [[ ! -n "${RELEASE_DIR}" ]]; then
+   echo "No release tarball provided. Building release bundle ..."
+   REPO_TOP=$(git rev-parse --show-toplevel)
+   bazelisk build //release:release_bundle --define "env=${DEPLOY_ENV}"
+   bazelisk build //release:fakeregistry_containers_tar
+   bazelisk build //release:provisioning_appliance_containers_tar
+   bazelisk build //release:proxybuffer_containers_tar
+   bazelisk build //release:softhsm_dev
+   RELEASE_DIR=${REPO_TOP}/bazel-bin/release
+fi
 
-bazelisk build --stamp //config/${CONFIG_SUBDIR}/spm/sku:release
-bazelisk build --stamp //config/${CONFIG_SUBDIR}/spm/sku/sival:release
+mkdir -p ${OPENTITAN_VAR_DIR}/release
+mv ${RELEASE_DIR}/release_bundle.tar.xz ${OPENTITAN_VAR_DIR}
+mv ${RELEASE_DIR}/fakeregistry_containers.tar ${OPENTITAN_VAR_DIR}/release
+mv ${RELEASE_DIR}/provisioning_appliance_containers.tar ${OPENTITAN_VAR_DIR}/release
+mv ${RELEASE_DIR}/proxybuffer_containers.tar ${OPENTITAN_VAR_DIR}/release
+mv ${RELEASE_DIR}/softhsm_dev.tar.xz ${OPENTITAN_VAR_DIR}/release
 
-mkdir -p ${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}/spm/sku/sival
-tar -xzf ${REPO_TOP}/bazel-bin/config/${CONFIG_SUBDIR}/spm/sku/release.tar.gz \
-    -C ${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}/spm/sku
-tar -xzf ${REPO_TOP}/bazel-bin/config/${CONFIG_SUBDIR}/spm/sku/sival/release.tar.gz \
-    -C ${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}/spm/sku/sival
+tar xvf ${OPENTITAN_VAR_DIR}/release_bundle.tar.xz -C ${OPENTITAN_VAR_DIR}
+tar xvf ${OPENTITAN_VAR_DIR}/config/config.tar.gz -C ${OPENTITAN_VAR_DIR}
 
-TARGETS=("common" "cr" "pi" "ti")
-for TARGET in "${TARGETS[@]}"; do
-    RELEASE_NAME="release"
-    if [[ "${TARGET}" != "common" ]]; then
-        RELEASE_NAME="${TARGET}01_release"
-    fi
-    bazelisk build --stamp //config/${CONFIG_SUBDIR}/spm/sku/eg/${TARGET}:${RELEASE_NAME}
-    mkdir -p ${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}/spm/sku/eg/${TARGET}
-    tar -xzf ${REPO_TOP}/bazel-bin/config/${CONFIG_SUBDIR}/spm/sku/eg/${TARGET}/${RELEASE_NAME}.tar.gz \
-        -C ${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}/spm/sku/eg/${TARGET}
-done
+${OPENTITAN_VAR_DIR}/config/deploy.sh ${DEPLOY_ENV}
 
-TOKEN_INIT_SCRIPT="${REPO_TOP}/config/token_init.sh"
+. ${REPO_TOP}/config/env/${DEPLOY_ENV}/spm.env
+
+TOKEN_INIT_SCRIPT="${OPENTITAN_VAR_DIR}/config/token_init.sh"
 if [ -f "${TOKEN_INIT_SCRIPT}" ]; then
     echo "Initializing tokens ..."
-    CONFIG_SUBDIR="${CONFIG_SUBDIR}" ${TOKEN_INIT_SCRIPT}
+    DEPLOY_ENV="${DEPLOY_ENV}" ${TOKEN_INIT_SCRIPT}
 fi
 
 echo "Provisioning services launched."

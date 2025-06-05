@@ -1,0 +1,45 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Build rules for SPM configuration files."""
+
+load("//rules:env.bzl", "envsubst_template")
+
+envsubst_template(
+    name = "sku_cr01",
+    template = ":sku_cr01.yml.tmpl",
+)
+
+envsubst_template(
+    name = "sku_pi01",
+    template = ":sku_pi01.yml.tmpl",
+)
+
+envsubst_template(
+    name = "sku_sival",
+    template = ":sku_sival.yml.tmpl",
+)
+
+envsubst_template(
+    name = "sku_auth",
+    template = ":sku_auth.yml.tmpl",
+)
+
+envsubst_template(
+    name = "sku_ti01",
+    template = ":sku_ti01.yml.tmpl",
+)
+
+filegroup(
+    name = "release",
+    srcs = [
+        ":sku_auth",
+        ":sku_cr01",
+        ":sku_pi01",
+        ":sku_sival",
+        ":sku_ti01",
+        "//config/spm/sku:release",
+    ],
+    visibility = ["//visibility:public"],
+)

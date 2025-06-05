@@ -28,7 +28,7 @@ All files referenced by any configuration file must be relative to the
 
 The SPM source code does not contain any secrets, and HSM credentials are
 configured using environment variables. See
-[spm.env](https://github.com/lowRISC/opentitan-provisioning/blob/main/config/dev/env/spm.env) for details. The following secrets are
+[spm.env](https://github.com/lowRISC/opentitan-provisioning/blob/main/config/env/certs.env) for details. The following secrets are
 required by the SPM binary:
 
 * `SPM_HSM_PIN_ADMIN`: The HSM Security Officer (SO) pin.
@@ -53,8 +53,8 @@ Execute the following commands from the root of the repo:
 
 ```console
 $ bazelisk build @softhsm2//:softhsm2
-$ . config/dev/env/spm.env
-$ config/dev/softhsm/init.sh \
+$ . config/env/certs.env
+$ config/softhsm/init.sh \
     config/dev \
     bazel-bin/external/softhsm2/softhsm2 \
     ${OPENTITAN_VAR_DIR} \
@@ -70,7 +70,7 @@ refresh: The object generation has not been updated
         Label:            spm-hsm
 ...
 Execute the following command before launching the spm service:
-export SOFTHSM2_CONF=${OPENTITAN_VAR_DIR}/config/dev/spm/softhsm2/softhsm2.conf
+export SOFTHSM2_CONF=${OPENTITAN_VAR_DIR}/config/spm/softhsm2/softhsm2.conf
 SoftHSM configuration available at: PASS!
 ```
 
@@ -78,7 +78,7 @@ NOTE: The last parameter can be updated to point to a local path if planning
 to run outside of a container. For example:
 
 ```console
-$ config/dev/softhsm/init.sh \
+$ config/softhsm/init.sh \
     config/dev \
     bazel-bin/external/softhsm2/softhsm2 \
     "$(pwd)/.opentitan"
@@ -116,16 +116,16 @@ Run the following steps before proceeding.
 Start the SPM server after setting the SoftHSM2 envars with mTLS enabled.
 
 ```console
-$ source config/dev/env/spm.env
+$ source config/env/certs.env
 $ bazel build //src/spm:spm_server
 $ bazel-bin/src/spm/spm_server_/spm_server \
     --port=${OTPROV_PORT_SPM} \
     --enable_tls=true \
-    --service_key=${OPENTITAN_VAR_DIR}/config/dev/certs/out/spm-service-key.pem \
-    --service_cert=${OPENTITAN_VAR_DIR}/config/dev/certs/out/spm-service-cert.pem \
-    --ca_root_certs=${OPENTITAN_VAR_DIR}/config/dev/certs/out/ca-cert.pem \
-    --hsm_so=${OPENTITAN_VAR_DIR}/config/dev/softhsm2/libsofthsm2.so \
-    --spm_config_dir=${OPENTITAN_VAR_DIR}/config/dev/spm
+    --service_key=${OPENTITAN_VAR_DIR}/config/certs/out/spm-service-key.pem \
+    --service_cert=${OPENTITAN_VAR_DIR}/config/certs/out/spm-service-cert.pem \
+    --ca_root_certs=${OPENTITAN_VAR_DIR}/config/certs/out/ca-cert.pem \
+    --hsm_so=${OPENTITAN_VAR_DIR}/config/softhsm2/libsofthsm2.so \
+    --spm_config_dir=${OPENTITAN_VAR_DIR}/config/certs
 YYYY/mm/DD HH:MM:DD Server is now listening on port: 5000
 ```
 

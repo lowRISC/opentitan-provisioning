@@ -16,6 +16,22 @@ config_setting(
     ],
 )
 
+# Define configuration settings for dev and prod environments.
+#
+# To select the dev or prod environment, use the --define flag:
+#
+#     bazel build --define env=dev //...
+#     bazel build --define env=prod //...
+config_setting(
+    name = "dev_env",
+    define_values = {"env": "dev"},
+)
+
+config_setting(
+    name = "prod_env",
+    define_values = {"env": "prod"},
+)
+
 nogo(
     name = "vet",
     vet = True,

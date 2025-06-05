@@ -24,11 +24,11 @@ credentials. Such credentials will be provided by [ATE](https://github.com/lowRI
 
 The following command generates keys and certificates for all endpoints. The
 `SubjectAltName` is set to `localhost`. All clients should connect using this
-address. See the [script](https://github.com/lowRISC/opentitan-provisioning/blob/main/config/dev/certs/gen_certs.sh) implementation for
+address. See the [script](https://github.com/lowRISC/opentitan-provisioning/blob/main/config/certs/gen_certs.sh) implementation for
 more details.
 
 ```console
-config/dev/certs/gen_certs.sh
+config/certs/gen_certs.sh
 ```
 **Note**: At the moment, all client and services share the same root
 certificate. Calling the `gen_certs.sh` script requires restarting all the

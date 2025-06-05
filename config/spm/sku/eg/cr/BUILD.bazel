@@ -1,0 +1,67 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//rules:hsm.bzl",
+    "hsm_certgen",
+    "hsm_certgen_tar",
+    "hsm_certificate_authority_intermediate",
+    "hsm_config_tar",
+)
+load(
+    "//rules:hsmtool.bzl",
+    "HSMTOOL_CONST",
+)
+
+package(default_visibility = ["//visibility:public"])
+
+hsm_certificate_authority_intermediate(
+    name = "cr01-ica-dice-key-p256-v0",
+    curve = HSMTOOL_CONST.ECC_CURVE.PRIME256V1,
+)
+
+hsm_certificate_authority_intermediate(
+    name = "cr01-ica-ext-key-p256-v0",
+    curve = HSMTOOL_CONST.ECC_CURVE.PRIME256V1,
+)
+
+hsm_certgen(
+    name = "cr01_ca_int_dice",
+    ca_key = "//config/spm/sku/eg/common:opentitan-ca-root-v0",
+    config = ":ca_int_dice.conf",
+    key = ":cr01-ica-dice-key-p256-v0",
+)
+
+hsm_certgen(
+    name = "cr01_ca_int_ext",
+    ca_key = "//config/spm/sku/eg/common:opentitan-ca-root-v0",
+    config = ":ca_int_ext.conf",
+    key = ":cr01-ica-ext-key-p256-v0",
+)
+
+hsm_config_tar(
+    name = "cr01_spm_ca_keygen",
+    hsmtool_sequence = {
+        ":cr01-ica-dice-key-p256-v0": "keygen",
+        ":cr01-ica-ext-key-p256-v0": "keygen",
+    },
+)
+
+hsm_certgen_tar(
+    name = "cr01_ca_intermediate_certgen",
+    certs = [
+        ":cr01_ca_int_dice",
+        ":cr01_ca_int_ext",
+    ],
+)
+
+filegroup(
+    name = "cr01_release",
+    srcs = [
+        ":ca_int_dice.conf",
+        ":ca_int_ext.conf",
+        ":cr01_ca_intermediate_certgen",
+        ":cr01_spm_ca_keygen",
+    ],
+)

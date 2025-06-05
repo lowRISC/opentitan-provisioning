@@ -30,7 +30,7 @@ services.
 The current deployment uses `podman play kube` to start the `spm` and `pa`
 containers using `podman` as the container engine. The service configuration
 is maintained in the Kubernetes
-[config/dev/containers/provapp.yml](../config/dev/containers/provapp.yml)
+[config/containers/provapp.yml](../config/containers/provapp.yml)
 configuration file.
 
 
@@ -100,7 +100,7 @@ The following steps can be used to test the install from a development environme
 $ bazelisk build //release
 
 # Deploy the containers.
-$ config/dev/deploy.sh bazel-bin/release
+$ config/deploy.sh bazel-bin/release
 
 # Run load test.
 $ ${OPENTITAN_VAR_DIR}/release/loadtest \

@@ -23,18 +23,17 @@ for i in "$@"; do
   esac
 done
 
-CONFIG_SUBDIR="dev"
+DEPLOY_ENV="dev"
 if [[ -n "${OT_PROV_PROD_EN}" ]]; then
-  CONFIG_SUBDIR="prod"
+  DEPLOY_ENV="prod"
 fi
 
-export OPENTITAN_VAR_DIR=${OPENTITAN_VAR_DIR:-$(pwd)/.ot${CONFIG_SUBDIR}}
+export OPENTITAN_VAR_DIR=${OPENTITAN_VAR_DIR:-$(pwd)/.ot${DEPLOY_ENV}}
 
-DEPLOYMENT_DIR="${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}"
+DEPLOYMENT_DIR="${OPENTITAN_VAR_DIR}/config"
 
 # SPM_PID_FILE is used to store the process ID of the SPM server process.
 # This is used to send a kill signal to the process when the script exits.
-# The variable is only set if the --prod flag is passed.
 SPM_PID_FILE="/tmp/spm.pid"
 
 # spm_server_try_stop sends a kill signal to the SPM server process if it is
@@ -43,14 +42,27 @@ SPM_PID_FILE="/tmp/spm.pid"
 spm_server_try_stop() {
   if [ -f "${SPM_PID_FILE}" ]; then
     SPM_PID=$(cat "${SPM_PID_FILE}")
-    kill "${SPM_PID}" 2>/dev/null || true
-    wait "${SPM_PID}" 2>/dev/null || true
-    rm "${SPM_PID_FILE}"
+    echo "Stopping SPM server - PID=${SPM_PID}"
+    # Check if a process with this PID actually exists before attempting to
+    # terminate it.
+    ELAPSED=0
+    if kill -0 ${SPM_PID} 2>/dev/null; then
+      kill ${SPM_PID} 2>/dev/null || true
+      while kill -0 ${SPM_PID} 2>/dev/null; do
+        echo "Waiting for SPM server to shut down... ${ELAPSED}s"
+        sleep 1
+        ELAPSED=$((ELAPSED + 1))
+      done
+    else
+      echo "Process with PID ${SPM_PID} not found. Maybe it was already stopped."
+    fi
+    rm -f "${SPM_PID_FILE}"
   fi
 }
 
 # Unconditionally stop and remove the pod if it exists.
 # The --ignore flag is used to suppress errors if the pod does not exist.
+spm_server_try_stop
 podman pod stop provapp --ignore
 podman pod rm provapp --ignore
 
@@ -58,14 +70,12 @@ podman pod rm provapp --ignore
 # Teardown containers. This currently does not remove the container volumes.
 shutdown_callback() {
   if [ -z "${DEBUG}" ]; then
+    echo "Tearing down containers ..."
     podman pod stop provapp
     podman pod rm provapp
   fi
 
-  # Send kill signal to SPM server process and wait for it to terminate.
-  if [[ -n "${OT_PROV_PROD_EN}" ]]; then
-    spm_server_try_stop
-  fi
+  spm_server_try_stop
 }
 trap shutdown_callback EXIT
 
@@ -73,7 +83,7 @@ trap shutdown_callback EXIT
 # by `deploy_test_k8_pod.sh`.
 ./util/containers/deploy_test_k8_pod.sh
 
-. ${DEPLOYMENT_DIR}/env/spm.env
+. ${DEPLOYMENT_DIR}/env/${DEPLOY_ENV}/spm.env
 
 # Unpack firmware and OpenOCD binaries.
 bazelisk build //third_party/lowrisc/ot_fw:orchestrator_unzip
@@ -87,19 +97,16 @@ cp "${BUILD_BIN_DIR}"/sw/device/silicon_creator/manuf/base/ft_fw_bundle*.img "${
 cp "${BUILD_BIN_DIR}"/third_party/openocd/build_openocd/bin/openocd "${DEPLOYMENT_BIN_DIR}"
 chmod +x "${DEPLOYMENT_BIN_DIR}"/openocd
 
-if [[ -n "${OT_PROV_PROD_EN}" ]]; then
-  # Spawn the SPM server as a process and store its process ID.
-  echo "Launching SPM server outside of container"
-  . config/prod/env/spm.env
-  spm_server_try_stop
-  bazelisk run //src/spm:spm_server -- \
-    --enable_tls=true \
-    --service_cert="${DEPLOYMENT_DIR}/certs/out/spm-service-cert.pem" \
-    --service_key="${DEPLOYMENT_DIR}/certs/out/spm-service-key.pem" \
-    --ca_root_certs=${DEPLOYMENT_DIR}/certs/out/ca-cert.pem \
-    --port=${OTPROV_PORT_SPM} \
-    "--hsm_so=${HSMTOOL_MODULE}" \
-    --spm_auth_config="sku_auth.yml" \
-    "--spm_config_dir=${DEPLOYMENT_DIR}/spm" &
-  echo $! > "${SPM_PID_FILE}"
-fi
+
+# Spawn the SPM server as a process and store its process ID.
+echo "Launching SPM server outside of container"
+bazelisk run //src/spm:spm_server -- \
+  --enable_tls=true \
+  --service_cert="${DEPLOYMENT_DIR}/certs/out/spm-service-cert.pem" \
+  --service_key="${DEPLOYMENT_DIR}/certs/out/spm-service-key.pem" \
+  --ca_root_certs=${DEPLOYMENT_DIR}/certs/out/ca-cert.pem \
+  --port=${OTPROV_PORT_SPM} \
+  "--hsm_so=${HSMTOOL_MODULE}" \
+  --spm_auth_config="sku_auth.yml" \
+  "--spm_config_dir=${DEPLOYMENT_DIR}/spm" &
+echo $! > "${SPM_PID_FILE}"

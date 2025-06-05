@@ -114,14 +114,14 @@ distributed directly by the SKU Owner to the Silicon Creator.
 ```shell
 # Using Sival SKU as an example.
 $ bazel build \
-  //config/prod/spm/sku:release \
-  //config/prod/spm/sku/sival:release
+  //config/spm/sku:release \
+  //config/spm/sku/sival:release
 
 $ mkdir -p /tmp/sku-release
 # The build output will be located under the `bazel-bin` folder:
-$ cp bazel-bin/config/prod/spm/sku/release.tar.gz \
+$ cp bazel-bin/config/spm/sku/release.tar.gz \
   /tmp/sku-release/spm_init_release.tar.gz
-$ cp bazel-bin/config/prod/spm/sku/sival/release.tar.gz \
+$ cp bazel-bin/config/spm/sku/sival/release.tar.gz \
   /tmp/sku-release/sival_sku_release.tar.gz
 ```
 
@@ -149,7 +149,7 @@ $ tar xvf spm_init_release.tar.gz
 2. Run initialization scripts.
 
 ```shell
-# See config/prod/env/spm.env for an example of how to set the environment
+# See config/env/prod/spm.env for an example of how to set the environment
 # variables needed by the following commands.
 
 # Initialize Keys.

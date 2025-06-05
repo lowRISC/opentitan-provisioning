@@ -1,0 +1,14 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+filegroup(
+    name = "eg_release",
+    srcs = [
+        "//config/spm/sku/eg/common:release",
+        "//config/spm/sku/eg/cr:cr01_release",
+        "//config/spm/sku/eg/pi:pi01_release",
+        "//config/spm/sku/eg/ti:ti01_release",
+    ],
+    visibility = ["//visibility:public"],
+)

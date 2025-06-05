@@ -18,25 +18,21 @@ usage() {
 ################################################################################
 # Parse args.
 ################################################################################
-if [ $# != 2 ]; then
+if [ $# != 1 ]; then
     usage "Unexpected number of arguments"
 fi
 
-CONFIG_SUBDIR=$1
-if [ "${CONFIG_SUBDIR}" != "dev" ] && [ "${CONFIG_SUBDIR}" != "prod" ]; then
-    usage "CONFIG_SUBDIR: ${CONFIG_SUBDIR} must be 'dev' or 'prod'"
+DEPLOY_ENV=$1
+if [ "${DEPLOY_ENV}" != "dev" ] && [ "${DEPLOY_ENV}" != "prod" ]; then
+    usage "DEPLOY_ENV: ${DEPLOY_ENV} must be 'dev' or 'prod'"
 fi
 
-RELEASE_DIR=$2
-if [ ! -d "${RELEASE_DIR}" ]; then
-    usage "RELEASE_DIR: ${RELEASE_DIR} does not exist"
-fi
-CONFIG_DIR="$(dirname "$0")/${CONFIG_SUBDIR}"
+CONFIG_DIR="$(dirname "$0")"
 
 ################################################################################
 # Source envars.
 ################################################################################
-source "${CONFIG_DIR}/env/spm.env"
+source "${CONFIG_DIR}/env/${DEPLOY_ENV}/spm.env"
 
 ################################################################################
 # Create deployment dir structure.
@@ -48,19 +44,13 @@ if [ ! -d "${OPENTITAN_VAR_DIR}" ]; then
     chown "${USER}" "${OPENTITAN_VAR_DIR}"
 fi
 
-DEPLOYMENT_DIR="${OPENTITAN_VAR_DIR}/config/${CONFIG_SUBDIR}"
-
-mkdir -p "${DEPLOYMENT_DIR}/spm"
-cp -r "${CONFIG_DIR}/certs" "${DEPLOYMENT_DIR}"
-cp -r "${CONFIG_DIR}/containers" "${DEPLOYMENT_DIR}"
-cp -r "${CONFIG_DIR}/env" "${DEPLOYMENT_DIR}"
-cp -Rf ${CONFIG_DIR}/spm/* "${DEPLOYMENT_DIR}/spm"
-echo "Done."
+DEPLOYMENT_DIR="${OPENTITAN_VAR_DIR}/config"
+RELEASE_DIR="${OPENTITAN_VAR_DIR}/release"
 
 ################################################################################
 # Install SoftHSM2 to deployment dir and initialize it.
 ################################################################################
-if [ "${CONFIG_SUBDIR}" == "dev" ]; then
+if [ "${DEPLOY_ENV}" == "dev" ]; then
     echo "Installing and configuring SoftHSM2 ..."
     if [ ! -d "${DEPLOYMENT_DIR}/softhsm2" ]; then
         mkdir -p "${DEPLOYMENT_DIR}/softhsm2"
@@ -123,12 +113,6 @@ if [ -z "${CONTAINERS_ONLY}" ]; then
     tar -xvf "${RELEASE_DIR}/proxybuffer_binaries.tar.xz" \
         --directory "${OPENTITAN_VAR_DIR}/release"
 else
-    cp -f "${RELEASE_DIR}/fakeregistry_containers.tar" \
-        "${OPENTITAN_VAR_DIR}/release/"
-    cp -f "${RELEASE_DIR}/provisioning_appliance_containers.tar" \
-        "${OPENTITAN_VAR_DIR}/release/"
-    cp -f "${RELEASE_DIR}/proxybuffer_containers.tar" \
-        "${OPENTITAN_VAR_DIR}/release/"
     echo "Skipping unpacking raw binaries; deploying containers only ..."
 fi
 echo "Done."
@@ -174,6 +158,11 @@ echo "Done."
 # Launch containers with podman.
 ################################################################################
 echo "Launching containers ..."
+
+# Copying the SPM env file selected by the development environment.
+cp -r "${DEPLOYMENT_DIR}/env/${DEPLOY_ENV}/spm.yml" \
+    "${DEPLOYMENT_DIR}/env/spm.yml"
+
 podman play kube "${DEPLOYMENT_DIR}/containers/provapp.yml" \
     --configmap "${DEPLOYMENT_DIR}/env/spm.yml"
 echo "Done."

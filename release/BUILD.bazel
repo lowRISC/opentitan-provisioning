@@ -69,24 +69,6 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "deploy_dev",
-    srcs = [
-        "//config:deploy_script",
-        "//config/dev:deploy_config",
-    ],
-    extension = "tar.xz",
-)
-
-pkg_tar(
-    name = "deploy_prod",
-    srcs = [
-        "//config:deploy_script",
-        "//config/prod:deploy_config",
-    ],
-    extension = "tar.xz",
-)
-
-pkg_tar(
     name = "softhsm_dev",
     srcs = [
         "@softhsm2",
@@ -102,11 +84,20 @@ pkg_tar(
     extension = "tar.xz",
 )
 
+pkg_tar(
+    name = "release_bundle",
+    srcs = [
+        ":hsmutils",
+        "//config:release",
+    ],
+    extension = "tar.xz",
+    strip_prefix = "release",
+)
+
 release(
     name = "release",
     artifacts = {
-        ":deploy_prod": "Production deployment scripts",
-        ":deploy_dev": "Development deployment scripts",
+        "//config:release": "Deployment scripts",
         ":provisioning_appliance_binaries": "Provisioning Appliance binaries",
         ":proxybuffer_binaries": "ProxyBuffer binaries",
         ":softhsm_dev": "SoftHSM2 development binaries",
