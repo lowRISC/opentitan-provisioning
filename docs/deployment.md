@@ -33,17 +33,51 @@ is maintained in the Kubernetes
 [config/containers/provapp.yml](../config/containers/provapp.yml)
 configuration file.
 
+A release consists of a `release_bundle.tar.xz` file and several container
+image archives (`.tar` files). The following steps describe how to deploy the
+services. It is assumed that `${OPENTITAN_VAR_DIR}` is set to the desired
+installation directory (e.g., `/opt/opentitan-prov`).
 
 1. Download release artifacts into a staging directory. The following
-instructions use `${STAGING_DIR}` to point to it.
+   instructions use `${STAGING_DIR}` to point to it. A typical release will
+   contain the following files:
+
+    ```
+    fakeregistry_containers.tar
+    provisioning_appliance_containers.tar
+    proxybuffer_containers.tar
+    release_bundle.tar.xz
+    softhsm_dev.tar.xz
+    ```
+
+2. Prepare the deployment directories and copy the release artifacts. All
+   services will be installed under the `${OPENTITAN_VAR_DIR}` directory.
 
     ```console
-    # Get scripts and configuration files.
-    $ cd ${STAGING_DIR}
-    $ tar -xvf deploy_dev.tar.xz
+    # Create installation directories.
+    $ sudo mkdir -p ${OPENTITAN_VAR_DIR}/release
 
-    # Run deploy script
-    $ ./deploy.sh $PWD
+    # Copy release bundle.
+    $ sudo cp ${STAGING_DIR}/release_bundle.tar.xz ${OPENTITAN_VAR_DIR}/
+
+    # Copy container images and other artifacts.
+    $ sudo cp ${STAGING_DIR}/*_containers.tar ${OPENTITAN_VAR_DIR}/release/
+    $ sudo cp ${STAGING_DIR}/softhsm_dev.tar.xz ${OPENTITAN_VAR_DIR}/release/
+    ```
+
+3. Extract the release bundle and configuration.
+
+    ```console
+    $ sudo tar xvf ${OPENTITAN_VAR_DIR}/release_bundle.tar.xz -C ${OPENTITAN_VAR_DIR}
+    $ sudo tar xvf ${OPENTITAN_VAR_DIR}/config/config.tar.gz -C ${OPENTITAN_VAR_DIR}
+    ```
+
+4. Run the deployment script. The script takes the deployment environment as an
+   argument. This can be `prod` or `dev`.
+
+    ```console
+    $ export DEPLOY_ENV="prod"
+    $ sudo ${OPENTITAN_VAR_DIR}/config/deploy.sh ${DEPLOY_ENV}
     Storing signatures
     Loaded image(s): localhost/pa_server:latest,localhost/spm_server:latest
     Launching containers
@@ -54,15 +88,28 @@ instructions use `${STAGING_DIR}` to point to it.
     a198c59630f13987fbd2fbfe37593920adb5b26f7c0b6c987e6a9a441af1109b
     ```
 
-1. Configure a `systemctl` service to restart the service on system reboot:
+5. Configure a `systemctl` service to restart the service on system reboot:
 
     ```console
-    $ cp ${STAGING_DIR}/containers/provapp.service ~/.config/systemd/user/.
+    $ cp ${OPENTITAN_VAR_DIR}/config/provapp.service ~/.config/systemd/user/.
     $ systemctl --user enable provapp.service
     $ systemctl --user start provapp.service
     ```
 
-1. (Optional) Use the following command to execute the PA server load test:
+6. (Optional) Initialize tokens. If the deployment uses an HSM, it may be
+   necessary to initialize the tokens. This script currently used in `dev`
+   mode. The `prod` configuration requires interacting with an offline 
+   HSM, so it is recommended to call the HSM initialization scripts
+   directly.
+
+    ```console
+    $ if [ -f "${OPENTITAN_VAR_DIR}/config/token_init.sh" ]; then
+        echo "Initializing tokens ..."
+        sudo DEPLOY_ENV="${DEPLOY_ENV}" ${OPENTITAN_VAR_DIR}/config/token_init.sh
+    fi
+    ```
+
+7. (Optional) Use the following command to execute the PA server load test:
 
     ```console
     $ ${OPENTITAN_VAR_DIR}/release/loadtest \
@@ -72,7 +119,7 @@ instructions use `${STAGING_DIR}` to point to it.
         --total_calls_per_method=10
     ```
 
-1. (Optional) Run the previous step after system reboot.
+8. (Optional) Run the previous step after system reboot.
 
 ### Infra (pause) Container
 
@@ -96,16 +143,11 @@ in rootless mode.
 The following steps can be used to test the install from a development environment:
 
 ```console
-# Build the release packages
-$ bazelisk build //release
-
-# Deploy the containers.
-$ config/deploy.sh bazel-bin/release
-
-# Run load test.
-$ ${OPENTITAN_VAR_DIR}/release/loadtest \
-    --enable_tls=false \
-    --pa_address="localhost:5001" \
-    --parallel_clients=20 \
-    --total_calls_per_method=10
+# The integation test invokes the deploy script to initialize the test environment.
+# The following flags can be used:
+# * --debug: Skips tearing down of containers. Useful if access to container logs
+#   is required.
+# * --prod: Builds and deploys the test environment using the test configuration. 
+#   This involves connecting to a physical HSM.
+FPGA=skip ./run_integration_tests.sh
 ```
