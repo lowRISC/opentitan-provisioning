@@ -7,6 +7,7 @@ package syncer_test
 import (
 	"context"
 	"encoding/binary"
+	"sort"
 	"testing"
 	"time"
 
@@ -63,6 +64,13 @@ func registryRecord(idOffset int) *rpb.RegistryRecord {
 	return &record
 }
 
+// sortRegistryRecords sorts a slice of RegistryRecord entries by their device ID
+func sortRegistryRecords(records []*rpb.RegistryRecord) {
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].DeviceId < records[j].DeviceId
+	})
+}
+
 func TestSyncer(t *testing.T) {
 	ctx := context.Background()
 	database := db.New(db_fake.New())
@@ -103,6 +111,11 @@ func TestSyncer(t *testing.T) {
 		allRecords[3],
 		allRecords[4],
 	}
+
+	// Sort both slices before comparison to ensure consistent ordering
+	sortRegistryRecords(unsyncedRecords)
+	sortRegistryRecords(expectedUnsyncedRecords)
+
 	if diff := cmp.Diff(unsyncedRecords, expectedUnsyncedRecords, protocmp.Transform()); diff != "" {
 		t.Errorf("unsynced records diffs (-got +want):\n%s", diff)
 	}
