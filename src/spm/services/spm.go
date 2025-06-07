@@ -12,13 +12,13 @@ import (
 	"log"
 	"os"
 	"strings"
-	"sync"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/lowRISC/opentitan-provisioning/src/spm/services/se"
 	"github.com/lowRISC/opentitan-provisioning/src/spm/services/skucfg"
+	"github.com/lowRISC/opentitan-provisioning/src/spm/services/skumgr"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/auth_service/session_token"
 	"github.com/lowRISC/opentitan-provisioning/src/utils"
 
@@ -58,28 +58,11 @@ type server struct {
 	// hsmPasswordFile holds the full file path of the HSM's password
 	hsmPasswordFile string
 
-	// skus contains SKU specific configuration only visible to the SPM
-	// server.
-	skus map[string]*skuState
-
 	// authCfg contains the configuration of the authentication token
 	authCfg *skucfg.Auth
 
-	// muSKU is a mutex use to arbitrate SKU initialization access.
-	muSKU sync.RWMutex
-}
-
-type skuState struct {
-	// config contains the SKU configuration data loaded by `InitSession()`.
-	config *skucfg.Config
-
-	// certs contains a map of certificates loaded at SKU init configuration.
-	// time. They key is the certificate name which can be referenced by SPM
-	// clients.
-	certs map[string]*x509.Certificate
-
-	// Instance of HSM.
-	seHandle se.SE
+	// skuManager manages SKU configurations and assets.
+	skuManager *skumgr.Manager
 }
 
 const (
@@ -111,14 +94,20 @@ func NewSpmServer(opts Options) (pbs.SpmServiceServer, error) {
 
 	session_token.NewSessionTokenInstance()
 
+	skuManager := skumgr.NewManager(skumgr.Options{
+		ConfigDir:       opts.SPMConfigDir,
+		HSMSOLibPath:    opts.HSMSOLibPath,
+		HsmPasswordFile: opts.HsmPWFile,
+	})
+
 	return &server{
 		configDir:       opts.SPMConfigDir,
 		hsmSOLibPath:    opts.HSMSOLibPath,
 		hsmPasswordFile: opts.HsmPWFile,
-		skus:            make(map[string]*skuState),
 		authCfg: &skucfg.Auth{
 			SkuAuthCfgList: config.SkuAuthCfgList,
 		},
+		skuManager: skuManager,
 	}, nil
 }
 
@@ -127,7 +116,7 @@ func (s *server) initSku(sku string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to generate session token: %v", err)
 	}
-	err = s.initializeSKU(sku)
+	_, err = s.skuManager.LoadSku(sku)
 	if err != nil {
 		return "", fmt.Errorf("failed to initialize sku: %v", err)
 	}
@@ -183,20 +172,17 @@ func (s *server) InitSession(ctx context.Context, request *pbp.InitSessionReques
 }
 
 func (s *server) DeriveTokens(ctx context.Context, request *pbp.DeriveTokensRequest) (*pbp.DeriveTokensResponse, error) {
-	// Acquire mutex before accessing SKU configuration.
-	s.muSKU.RLock()
-	defer s.muSKU.RUnlock()
-	sku, ok := s.skus[request.Sku]
+	sku, ok := s.skuManager.GetSku(request.Sku)
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.Sku)
 	}
 
-	sLabelHi, err := sku.config.GetAttribute(skucfg.AttrNameSeedSecHi)
+	sLabelHi, err := sku.Config.GetAttribute(skucfg.AttrNameSeedSecHi)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not fetch seed label %q: %v", skucfg.AttrNameSeedSecHi, err)
 	}
 
-	sLabelLo, err := sku.config.GetAttribute(skucfg.AttrNameSeedSecLo)
+	sLabelLo, err := sku.Config.GetAttribute(skucfg.AttrNameSeedSecLo)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not fetch seed label %q: %v", skucfg.AttrNameSeedSecLo, err)
 	}
@@ -221,7 +207,7 @@ func (s *server) DeriveTokens(ctx context.Context, request *pbp.DeriveTokensRequ
 		}
 
 		if p.WrapSeed {
-			wmech, err := sku.config.GetAttribute(skucfg.AttrNameWrappingMechanism)
+			wmech, err := sku.Config.GetAttribute(skucfg.AttrNameWrappingMechanism)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "could not get wrapping method: %s", err)
 			}
@@ -234,7 +220,7 @@ func (s *server) DeriveTokens(ctx context.Context, request *pbp.DeriveTokensRequ
 				return nil, status.Errorf(codes.Internal, "invalid wrapping method: %s", wmech)
 			}
 
-			wkl, err := sku.config.GetAttribute(skucfg.AttrNameWrappingKeyLabel)
+			wkl, err := sku.Config.GetAttribute(skucfg.AttrNameWrappingKeyLabel)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "could not get wrapping key label: %s", err)
 			}
@@ -269,7 +255,7 @@ func (s *server) DeriveTokens(ctx context.Context, request *pbp.DeriveTokensRequ
 	}
 
 	// Generate the symmetric keys.
-	res, err := sku.seHandle.GenerateTokens(keygenParams)
+	res, err := sku.SeHandle.GenerateTokens(keygenParams)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not generate symmetric key: %s", err)
 	}
@@ -304,10 +290,7 @@ func ecdsaSignatureAlgorithmFromHashType(h pbcommon.HashType) x509.SignatureAlgo
 
 // GetCaSerialNumbers retrieves the CA certificate(s) serial numbers for a SKU.
 func (s *server) GetCaSerialNumbers(ctx context.Context, request *pbp.GetCaSerialNumbersRequest) (*pbp.GetCaSerialNumbersResponse, error) {
-	// Acquire mutex before accessing SKU configuration.
-	s.muSKU.RLock()
-	defer s.muSKU.RUnlock()
-	sku, ok := s.skus[request.Sku]
+	sku, ok := s.skuManager.GetSku(request.Sku)
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.Sku)
 	}
@@ -315,7 +298,7 @@ func (s *server) GetCaSerialNumbers(ctx context.Context, request *pbp.GetCaSeria
 	// Extract the serial number from each certificate.
 	var serialNumbers [][]byte
 	for _, label := range request.CertLabels {
-		cert, ok := sku.certs[label]
+		cert, ok := sku.Certs[label]
 		if !ok {
 			return nil, status.Errorf(codes.Internal, "unable to find cert %q in SKU configuration", label)
 		}
@@ -335,9 +318,7 @@ func (s *server) GetStoredTokens(ctx context.Context, request *pbp.GetStoredToke
 func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequest) (*pbp.EndorseCertsResponse, error) {
 	log.Printf("SPM.EndorseCertsRequest - Sku:%q", request.Sku)
 
-	s.muSKU.RLock()
-	defer s.muSKU.RUnlock()
-	sku, ok := s.skus[request.Sku]
+	sku, ok := s.skuManager.GetSku(request.Sku)
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.Sku)
 	}
@@ -352,12 +333,12 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 		return nil, status.Errorf(codes.InvalidArgument, "no data to endorse")
 	}
 
-	wasLabel, err := sku.config.GetAttribute(skucfg.AttrNameWASKeyLabel)
+	wasLabel, err := sku.Config.GetAttribute(skucfg.AttrNameWASKeyLabel)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not get WAS key label: %s", err)
 	}
 
-	err = sku.seHandle.VerifyWASSignature(se.VerifyWASParams{
+	err = sku.SeHandle.VerifyWASSignature(se.VerifyWASParams{
 		Signature:   request.Signature,
 		Data:        wasData,
 		Diversifier: request.Diversifier,
@@ -370,7 +351,7 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 
 	var certs []*pbp.CertBundle
 	for _, bundle := range request.Bundles {
-		keyLabel, err := sku.config.GetUnsafeAttribute(bundle.KeyParams.KeyLabel)
+		keyLabel, err := sku.Config.GetUnsafeAttribute(bundle.KeyParams.KeyLabel)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "unable to find key label %q in SKU configuration: %v", bundle.KeyParams.KeyLabel, err)
 		}
@@ -380,7 +361,7 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 				KeyLabel:           keyLabel,
 				SignatureAlgorithm: ecdsaSignatureAlgorithmFromHashType(key.EcdsaParams.HashType),
 			}
-			cert, err := sku.seHandle.EndorseCert(bundle.Tbs, params)
+			cert, err := sku.SeHandle.EndorseCert(bundle.Tbs, params)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "could not endorse cert: %v", err)
 			}
@@ -401,17 +382,13 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 
 func (s *server) EndorseData(ctx context.Context, request *pbs.EndorseDataRequest) (*pbs.EndorseDataResponse, error) {
 	log.Printf("SPM.EndorseDataRequest - Sku:%q", request.Sku)
-	s.muSKU.RLock()
-	defer s.muSKU.RUnlock()
-
-	// Locate SKU config.
-	sku, ok := s.skus[request.Sku]
+	sku, ok := s.skuManager.GetSku(request.Sku)
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.Sku)
 	}
 
 	// Retrieve signing key label.
-	keyLabel, err := sku.config.GetUnsafeAttribute(request.KeyParams.KeyLabel)
+	keyLabel, err := sku.Config.GetUnsafeAttribute(request.KeyParams.KeyLabel)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "unable to find key label %q in SKU configuration: %v", request.KeyParams.KeyLabel, err)
 	}
@@ -424,7 +401,7 @@ func (s *server) EndorseData(ctx context.Context, request *pbs.EndorseDataReques
 			KeyLabel:           keyLabel,
 			SignatureAlgorithm: ecdsaSignatureAlgorithmFromHashType(key.EcdsaParams.HashType),
 		}
-		asn1Pubkey, asn1Sig, err = sku.seHandle.EndorseData(request.Data, params)
+		asn1Pubkey, asn1Sig, err = sku.SeHandle.EndorseData(request.Data, params)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "could not endorse data payload: %v", err)
 		}
@@ -436,88 +413,4 @@ func (s *server) EndorseData(ctx context.Context, request *pbs.EndorseDataReques
 		Pubkey:    asn1Pubkey,
 		Signature: asn1Sig,
 	}, nil
-}
-
-func (s *server) initializeSKU(skuName string) error {
-	s.muSKU.Lock()
-	defer s.muSKU.Unlock()
-	if _, ok := s.skus[skuName]; ok {
-		return nil
-	}
-
-	configFilename := "sku_" + skuName + ".yml"
-
-	var cfg skucfg.Config
-	err := utils.LoadConfig(s.configDir, configFilename, &cfg)
-	if err != nil {
-		return fmt.Errorf("could not load config: %v", err)
-	}
-
-	var hsmPassword string
-	if s.hsmPasswordFile != "" {
-		val, err := utils.ReadFile(s.hsmPasswordFile)
-		if err != nil {
-			return fmt.Errorf("unable to read file: %q, error: %v", s.hsmPasswordFile, err)
-		}
-		hsmPassword = string(val)
-	}
-
-	if hsmPassword == "" {
-		val, ok := os.LookupEnv("SPM_HSM_PIN_USER")
-		if !ok {
-			return fmt.Errorf("initializeSKU failed: Restart server with --hsm_pw or SPM_HSM_PIN_USER set environment.")
-		}
-		hsmPassword = val
-	}
-
-	log.Printf("Initializing symmetric keys: %v", cfg.SymmetricKeys)
-	akeys := make([]string, len(cfg.SymmetricKeys))
-	for i, key := range cfg.SymmetricKeys {
-		akeys[i] = key.Name
-	}
-
-	log.Printf("Initializing private keys: %v", cfg.PrivateKeys)
-	pkeys := make([]string, len(cfg.PrivateKeys))
-	for i, key := range cfg.PrivateKeys {
-		pkeys[i] = key.Name
-	}
-
-	log.Printf("Initializing public keys: %v", cfg.PublicKeys)
-	pubKeys := make([]string, len(cfg.PublicKeys))
-	for i, key := range cfg.PublicKeys {
-		pubKeys[i] = key.Name
-	}
-
-	log.Printf("Initializing HSM: %v", cfg)
-	// Create new instance of HSM.
-	seHandle, err := se.NewHSM(se.HSMConfig{
-		SOPath:        s.hsmSOLibPath,
-		SlotID:        cfg.SlotID,
-		HSMPassword:   hsmPassword,
-		NumSessions:   cfg.NumSessions,
-		SymmetricKeys: akeys,
-		PrivateKeys:   pkeys,
-		PublicKeys:    pubKeys,
-	})
-	if err != nil {
-		return fmt.Errorf("fail to create an instance of HSM: %v", err)
-	}
-
-	// Load all certificates referenced in the SKU configuration.
-	log.Printf("Initializing certificates: %v", cfg.Certs)
-	certs := make(map[string]*x509.Certificate)
-	for _, cert := range cfg.Certs {
-		c, err := utils.LoadCertFromFile(s.configDir, cert.Path)
-		if err != nil {
-			return fmt.Errorf("could not load cert: %v", err)
-		}
-		certs[cert.Name] = c
-	}
-
-	s.skus[skuName] = &skuState{
-		config:   &cfg,
-		certs:    certs,
-		seHandle: seHandle,
-	}
-	return nil
 }

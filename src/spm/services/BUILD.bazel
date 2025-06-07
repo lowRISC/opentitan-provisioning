@@ -26,6 +26,7 @@ go_library(
         "//src/proto/crypto:cert_go_pb",
         "//src/proto/crypto:common_go_pb",
         "//src/spm/proto:spm_go_pb",
+        "//src/spm/services/skumgr",
         "//src/transport/auth_service:session_token",
         "//src/utils",
         "//src/utils:devid",

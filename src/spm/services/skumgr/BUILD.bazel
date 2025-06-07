@@ -1,0 +1,18 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+package(default_visibility = ["//visibility:public"])
+
+go_library(
+    name = "skumgr",
+    srcs = ["skumgr.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/spm/services/skumgr",
+    deps = [
+        "//src/spm/services:se",
+        "//src/spm/services:skucfg",
+        "//src/utils",
+    ],
+)
