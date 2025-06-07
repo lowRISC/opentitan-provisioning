@@ -5,6 +5,10 @@
 
 set -e
 
+# Explicitly enable job control so that we can run the SPM server
+# in the background and still be able to run other commands in parallel.
+set -m
+
 # Build and deploy the provisioning infrastructure.
 source util/integration_test_setup.sh
 
