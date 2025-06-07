@@ -2,8 +2,15 @@
 default_bits       = 4096
 distinguished_name = req_distinguished_name
 prompt             = no
+x509_extensions = v3_ca
 
 [ req_distinguished_name ]
 C   = US
 L   = Mountain View
 CN  = OpenTitan
+
+[ v3_ca ]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints = critical, CA:true
+keyUsage = critical, keyCertSign, cRLSign

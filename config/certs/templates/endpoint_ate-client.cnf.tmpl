@@ -11,6 +11,8 @@ CN          = OpenTitan
 
 [ req_ext ]
 subjectAltName = @alt_names
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth
 
 [ alt_names ]
 IP.1 = ${OTPROV_IP_ATE}
