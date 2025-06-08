@@ -47,8 +47,10 @@ spm_server_try_stop() {
     # terminate it.
     ELAPSED=0
     if kill -0 ${SPM_PID} 2>/dev/null; then
-      kill ${SPM_PID} 2>/dev/null || true
-      while kill -0 ${SPM_PID} 2>/dev/null; do
+      # Kill the entire process group. This is necessary because the bazel
+      # command spawns a child process for the server.
+      kill -- -${SPM_PID} 2>/dev/null || true
+      while kill -0 -- -${SPM_PID} 2>/dev/null; do
         echo "Waiting for SPM server to shut down... ${ELAPSED}s"
         sleep 1
         ELAPSED=$((ELAPSED + 1))
