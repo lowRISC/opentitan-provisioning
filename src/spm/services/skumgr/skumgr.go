@@ -95,9 +95,14 @@ func (m *Manager) LoadSku(skuName string) (*Sku, error) {
 	if hsmPassword == "" {
 		val, ok := os.LookupEnv("SPM_HSM_PIN_USER")
 		if !ok {
-			return nil, fmt.Errorf("LoadSku failed: set hsm_password_file or SPM_HSM_PIN_USER environment variable.")
+			val, ok := os.LookupEnv("HSMTOOL_PIN")
+			if !ok {
+				return nil, fmt.Errorf("LoadSku failed: set hsm_password_file or SPM_HSM_PIN_USER or HSMTOOL_PIN environment variable.")
+			}
+			hsmPassword = val
+		} else {
+			hsmPassword = val
 		}
-		hsmPassword = val
 	}
 
 	log.Printf("Initializing symmetric keys: %v", cfg.SymmetricKeys)
