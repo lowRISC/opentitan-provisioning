@@ -14,12 +14,10 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -30,6 +28,8 @@ import (
 	pbe "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/ecdsa_go_pb"
 	dpb "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_go_pb"
 	dtd "github.com/lowRISC/opentitan-provisioning/src/proto/device_testdata"
+	"github.com/lowRISC/opentitan-provisioning/src/spm/services/skumgr"
+	"github.com/lowRISC/opentitan-provisioning/src/spm/services/testutils/tbsgen"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/grpconn"
 	"github.com/lowRISC/opentitan-provisioning/src/utils/devid"
 )
@@ -38,9 +38,6 @@ const (
 	// Maximum number of buffered calls. This limits the number of concurrent
 	// calls to ensure the program does not run out of memory.
 	maxBufferedCallResults = 100000
-
-	// Path to the TBS file used for testing the EndorseCerts call.
-	diceTBSPath = "src/spm/services/testdata/tbs.der"
 )
 
 var (
@@ -54,6 +51,8 @@ var (
 	parallelClients     = flag.Int("parallel_clients", 0, "The total number of clients to run concurrently")
 	totalCallsPerMethod = flag.Int("total_calls_per_method", 0, "The total number of calls to execute during the load test")
 	delayPerCall        = flag.Duration("delay_per_call", 10*time.Millisecond, "Delay between client calls used to emulate tester timeing. Default 100ms")
+	configDir           = flag.String("spm_config_dir", "", "Path to the SKU configuration directory.")
+	hsmSOLibPath        = flag.String("hsm_so", "", "File path to the HSM's PKCS#11 shared library.")
 )
 
 // clientTask encapsulates a client connection.
@@ -186,7 +185,7 @@ func testOTGetCaSerialNumbers(ctx context.Context, numCalls int, skuName string,
 
 	request := &pbp.GetCaSerialNumbersRequest{
 		Sku:        skuName,
-		CertLabels: []string{"dice-ica"},
+		CertLabels: []string{"SigningKey/Dice/v0"},
 	}
 
 	// Send request to PA.
@@ -238,16 +237,7 @@ func testOTEndorseCerts(ctx context.Context, numCalls int, skuName string, c *cl
 	}
 }
 
-func NewEndorseCertTest() callFunc {
-	filename, err := bazel.Runfile(diceTBSPath)
-	if err != nil {
-		log.Fatalf("unable to find file: %q, error: %v", diceTBSPath, err)
-	}
-	diceTBS, err := os.ReadFile(filename)
-	if err != nil {
-		log.Fatalf("unable to load file: %q, error: %v", filename, err)
-	}
-
+func NewEndorseCertTest(tbs []byte) callFunc {
 	d := &dpb.DeviceId{
 		HardwareOrigin: &dpb.HardwareOrigin{
 			SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
@@ -294,10 +284,10 @@ func NewEndorseCertTest() callFunc {
 			log.Fatalf("expected 1 token, got %d", len(result.Tokens))
 		}
 		mac := hmac.New(sha256.New, result.Tokens[0].Token)
-		mac.Write(diceTBS)
+		mac.Write(tbs)
 		sig := mac.Sum(nil)
 
-		testOTEndorseCerts(ctx, numCalls, skuName, c, diceTBS, dID, sig)
+		testOTEndorseCerts(ctx, numCalls, skuName, c, tbs, dID, sig)
 	})
 }
 
@@ -420,30 +410,42 @@ func main() {
 	results := []result{}
 	parsedSkuNames := strings.Split(*skuNames, ",")
 
-	tests := []struct {
-		testName string
-		testFunc callFunc
-	}{
-		{
-			testName: "OT:DeriveTokens",
-			testFunc: testOTDeriveTokens,
-		},
-		{
-			testName: "OT:GetCaSerialNumbers",
-			testFunc: testOTGetCaSerialNumbers,
-		},
-		{
-			testName: "OT:EndorseCerts",
-			testFunc: NewEndorseCertTest(),
-		},
-		{
-			testName: "OT:RegisterDevice",
-			testFunc: testOTRegisterDevice,
-		},
-	}
-
 	for _, skuName := range parsedSkuNames {
 		log.Printf("Processing SKU: %q", skuName)
+
+		opts := skumgr.Options{
+			ConfigDir:    *configDir,
+			HSMSOLibPath: *hsmSOLibPath,
+		}
+		certLabels := []string{"SigningKey/Dice/v0"}
+		tbsCerts, _, err := tbsgen.BuildTestTBSCerts(opts, skuName, certLabels)
+		if err != nil {
+			log.Fatalf("failed to generate TBS certificates for SKU %q: %v", skuName, err)
+		}
+		log.Printf("Generated TBS certs for SKU %q", skuName)
+
+		tests := []struct {
+			testName string
+			testFunc callFunc
+		}{
+			{
+				testName: "OT:DeriveTokens",
+				testFunc: testOTDeriveTokens,
+			},
+			{
+				testName: "OT:GetCaSerialNumbers",
+				testFunc: testOTGetCaSerialNumbers,
+			},
+			{
+				testName: "OT:EndorseCerts",
+				testFunc: NewEndorseCertTest(tbsCerts["SigningKey/Dice/v0"]),
+			},
+			{
+				testName: "OT:RegisterDevice",
+				testFunc: testOTRegisterDevice,
+			},
+		}
+
 		for _, t := range tests {
 			log.Printf("sku: %q, test: %q", skuName, t.testName)
 			currentResult := result{skuName: skuName, testName: t.testName}

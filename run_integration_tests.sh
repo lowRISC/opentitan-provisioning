@@ -25,6 +25,8 @@ bazelisk run //src/pa:loadtest -- \
    --sku_auth="test_password" \
    --parallel_clients=2 \
    --total_calls_per_method=4 \
+   --spm_config_dir="${DEPLOYMENT_DIR}/spm" \
+   --hsm_so="${HSMTOOL_MODULE}" \
    --sku_names="${SKU_NAMES}"
 echo "Done."
 

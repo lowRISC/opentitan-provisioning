@@ -151,8 +151,8 @@ func openSessions(soPath, hsmPW string, tokSlot, numSessions int) (*sessionQueue
 	return sessions, nil
 }
 
-// getKeyIDByLabel returns the object ID from a given label
-func getKeyIDByLabel(session *pk11.Session, classKeyType pk11.ClassAttribute, label string) ([]byte, error) {
+// GetKeyIDByLabel returns the object ID from a given label
+func GetKeyIDByLabel(session *pk11.Session, classKeyType pk11.ClassAttribute, label string) ([]byte, error) {
 	keyObj, err := session.FindKeyByLabel(classKeyType, label)
 	if err != nil {
 		return nil, err
@@ -184,7 +184,7 @@ func NewHSM(cfg HSMConfig) (*HSM, error) {
 
 	hsm.SymmetricKeys = make(map[string][]byte)
 	for _, key := range cfg.SymmetricKeys {
-		id, err := getKeyIDByLabel(session, pk11.ClassSecretKey, key)
+		id, err := GetKeyIDByLabel(session, pk11.ClassSecretKey, key)
 		if err != nil {
 			return nil, fmt.Errorf("fail to find symmetric key ID: %q, error: %v", key, err)
 		}
@@ -193,7 +193,7 @@ func NewHSM(cfg HSMConfig) (*HSM, error) {
 
 	hsm.PrivateKeys = make(map[string][]byte)
 	for _, key := range cfg.PrivateKeys {
-		id, err := getKeyIDByLabel(session, pk11.ClassPrivateKey, key)
+		id, err := GetKeyIDByLabel(session, pk11.ClassPrivateKey, key)
 		if err != nil {
 			return nil, fmt.Errorf("fail to find private key ID: %q, error: %v", key, err)
 		}
@@ -202,7 +202,7 @@ func NewHSM(cfg HSMConfig) (*HSM, error) {
 
 	hsm.PublicKeys = make(map[string][]byte)
 	for _, key := range cfg.PublicKeys {
-		id, err := getKeyIDByLabel(session, pk11.ClassPublicKey, key)
+		id, err := GetKeyIDByLabel(session, pk11.ClassPublicKey, key)
 		if err != nil {
 			return nil, fmt.Errorf("fail to find public key ID: %q, error: %v", key, err)
 		}
@@ -400,7 +400,7 @@ func (h *HSM) EndorseCert(tbs []byte, params EndorseCertParams) ([]byte, error) 
 	session, release := h.sessions.getHandle()
 	defer release()
 
-	keyID, err := getKeyIDByLabel(session, pk11.ClassPrivateKey, params.KeyLabel)
+	keyID, err := GetKeyIDByLabel(session, pk11.ClassPrivateKey, params.KeyLabel)
 	if err != nil {
 		return nil, fmt.Errorf("fail to find key with label: %q, error: %v", params.KeyLabel, err)
 	}
@@ -448,6 +448,30 @@ func (h *HSM) EndorseCert(tbs []byte, params EndorseCertParams) ([]byte, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal certificate: %v", err)
 	}
+
+	// Verify the certificate chain.
+	certObj, err := x509.ParseCertificate(cert)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse certificate: %v", err)
+	}
+
+	certObj.UnhandledCriticalExtensions = nil
+
+	roots := x509.NewCertPool()
+	for _, ca := range params.Roots {
+		roots.AddCert(ca)
+	}
+	intermediates := x509.NewCertPool()
+	for _, ca := range params.Intermediates {
+		intermediates.AddCert(ca)
+	}
+	_, err = certObj.Verify(x509.VerifyOptions{
+		Roots:         roots,
+		Intermediates: intermediates,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify certificate chain: %v", err)
+	}
 	return cert, nil
 }
 
@@ -456,7 +480,7 @@ func (h *HSM) EndorseData(data []byte, params EndorseCertParams) ([]byte, []byte
 	defer release()
 
 	// Get the PKCS#11 private key object.
-	keyID, err := getKeyIDByLabel(session, pk11.ClassPrivateKey, params.KeyLabel)
+	keyID, err := GetKeyIDByLabel(session, pk11.ClassPrivateKey, params.KeyLabel)
 	if err != nil {
 		return nil, nil, fmt.Errorf("fail to find key with label: %q, error: %v", params.KeyLabel, err)
 	}

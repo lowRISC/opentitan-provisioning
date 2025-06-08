@@ -9,7 +9,9 @@ symmetricKeys:
   - name: eg-kdf-hisec-v0
   - name: eg-kdf-losec-v0
 certs:
-  - name: dice-ica
+  - name: RootCA
+    path: sku/eg/common/ca/opentitan-ca-root-v0.priv.der
+  - name: SigningKey/Dice/v0
     path: sku/sival/ca/sival-dice-key-p256-v0.priv.der
 privateKeys:
     - name: sival-dice-key-p256-v0.priv

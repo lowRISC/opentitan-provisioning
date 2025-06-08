@@ -285,9 +285,6 @@ func TestEndorseCert(t *testing.T) {
 	caCert, err := x509.ParseCertificate(caCertBlock.Bytes)
 	ts.Check(t, err)
 
-	roots := x509.NewCertPool()
-	roots.AddCert(caCert)
-
 	log.Printf("Reading TBS")
 	tbs := readFile(t, diceTBSPath)
 
@@ -295,19 +292,12 @@ func TestEndorseCert(t *testing.T) {
 	certDER, err := hsm.EndorseCert(tbs, EndorseCertParams{
 		KeyLabel:           kcaPrivName,
 		SignatureAlgorithm: x509.ECDSAWithSHA256,
+		Roots:              []*x509.Certificate{caCert},
+		Intermediates:      []*x509.Certificate{},
 	})
 	ts.Check(t, err)
 
-	cert, err := x509.ParseCertificate(certDER)
-	ts.Check(t, err)
-
-	// DICE extensions marked as critical end up in this list. We explicitly
-	// clear the list to get x509.Verify to pass.
-	cert.UnhandledCriticalExtensions = nil
-
-	_, err = cert.Verify(x509.VerifyOptions{
-		Roots: roots,
-	})
+	_, err = x509.ParseCertificate(certDER)
 	ts.Check(t, err)
 }
 

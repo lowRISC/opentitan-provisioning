@@ -36,6 +36,11 @@ type EndorseCertParams struct {
 	KeyLabel string
 	// Signature algorithm to use.
 	SignatureAlgorithm x509.SignatureAlgorithm
+	// Certificate chain to use for endorsement.
+	// This is typically the CA certificate chain that will be used to verify
+	// the signed certificate.
+	Intermediates []*x509.Certificate
+	Roots         []*x509.Certificate
 }
 
 // TokenOp specifies the operation to perform on the token.

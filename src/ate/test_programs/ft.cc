@@ -238,7 +238,7 @@ int main(int argc, char **argv) {
 
   // Generate CA serial numbers.
   constexpr size_t kNumIcas = 1;
-  const char *kIcaCertLabels[] = {"dice-ica"};
+  const char *kIcaCertLabels[] = {"SigningKey/Dice/v0"};
   ca_serial_number_t serial_numbers[kNumIcas];
   if (GetCaSerialNumbers(ate_client, absl::GetFlag(FLAGS_sku).c_str(),
                          /*count=*/kNumIcas, kIcaCertLabels,

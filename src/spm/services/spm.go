@@ -349,17 +349,34 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 		return nil, status.Errorf(codes.Internal, "could not verify WAS signature: %s", err)
 	}
 
+	rootCert, ok := sku.Certs["RootCA"]
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "unable to find RootCA cert in SKU configuration")
+	}
+
 	var certs []*pbp.CertBundle
 	for _, bundle := range request.Bundles {
 		keyLabel, err := sku.Config.GetUnsafeAttribute(bundle.KeyParams.KeyLabel)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "unable to find key label %q in SKU configuration: %v", bundle.KeyParams.KeyLabel, err)
 		}
+
+		caCert, ok := sku.Certs[bundle.KeyParams.KeyLabel]
+		if !ok {
+			return nil, status.Errorf(codes.Internal, "unable to find cert %q in SKU configuration", bundle.KeyParams.KeyLabel)
+		}
+
 		switch key := bundle.KeyParams.Key.(type) {
 		case *pbc.SigningKeyParams_EcdsaParams:
 			params := se.EndorseCertParams{
 				KeyLabel:           keyLabel,
 				SignatureAlgorithm: ecdsaSignatureAlgorithmFromHashType(key.EcdsaParams.HashType),
+				Intermediates: []*x509.Certificate{
+					caCert,
+				},
+				Roots: []*x509.Certificate{
+					rootCert,
+				},
 			}
 			cert, err := sku.SeHandle.EndorseCert(bundle.Tbs, params)
 			if err != nil {
