@@ -24,6 +24,11 @@ if [[ ! -n "${RELEASE_DIR}" ]]; then
    RELEASE_DIR=${REPO_TOP}/bazel-bin/release
 fi
 
+# Remove the deployment directory if it exists.
+if [ -d "${OPENTITAN_VAR_DIR}" ]; then
+    rm -rf ${OPENTITAN_VAR_DIR}
+fi
+
 mkdir -p ${OPENTITAN_VAR_DIR}/release
 mv ${RELEASE_DIR}/release_bundle.tar.xz ${OPENTITAN_VAR_DIR}
 mv ${RELEASE_DIR}/fakeregistry_containers.tar ${OPENTITAN_VAR_DIR}/release
