@@ -114,12 +114,9 @@ func CheckEndpointInterceptor(ctx context.Context, req interface{}, info *grpc.U
 		ips, err := net.LookupAddr(clientIP)
 		if err != nil {
 			skipDNS = true
-			fmt.Println("err = ", err)
 		}
-		fmt.Println("clientIP = ", clientIP)
 		if !skipDNS {
 			clientDNS := ips[0]
-			fmt.Println("clientDns = ", clientDNS)
 			dnsParts := strings.Split(clientDNS, ".")
 			hostname = dnsParts[0]
 			hostname = strings.ToLower(hostname)
