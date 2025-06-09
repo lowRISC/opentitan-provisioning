@@ -26,8 +26,8 @@ void OtLibBootstrap(void* transport, const char* bin);
 void OtLibConsoleWaitForRx(void* transport, const char* msg,
                            uint64_t timeout_ms);
 void OtLibConsoleRx(void* transport, const char* sync_msg,
-                    dut_spi_frame_t* spi_frames, size_t* num_frames, bool quiet,
-                    uint64_t timeout_ms);
+                    dut_spi_frame_t* spi_frames, size_t* num_frames,
+                    bool skip_crc_check, bool quiet, uint64_t timeout_ms);
 void OtLibConsoleTx(void* transport, const char* sync_msg,
                     const uint8_t* spi_frame, size_t spi_frame_size,
                     uint64_t timeout_ms);
@@ -35,8 +35,6 @@ void OtLibResetAndLock(void* transport, const char* openocd);
 void OtLibLcTransition(void* transport, const char* openocd,
                        const uint8_t* token, size_t token_size,
                        uint32_t target_lc_state);
-void OtLibRxPersoBlob(void* transport, bool quiet, uint64_t timeout_ms,
-                      size_t* num_objects, size_t* next_free, uint8_t* body);
 }
 
 std::unique_ptr<DutLib> DutLib::Create(const std::string& fpga) {
@@ -68,10 +66,11 @@ void DutLib::DutConsoleWaitForRx(const char* msg, uint64_t timeout_ms) {
 
 void DutLib::DutConsoleRx(const std::string& sync_msg,
                           dut_spi_frame_t* spi_frames, size_t* num_frames,
-                          bool quiet, uint64_t timeout_ms) {
+                          bool skip_crc_check, bool quiet,
+                          uint64_t timeout_ms) {
   LOG(INFO) << "in DutLib::DutConsoleRx";
-  OtLibConsoleRx(transport_, sync_msg.c_str(), spi_frames, num_frames, quiet,
-                 timeout_ms);
+  OtLibConsoleRx(transport_, sync_msg.c_str(), spi_frames, num_frames,
+                 skip_crc_check, quiet, timeout_ms);
 }
 
 void DutLib::DutConsoleTx(const std::string& sync_msg, const uint8_t* spi_frame,
@@ -91,12 +90,6 @@ void DutLib::DutLcTransition(const std::string& openocd, const uint8_t* token,
   LOG(INFO) << "in DutLib::DutLcTransition";
   OtLibLcTransition(transport_, openocd.c_str(), token, token_size,
                     target_lc_state);
-}
-
-void DutLib::DutRxFtPersoBlob(bool quiet, uint64_t timeout_ms, size_t* num_objs,
-                              size_t* next_free, uint8_t* body) {
-  LOG(INFO) << "in DutLib::DutRxFtPersoBlob";
-  OtLibRxPersoBlob(transport_, quiet, timeout_ms, num_objs, next_free, body);
 }
 
 }  // namespace test_programs

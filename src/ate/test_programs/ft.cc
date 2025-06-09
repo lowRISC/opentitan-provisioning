@@ -277,14 +277,24 @@ int main(int argc, char **argv) {
                     /*timeout_ms=*/1000);
 
   // Receive the TBS certs and other provisioning data from the DUT.
+  constexpr size_t kMaxNumPbSpiFrames = 10;
+  dut_spi_frame_t pb_spi_frames[kMaxNumPbSpiFrames];
+  size_t num_pb_spi_frames = kMaxNumPbSpiFrames;
+  dut->DutConsoleRx("Exporting TBS certificates ...", pb_spi_frames,
+                    &num_pb_spi_frames,
+                    /*skip_crc_check=*/true,
+                    /*quiet=*/true,
+                    /*timeout_ms=*/5000);
   perso_blob_t perso_blob_from_dut = {
       .num_objects = 0,
       .next_free = kPersoBlobMaxSize,
       .body = {0},
   };
-  dut->DutRxFtPersoBlob(
-      /*quiet=*/true, /*timeout_ms=*/5000, &perso_blob_from_dut.num_objects,
-      &perso_blob_from_dut.next_free, perso_blob_from_dut.body);
+  if (PersoBlobFromJson(pb_spi_frames, num_pb_spi_frames,
+                        &perso_blob_from_dut)) {
+    LOG(ERROR) << "PersoBlobFromJson failed.";
+    return -1;
+  }
 
   // Unpack the provisioning data (TBS certs, device ID, dev seeds, etc.) from
   // the perso blob.

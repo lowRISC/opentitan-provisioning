@@ -37,9 +37,7 @@ use opentitanlib::test_utils::load_bitstream::LoadBitstream;
 use opentitanlib::test_utils::load_sram_program::{
     ExecutionMode, ExecutionResult, SramProgramParams,
 };
-use opentitanlib::test_utils::rpc::ConsoleRecv;
 use opentitanlib::uart::console::{ExitStatus, UartConsole};
-use ujson_lib::provisioning_data::PersoBlob;
 
 const BUFFER_SIZE: usize = 2044;
 
@@ -276,6 +274,7 @@ pub extern "C" fn OtLibConsoleRx(
     sync_msg: *mut c_char,
     spi_frames: *mut DutSpiFrame,
     num_frames: *mut usize,
+    skip_crc_check: bool,
     quiet: bool,
     timeout_ms: u64,
 ) {
@@ -338,11 +337,20 @@ pub extern "C" fn OtLibConsoleRx(
                 .expect("RESP_OK capture");
             let json_str = cap.get(1).expect("RESP_OK group").as_str();
             let crc_str = cap.get(2).expect("CRC group").as_str();
-            check_console_crc(json_str, crc_str).expect("CRC check failed.");
-
-            *num_frames = (json_str.len() + BUFFER_SIZE - 1) / BUFFER_SIZE;
+            if !skip_crc_check {
+                check_console_crc(json_str, crc_str).expect("CRC check failed.");
+            }
+            let num_frames_required = (json_str.len() + BUFFER_SIZE - 1) / BUFFER_SIZE;
+            if *num_frames < num_frames_required {
+                panic!(
+                        "Not enough frames ({} frames of size {} bytes) allocated to receive JSON string of length {}",
+                        *num_frames,
+                        BUFFER_SIZE,
+                        json_str.len()
+                    )
+            }
             for (i, spi_frame) in spi_frames.iter_mut().enumerate() {
-                if i < *num_frames {
+                if i < num_frames_required {
                     let start = i * BUFFER_SIZE;
                     let end = (start + BUFFER_SIZE).min(json_str.len());
                     let chunk = &json_str.as_bytes()[start..end];
@@ -350,12 +358,10 @@ pub extern "C" fn OtLibConsoleRx(
                     spi_frame.payload[..chunk_len].copy_from_slice(chunk);
                     spi_frame.cursor = chunk_len;
                 } else {
-                    panic!(
-                        "Not enough frames allocated to receive JSON string of length {}",
-                        json_str.len()
-                    )
+                    break;
                 }
             }
+            *num_frames = num_frames_required;
         }
         ExitStatus::ExitFailure => {
             let cap = console
@@ -529,45 +535,4 @@ pub extern "C" fn OtLibLcTransition(
         .unwrap()
         .remove()
         .expect("Could not remove bootstrap straps.");
-}
-
-#[no_mangle]
-pub extern "C" fn OtLibRxPersoBlob(
-    transport: *const TransportWrapper,
-    quiet: bool,
-    timeout_ms: u64,
-    num_objects: *mut usize,
-    next_free: *mut usize,
-    body: *mut u8,
-) {
-    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
-    // the call to `OtLibFpgaTransportInit(...)` above.
-    let transport: &TransportWrapper = unsafe { &*transport };
-
-    // Get handle to SPI console.
-    let spi = transport.spi("BOOTSTRAP").unwrap();
-    let device_console_tx_ready_pin = &transport.gpio_pin("IOA5").expect("Unable to get GPIO pin.");
-    let _ = device_console_tx_ready_pin.set_mode(PinMode::Input);
-    let _ = device_console_tx_ready_pin.set_pull_mode(PullMode::None);
-    let spi_console = SpiConsoleDevice::new(
-        &*spi,
-        Some(device_console_tx_ready_pin),
-        /*ignore_frame_num=*/ true,
-    )
-    .expect("Unable to create SPI console.");
-
-    // Receive the UJSON data payload from the DUT over the console.
-    let timeout = Duration::from_millis(timeout_ms);
-    let _ = UartConsole::wait_for(&spi_console, r"Exporting TBS certificates ...", timeout)
-        .expect("Perso blob device TX sync message missed.");
-    let perso_blob = PersoBlob::recv(&spi_console, timeout, quiet, /*skip_crc=*/ true)
-        .expect("Could not receive perso blob from DUT.");
-    // SAFETY: the size pointers below should be a valid pointers to memory allocated by the caller.
-    let num_objects = unsafe { &mut *num_objects };
-    let next_free = unsafe { &mut *next_free };
-    // SAFETY: body should be a valid pointer to memory allocated by the caller.
-    let body = unsafe { std::slice::from_raw_parts_mut(body, *next_free) };
-    *num_objects = perso_blob.num_objs;
-    body[..perso_blob.body.len()].copy_from_slice(perso_blob.body.as_slice());
-    *next_free = perso_blob.next_free;
 }

@@ -225,7 +225,8 @@ int main(int argc, char **argv) {
   size_t num_spi_frames = 1;
   dut->DutConsoleRx("Exporting CP device ID ...", &devid_spi_frame,
                     &num_spi_frames,
-                    /*quiet=*/false,
+                    /*skip_crc_check=*/true,
+                    /*quiet=*/true,
                     /*timeout_ms=*/1000);
   device_id_bytes_t device_id_bytes = {.raw = {0}};
   if (DeviceIdFromJson(&devid_spi_frame, &device_id_bytes) != 0) {

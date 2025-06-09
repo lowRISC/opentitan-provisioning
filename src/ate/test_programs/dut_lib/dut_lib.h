@@ -45,7 +45,8 @@ class DutLib {
    * Calls opentitanlib test util to receive a message over the SPI console.
    */
   void DutConsoleRx(const std::string& sync_msg, dut_spi_frame_t* spi_frames,
-                    size_t* num_frames, bool quiet, uint64_t timeout_ms);
+                    size_t* num_frames, bool skip_crc_check, bool quiet,
+                    uint64_t timeout_ms);
   /**
    * Calls opentitanlib test util to send a message over the SPI console.
    */
@@ -62,12 +63,6 @@ class DutLib {
    */
   void DutLcTransition(const std::string& openocd, const uint8_t* token,
                        size_t token_size, uint32_t target_lc_state);
-  /**
-   * Calls opentitanlib methods to receive the perso blob from the DUT, which
-   * contains the TBS certificates to be endorsed.
-   */
-  void DutRxFtPersoBlob(bool quiet, uint64_t timeout_ms, size_t* num_objs,
-                        size_t* next_free, uint8_t* body);
 
  private:
   // Must be 2x the opentitanlib UartConsole buffer size defined here:
