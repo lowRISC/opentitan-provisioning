@@ -208,26 +208,26 @@ DLLEXPORT int RmaTokenFromJson(const dut_spi_frame_t *frame,
   return 0;
 }
 
-DLLEXPORT int CaSerialNumbersToJson(const ca_serial_number_t *dice_ca_sn,
-                                    const ca_serial_number_t *aux_ca_sn,
-                                    dut_spi_frame_t *result) {
+DLLEXPORT int CaSubjectKeysToJson(const ca_subject_key_t *dice_ca_sn,
+                                  const ca_subject_key_t *aux_ca_sn,
+                                  dut_spi_frame_t *result) {
   if (result == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
   }
 
-  ot::dut_commands::CaSerialNumbersJSON ca_serial_numbers_cmd;
+  ot::dut_commands::CaSubjectKeysJSON ca_key_ids_cmd;
   if (dice_ca_sn == nullptr) {
-    LOG(ERROR) << "Invalid DICE CA serial number.";
+    LOG(ERROR) << "Invalid DICE CA subject key.";
     return -1;
   }
   if (aux_ca_sn == nullptr) {
-    LOG(ERROR) << "Invalid auxiliary CA serial number.";
+    LOG(ERROR) << "Invalid auxiliary CA subject key.";
     return -1;
   }
-  for (size_t i = 0; i < kCaSerialNumberSize; ++i) {
-    ca_serial_numbers_cmd.add_dice_auth_key_key_id(dice_ca_sn->data[i]);
-    ca_serial_numbers_cmd.add_ext_auth_key_key_id(aux_ca_sn->data[i]);
+  for (size_t i = 0; i < kCaSubjectKeySize; ++i) {
+    ca_key_ids_cmd.add_dice_auth_key_key_id(dice_ca_sn->data[i]);
+    ca_key_ids_cmd.add_ext_auth_key_key_id(aux_ca_sn->data[i]);
   }
 
   std::string command;
@@ -236,8 +236,8 @@ DLLEXPORT int CaSerialNumbersToJson(const ca_serial_number_t *dice_ca_sn,
   options.always_print_primitive_fields = true;
   options.preserve_proto_field_names = true;
   google::protobuf::util::Status status =
-      google::protobuf::util::MessageToJsonString(ca_serial_numbers_cmd,
-                                                  &command, options);
+      google::protobuf::util::MessageToJsonString(ca_key_ids_cmd, &command,
+                                                  options);
   if (!status.ok()) {
     LOG(ERROR) << "Failed to convert CA serial number command to JSON: "
                << status.ToString();

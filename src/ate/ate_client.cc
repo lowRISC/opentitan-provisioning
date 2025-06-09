@@ -29,8 +29,8 @@ using pa::DeriveTokensRequest;
 using pa::DeriveTokensResponse;
 using pa::EndorseCertsRequest;
 using pa::EndorseCertsResponse;
-using pa::GetCaSerialNumbersRequest;
-using pa::GetCaSerialNumbersResponse;
+using pa::GetCaSubjectKeysRequest;
+using pa::GetCaSubjectKeysResponse;
 using pa::InitSessionRequest;
 using pa::InitSessionResponse;
 using pa::ProvisioningApplianceService;
@@ -142,9 +142,9 @@ Status AteClient::DeriveTokens(DeriveTokensRequest& request,
   return stub_->DeriveTokens(&context, request, reply);
 }
 
-Status AteClient::GetCaSerialNumbers(GetCaSerialNumbersRequest& request,
-                                     GetCaSerialNumbersResponse* reply) {
-  LOG(INFO) << "AteClient::GetCaSerialNumbers";
+Status AteClient::GetCaSubjectKeys(GetCaSubjectKeysRequest& request,
+                                   GetCaSubjectKeysResponse* reply) {
+  LOG(INFO) << "AteClient::GetCaSubjectKeys";
 
   // Context for the client (It could be used to convey extra information to
   // the server and/or tweak certain RPC behaviors).
@@ -152,7 +152,7 @@ Status AteClient::GetCaSerialNumbers(GetCaSerialNumbersRequest& request,
   context.AddMetadata("authorization", sku_session_token_);
 
   // The actual RPC - call the server's DeriveTokens method.
-  return stub_->GetCaSerialNumbers(&context, request, reply);
+  return stub_->GetCaSubjectKeys(&context, request, reply);
 }
 
 Status AteClient::RegisterDevice(RegistrationRequest& request,

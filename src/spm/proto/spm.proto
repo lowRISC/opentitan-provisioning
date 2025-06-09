@@ -28,10 +28,10 @@ service SpmService {
   rpc DeriveTokens(pa.DeriveTokensRequest)
       returns (pa.DeriveTokensResponse) {}
 
-  // GetCaSerialNumbers retrieves the CA certificate(s) serial numbers for a
+  // GetCaSubjectKeys retrieves the CA certificate(s) subject keys for a
   // SKU.
-  rpc GetCaSerialNumbers(pa.GetCaSerialNumbersRequest)
-      returns (pa.GetCaSerialNumbersResponse) {}
+  rpc GetCaSubjectKeys(pa.GetCaSubjectKeysRequest)
+      returns (pa.GetCaSubjectKeysResponse) {}
 
   // GetStoredTokens retrieves a token preprovisioned on the SPM.
   rpc GetStoredTokens(pa.GetStoredTokensRequest)

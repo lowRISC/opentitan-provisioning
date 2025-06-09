@@ -288,25 +288,25 @@ func ecdsaSignatureAlgorithmFromHashType(h pbcommon.HashType) x509.SignatureAlgo
 	}
 }
 
-// GetCaSerialNumbers retrieves the CA certificate(s) serial numbers for a SKU.
-func (s *server) GetCaSerialNumbers(ctx context.Context, request *pbp.GetCaSerialNumbersRequest) (*pbp.GetCaSerialNumbersResponse, error) {
+// GetCaSubjectKeys retrieves the CA certificate(s) subject keys for a SKU.
+func (s *server) GetCaSubjectKeys(ctx context.Context, request *pbp.GetCaSubjectKeysRequest) (*pbp.GetCaSubjectKeysResponse, error) {
 	sku, ok := s.skuManager.GetSku(request.Sku)
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.Sku)
 	}
 
-	// Extract the serial number from each certificate.
-	var serialNumbers [][]byte
+	// Extract the subject key from each certificate.
+	var subjectKeys [][]byte
 	for _, label := range request.CertLabels {
 		cert, ok := sku.Certs[label]
 		if !ok {
 			return nil, status.Errorf(codes.Internal, "unable to find cert %q in SKU configuration", label)
 		}
-		serialNumbers = append(serialNumbers, cert.SerialNumber.Bytes())
+		subjectKeys = append(subjectKeys, cert.SubjectKeyId)
 	}
 
-	return &pbp.GetCaSerialNumbersResponse{
-		SerialNumbers: serialNumbers,
+	return &pbp.GetCaSubjectKeysResponse{
+		KeyIds: subjectKeys,
 	}, nil
 }
 

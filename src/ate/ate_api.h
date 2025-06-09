@@ -36,8 +36,8 @@ enum {
    */
   kWrappedSeedMaxSize = 384,
 
-  /** CA serial number size in bytes. This is equivalent to 160 bits. */
-  kCaSerialNumberSize = 20,
+  /** CA subject key size in bytes. This is equivalent to 160 bits. */
+  kCaSubjectKeySize = 20,
 
   /** Maximum size of SPI frame supported by the DUT. */
   kDutSpiFrameHeaderSize = 4,
@@ -359,11 +359,11 @@ typedef struct wrapped_seed {
 } wrapped_seed_t;
 
 /**
- * CA serial number.
+ * CA subject key.
  */
-typedef struct ca_serial_number {
-  uint8_t data[kCaSerialNumberSize];
-} ca_serial_number_t;
+typedef struct ca_subject_key {
+  uint8_t data[kCaSubjectKeySize];
+} ca_subject_key_t;
 
 /**
  * DeviceLifeCycle encodes the state of the device as it is being manufactured
@@ -456,21 +456,21 @@ DLLEXPORT int GenerateTokens(ate_client_ptr client, const char* sku,
                              token_t* tokens, wrapped_seed_t* seeds);
 
 /**
- * Gets the CA serial numbers.
+ * Gets the CA subject keys.
  *
- * This function retrieves the CA serial numbers from the PA/SPM. The caller
- * should allocate enough memory to store the serial numbers.
+ * This function retrieves the CA subject keys from the PA/SPM. The caller
+ * should allocate enough memory to store the subject keys.
  *
  * @param client A client instance.
  * @param sku The SKU of the product to generate the keys for.
- * @param count The number of serial numbers to retrieve.
+ * @param count The number of subject keys to retrieve.
  * @param labels The lable strings of the certs to retrieve. Size `count`.
- * @param[out] serial_numbers The generated serial_numbers. Size `count`.
+ * @param[out] key_ids The generated key_ids. Size `count`.
  * @return The result of the operation.
  */
-DLLEXPORT int GetCaSerialNumbers(ate_client_ptr client, const char* sku,
-                                 size_t count, const char** labels,
-                                 ca_serial_number_t* serial_numbers);
+DLLEXPORT int GetCaSubjectKeys(ate_client_ptr client, const char* sku,
+                               size_t count, const char** labels,
+                               ca_subject_key_t* key_ids);
 
 /**
  * Endorse certificates.
@@ -543,16 +543,16 @@ DLLEXPORT int RmaTokenFromJson(const dut_spi_frame_t* frame,
                                token_t* rma_token);
 
 /**
- * Generate JSON command to inject the CA serial numbers.
+ * Generate JSON command to inject the CA subject keys.
  *
- * @param dice_ca_sn The DICE CA serial number.
- * @param aux_ca_sn The auxiliary CA serial number.
+ * @param dice_ca_sn The DICE CA subject key.
+ * @param aux_ca_sn The auxiliary CA subject key.
  * @param[out] result The generated JSON command.
  * @return The result of the operation.
  */
-DLLEXPORT int CaSerialNumbersToJson(const ca_serial_number_t* dice_ca_sn,
-                                    const ca_serial_number_t* aux_ca_sn,
-                                    dut_spi_frame_t* result);
+DLLEXPORT int CaSubjectKeysToJson(const ca_subject_key_t* dice_ca_sn,
+                                  const ca_subject_key_t* aux_ca_sn,
+                                  dut_spi_frame_t* result);
 
 /**
  * Generate JSON command to inject personalization blob.

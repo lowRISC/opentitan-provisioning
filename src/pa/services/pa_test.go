@@ -74,7 +74,7 @@ type fakeSpmClient struct {
 	initSession         initSessionResponse
 	deriveSymmetricKeys deriveSymmetricKeysResponse
 	getStoredTokens     getStoredTokensResponse
-	getCaSerialNumbers  getCaSerialNumbersResponse
+	getCaSubjectKeys    getCaSubjectKeysResponse
 	endorseCerts        endorseCertsResponse
 	endorseData         endorseDataResponse
 }
@@ -94,8 +94,8 @@ type getStoredTokensResponse struct {
 	err      error
 }
 
-type getCaSerialNumbersResponse struct {
-	response *pbp.GetCaSerialNumbersResponse
+type getCaSubjectKeysResponse struct {
+	response *pbp.GetCaSubjectKeysResponse
 	err      error
 }
 
@@ -121,8 +121,8 @@ func (c *fakeSpmClient) GetStoredTokens(ctx context.Context, request *pbp.GetSto
 	return c.getStoredTokens.response, c.getStoredTokens.err
 }
 
-func (c *fakeSpmClient) GetCaSerialNumbers(ctx context.Context, request *pbp.GetCaSerialNumbersRequest, opts ...grpc.CallOption) (*pbp.GetCaSerialNumbersResponse, error) {
-	return c.getCaSerialNumbers.response, c.getCaSerialNumbers.err
+func (c *fakeSpmClient) GetCaSubjectKeys(ctx context.Context, request *pbp.GetCaSubjectKeysRequest, opts ...grpc.CallOption) (*pbp.GetCaSubjectKeysResponse, error) {
+	return c.getCaSubjectKeys.response, c.getCaSubjectKeys.err
 }
 
 func (c *fakeSpmClient) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequest, opts ...grpc.CallOption) (*pbp.EndorseCertsResponse, error) {

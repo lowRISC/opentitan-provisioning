@@ -47,7 +47,7 @@ message RmaTokenJSON {
 
 // Provides the manuf_certgen_inputs_t data structure used by provisioning
 // firmware.
-message CaSerialNumbersJSON {
+message CaSubjectKeysJSON {
   // dice_auth_key_key_id contains the DICE CA serial number. It must contain 20
   // bytes, to hold a SHA1 hash. Protobuf does not have a "uint8" type, such
   // that we can define a message field of "repeated uint8". Protobuf only has a

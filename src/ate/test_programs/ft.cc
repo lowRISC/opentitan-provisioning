@@ -236,22 +236,20 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  // Generate CA serial numbers.
+  // Generate CA subject keys.
   constexpr size_t kNumIcas = 1;
   const char *kIcaCertLabels[] = {"SigningKey/Dice/v0"};
-  ca_serial_number_t serial_numbers[kNumIcas];
-  if (GetCaSerialNumbers(ate_client, absl::GetFlag(FLAGS_sku).c_str(),
-                         /*count=*/kNumIcas, kIcaCertLabels,
-                         serial_numbers) != 0) {
-    LOG(ERROR) << "GetCaSerialNumbers failed.";
+  ca_subject_key_t key_ids[kNumIcas];
+  if (GetCaSubjectKeys(ate_client, absl::GetFlag(FLAGS_sku).c_str(),
+                       /*count=*/kNumIcas, kIcaCertLabels, key_ids) != 0) {
+    LOG(ERROR) << "GetCaSubjectKeys failed.";
     return -1;
   }
-  const ca_serial_number_t *kDiceCaSn = &serial_numbers[0];
-  const ca_serial_number_t kExtCaSn = {0};
-  dut_spi_frame_t ca_serial_numbers_spi_frame;
-  if (CaSerialNumbersToJson(kDiceCaSn, &kExtCaSn,
-                            &ca_serial_numbers_spi_frame) != 0) {
-    LOG(ERROR) << "CaSerialNumbersToJson failed.";
+  const ca_subject_key_t *kDiceCaSk = &key_ids[0];
+  const ca_subject_key_t kExtCaSk = {0};
+  dut_spi_frame_t ca_key_ids_spi_frame;
+  if (CaSubjectKeysToJson(kDiceCaSk, &kExtCaSk, &ca_key_ids_spi_frame) != 0) {
+    LOG(ERROR) << "CaSubjectKeysToJson failed.";
     return -1;
   }
 
@@ -272,8 +270,7 @@ int main(int argc, char **argv) {
                     rma_token_spi_frame.payload, rma_token_spi_frame.cursor,
                     /*timeout_ms=*/1000);
   dut->DutConsoleTx("Waiting for certificate inputs ...",
-                    ca_serial_numbers_spi_frame.payload,
-                    ca_serial_numbers_spi_frame.cursor,
+                    ca_key_ids_spi_frame.payload, ca_key_ids_spi_frame.cursor,
                     /*timeout_ms=*/1000);
 
   // Receive the TBS certs and other provisioning data from the DUT.

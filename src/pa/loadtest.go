@@ -176,26 +176,26 @@ func testOTDeriveTokens(ctx context.Context, numCalls int, skuName string, c *cl
 	}
 }
 
-// Executes the GetCaSerialNumbers call for a `numCalls` total and
+// Executes the GetCaSubjectKeys call for a `numCalls` total and
 // produces a `callResult` which is sent to the `clientTask.results` channel.
-func testOTGetCaSerialNumbers(ctx context.Context, numCalls int, skuName string, c *clientTask) {
+func testOTGetCaSubjectKeys(ctx context.Context, numCalls int, skuName string, c *clientTask) {
 	// Prepare request and auth token.
 	md := metadata.Pairs("user_id", strconv.Itoa(c.id), "authorization", c.auth_token)
 	client_ctx := metadata.NewOutgoingContext(ctx, md)
 
-	request := &pbp.GetCaSerialNumbersRequest{
+	request := &pbp.GetCaSubjectKeysRequest{
 		Sku:        skuName,
 		CertLabels: []string{"SigningKey/Dice/v0"},
 	}
 
 	// Send request to PA.
 	for i := 0; i < numCalls; i++ {
-		r, err := c.client.GetCaSerialNumbers(client_ctx, request)
+		r, err := c.client.GetCaSubjectKeys(client_ctx, request)
 		if err != nil {
 			log.Printf("error: client id: %d, error: %v", c.id, err)
 		}
 		for j, label := range request.CertLabels {
-			log.Printf("CA %q serial number: 0x%s", label, hex.EncodeToString(r.SerialNumbers[j]))
+			log.Printf("CA %q subject key: 0x%s", label, hex.EncodeToString(r.KeyIds[j]))
 		}
 		c.results <- &callResult{id: c.id, err: err}
 		time.Sleep(c.delayPerCall)
@@ -433,8 +433,8 @@ func main() {
 				testFunc: testOTDeriveTokens,
 			},
 			{
-				testName: "OT:GetCaSerialNumbers",
-				testFunc: testOTGetCaSerialNumbers,
+				testName: "OT:GetCaSubjectKeys",
+				testFunc: testOTGetCaSubjectKeys,
 			},
 			{
 				testName: "OT:EndorseCerts",

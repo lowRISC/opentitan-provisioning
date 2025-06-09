@@ -136,10 +136,10 @@ func (s *server) GetStoredTokens(ctx context.Context, request *pap.GetStoredToke
 	return r, nil
 }
 
-// GetCaSerialNumbers retrieves the CA serial numbers for a given SKU.
-func (s *server) GetCaSerialNumbers(ctx context.Context, request *pap.GetCaSerialNumbersRequest) (*pap.GetCaSerialNumbersResponse, error) {
-	log.Printf("In PA - Received GetCaSerialNumbers request")
-	r, err := s.spmClient.GetCaSerialNumbers(ctx, request)
+// GetCaSubjectKeys retrieves the CA serial numbers for a given SKU.
+func (s *server) GetCaSubjectKeys(ctx context.Context, request *pap.GetCaSubjectKeysRequest) (*pap.GetCaSubjectKeysResponse, error) {
+	log.Printf("In PA - Received GetCaSubjectKeys request")
+	r, err := s.spmClient.GetCaSubjectKeys(ctx, request)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "SPM returned error: %v", err)
 	}
