@@ -364,8 +364,28 @@ int main(int argc, char **argv) {
     }
   }
 
-  // TODO(timothytrippel): Check the cert chains validate.
-  // TODO(timothytrippel): Register the device.
+  // Register the device.
+  // TODO(timothytrippel): add helper function to translate kDifLcCtrlStateProd
+  // to kDeviceLifeCycleProd
+  metadata_t dut_metadata = {
+      .year = 0,
+      .week = 10,
+      .lot_num = 123,
+      .wafer_id = 456,
+      .x = 25,
+      .y = 52,
+  };
+  // TODO(timothytrippel): extract the perso TLV data and perso FW hash
+  perso_tlv_data_t perso_tlv_data = {.size = 10, .data = {0}};
+  perso_fw_sha256_hash_t perso_fw_hash = {.raw = {0}};
+  if (RegisterDevice(ate_client, absl::GetFlag(FLAGS_sku).c_str(),
+                     reinterpret_cast<const device_id_t *>(&device_id),
+                     kDeviceLifeCycleProd, &dut_metadata,
+                     &wrapped_rma_token_seed, &perso_tlv_data,
+                     &perso_fw_hash) != 0) {
+    LOG(ERROR) << "RegisterDevice failed.";
+    return -1;
+  }
 
   // Close session with PA.
   if (CloseSession(ate_client) != 0) {

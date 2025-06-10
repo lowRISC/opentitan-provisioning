@@ -158,7 +158,10 @@ message DeviceData {
   DeviceLifeCycle device_life_cycle = 3;
   // Additional metadata contain device creation time and registration state.
   Metadata metadata = 4;
-  // Encrypted RMA unlock token.
+  // Encrypted RMA unlock token seed.
+  //
+  // This is the encrypted seed used to KDF the RMA unlock token, not the
+  // encrypted token itself.
   bytes wrapped_rma_unlock_token = 5;
   // Up to (8k) bytes of SKU specific personalization TLV data.
   //

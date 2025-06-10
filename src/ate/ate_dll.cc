@@ -1,6 +1,7 @@
 // Copyright lowRISC contributors (OpenTitan project).
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
+
 #include <google/protobuf/util/json_util.h>
 #include <openssl/asn1.h>
 #include <openssl/pem.h>
@@ -9,6 +10,7 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
+#include <set>
 #include <unordered_map>
 #include <vector>
 
@@ -552,5 +554,99 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
     resp_cert.key_label_size = c.key_label().size();
     memcpy(resp_cert.key_label, c.key_label().data(), c.key_label().size());
   }
+  return 0;
+}
+
+// Get the current time in milliseconds.
+uint64_t getMilliseconds(void) {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(
+             std::chrono::high_resolution_clock::now().time_since_epoch())
+      .count();
+}
+
+DLLEXPORT int RegisterDevice(
+    ate_client_ptr client, const char *sku, const device_id_t *device_id,
+    device_life_cycle_t device_life_cycle, const metadata_t *metadata,
+    const wrapped_seed_t *wrapped_rma_unlock_token_seed,
+    const perso_tlv_data_t *perso_tlv_data,
+    const perso_fw_sha256_hash_t *perso_fw_hash) {
+  DLOG(INFO) << "RegisterDevice";
+
+  if (sku == nullptr || device_id == nullptr || metadata == nullptr ||
+      perso_tlv_data == nullptr || perso_fw_hash == nullptr) {
+    LOG(ERROR) << "RegisterDevice failed - invalid pointer arg.";
+    return static_cast<int>(absl::StatusCode::kInvalidArgument);
+  }
+  const std::set<device_life_cycle_t> kMissionModeLcStates = {
+      kDeviceLifeCycleDev, kDeviceLifeCycleProd, kDeviceLifeCycleProdEnd};
+  if (kMissionModeLcStates.count(device_life_cycle) == 0) {
+    LOG(ERROR) << "RegisterDevice failed - invalid mission mode LC state.";
+    return static_cast<int>(absl::StatusCode::kInvalidArgument);
+  }
+
+  AteClient *ate = reinterpret_cast<AteClient *>(client);
+
+  // Build the RegisterDeviceRequest object.
+  pa::RegistrationRequest req;
+  auto device_data = req.mutable_device_data();
+
+  // SKU.
+  device_data->set_sku(sku);
+
+  // Device ID.
+  auto hardware_origin =
+      device_data->mutable_device_id()->mutable_hardware_origin();
+  hardware_origin->set_silicon_creator_id(static_cast<ot::SiliconCreatorId>(
+      device_id->hardware_origin.silicon_creator_id));
+  hardware_origin->set_product_id(
+      static_cast<ot::ProductId>(device_id->hardware_origin.product_id));
+  hardware_origin->set_device_identification_number(
+      device_id->hardware_origin.device_identification_number);
+  device_data->mutable_device_id()->set_sku_specific(
+      std::string(reinterpret_cast<const char *>(device_id->sku_specific),
+                  sizeof(device_id->sku_specific)));
+
+  // Device Lifecycle state.
+  device_data->set_device_life_cycle(
+      static_cast<ot::DeviceLifeCycle>(device_life_cycle));
+
+  // Metadata.
+  auto current_time_ms = getMilliseconds();
+  device_data->mutable_metadata()->set_registration_state(
+      ot::DeviceRegistrationState::DEVICE_REGISTRATION_STATE_PROVISIONED);
+  device_data->mutable_metadata()->set_create_time_ms(current_time_ms);
+  device_data->mutable_metadata()->set_update_time_ms(current_time_ms);
+  device_data->mutable_metadata()->set_ate_id(ate->ate_id);
+  device_data->mutable_metadata()->set_ate_raw("");
+  device_data->mutable_metadata()->set_year(metadata->year);
+  device_data->mutable_metadata()->set_week(metadata->week);
+  device_data->mutable_metadata()->set_lot_num(metadata->lot_num);
+  device_data->mutable_metadata()->set_wafer_id(metadata->wafer_id);
+  device_data->mutable_metadata()->set_x(metadata->x);
+  device_data->mutable_metadata()->set_y(metadata->y);
+
+  // Wrapped RMA unlock token seed.
+  device_data->set_wrapped_rma_unlock_token(std::string(
+      reinterpret_cast<const char *>(wrapped_rma_unlock_token_seed->seed),
+      wrapped_rma_unlock_token_seed->size));
+
+  // Perso TLV data.
+  device_data->set_perso_tlv_data(
+      std::string(reinterpret_cast<const char *>(perso_tlv_data->data),
+                  perso_tlv_data->size));
+
+  // Perso firmware SHA256 hash.
+  device_data->set_perso_fw_sha256_hash(std::string(
+      reinterpret_cast<const char *>(perso_fw_hash->raw), kSha256HashSize));
+
+  // Send the request to the PA.
+  pa::RegistrationResponse resp;
+  auto status = ate->RegisterDevice(req, &resp);
+  if (!status.ok()) {
+    LOG(ERROR) << "RegisterDevice failed with " << status.error_code() << ": "
+               << status.error_message();
+    return static_cast<int>(status.error_code());
+  }
+
   return 0;
 }

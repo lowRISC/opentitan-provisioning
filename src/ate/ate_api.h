@@ -1,12 +1,17 @@
 // Copyright lowRISC contributors (OpenTitan project).
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
+
 #ifndef OPENTITAN_PROVISIONING_SRC_ATE_ATE_API_H_
 #define OPENTITAN_PROVISIONING_SRC_ATE_ATE_API_H_
+
 #include <stddef.h>
 #include <stdint.h>
 
 #include <string>
+
+#include "src/proto/device_id.pb.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -27,8 +32,11 @@ enum {
   /** Maximum token size in bytes. This is equivalent to 256 bits. */
   kTokenMaxSize = 32,
 
+  /** SHA256 hash size in bytes. This is equivalent to 256 bits. */
+  kSha256HashSize = 32,
+
   /** WAS HMAC signature size in bytes. This is equivalent to 256 bits. */
-  kWasHmacSignatureSize = 32,
+  kWasHmacSignatureSize = kSha256HashSize,
 
   /**
    * Maximum wrapped seed size in bytes. This is equivalent to the size of a
@@ -57,10 +65,16 @@ enum {
   kCertificateKeyLabelMaxSize = 32,
 
   /**
-   * Maximum perso blob size in bytes; Must match definition in
+   * Maximum perso blob (RXed from DUT) size in bytes; Must match definition in
    * provisioning_data.h in lowRISC/opentitan repo.
    */
   kPersoBlobMaxSize = 5120,
+
+  /**
+   * Maximum perso TLV data structure size in bytes; this is the data structure
+   * that is stored in the device registry.
+   */
+  kPersoTlvDataMaxSize = 8192,
 };
 
 /**
@@ -155,7 +169,7 @@ typedef struct HardwareOrigin {
   uint16_t silicon_creator_id;
   uint16_t product_id;
   uint64_t device_identification_number;
-  uint32_t reserved;
+  uint32_t cp_reserved;
 } hardware_origin_t;
 
 typedef struct DeviceId {
@@ -354,7 +368,9 @@ typedef struct token {
  * Wrapped token generation seed (used for RMA token generation).
  */
 typedef struct wrapped_seed {
+  /** Size of the wrapped seed in bytes. */
   size_t size;
+  /** Seed bytes. */
   uint8_t seed[kWrappedSeedMaxSize];
 } wrapped_seed_t;
 
@@ -366,20 +382,89 @@ typedef struct ca_subject_key {
 } ca_subject_key_t;
 
 /**
+ * Personalization TLV data structure that contains all the data (certs, seeds,
+ * etc.) that is saved in the device registry database.
+ */
+typedef struct perso_tlv_data {
+  /** Perso TLV data structure size in bytes. */
+  size_t size;
+  /** Perso TLV data bytes. */
+  uint8_t data[kPersoTlvDataMaxSize];
+} perso_tlv_data_t;
+
+/**
+ * Type used to wrap the personalization firmware hash raw bytes.
+ */
+typedef struct perso_fw_sha256_hash {
+  uint8_t raw[kSha256HashSize];
+} perso_fw_sha256_hash_t;
+
+/**
  * DeviceLifeCycle encodes the state of the device as it is being manufactured
  * and provisioned for shipment.
  */
-enum DeviceLifeCycle : uint32_t {
-  DEVICE_LIFE_CYCLE_UNSPECIFIED = 0,  // default -- invalid in messages
-  DEVICE_LIFE_CYCLE_RAW = 1,
-  DEVICE_LIFE_CYCLE_TEST_LOCKED = 2,
-  DEVICE_LIFE_CYCLE_TEST_UNLOCKED = 3,
-  DEVICE_LIFE_CYCLE_DEV = 4,
-  DEVICE_LIFE_CYCLE_PROD = 5,
-  DEVICE_LIFE_CYCLE_PROD_END = 6,
-  DEVICE_LIFE_CYCLE_RMA = 7,
-  DEVICE_LIFE_CYCLE_SCRAP = 8,
-};
+typedef enum DeviceLifeCycle : uint32_t {
+  kDeviceLifeCycleUnspecified =
+      ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_UNSPECIFIED,
+  kDeviceLifeCycleRaw = ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_RAW,
+  kDeviceLifeCycleTestLocked =
+      ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_TEST_LOCKED,
+  kDeviceLifeCycleTestUnlocked =
+      ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_TEST_UNLOCKED,
+  kDeviceLifeCycleDev = ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_DEV,
+  kDeviceLifeCycleProd = ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_PROD,
+  kDeviceLifeCycleProdEnd = ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_PROD_END,
+  kDeviceLifeCycleRma = ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_RMA,
+  kDeviceLifeCycleScrap = ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_SCRAP,
+} device_life_cycle_t;
+
+/**
+ * OpenTitan device provisioning metadata.
+ */
+typedef struct metadata {
+  /**
+   * Year the device was provisioned.
+   */
+  uint32_t year;
+  /**
+   * Week number the device was provisioned.
+   */
+  uint32_t week;
+  /**
+   * Lot number the device came from.
+   */
+  uint32_t lot_num;
+  /**
+   * Wafer ID the device came from.
+   */
+  uint32_t wafer_id;
+  /**
+   * X position on the wafer the device came from.
+   */
+  uint32_t x;
+  /**
+   * Y position on the wafer the device came from.
+   */
+  uint32_t y;
+} metadata_t;
+
+/**
+ * Request parameters for registering a device in the registry database.
+ */
+typedef struct register_device_request {
+  /** Device ID. */
+  uint32_t device_id[8];
+  /** Device Life Cycle state. */
+  device_life_cycle_t device_life_cycle;
+  /** Device metadata. */
+  metadata_t metadata;
+  /** Encrypted RMA unlock token. */
+  uint32_t wrapped_rma_unlock_token[4];
+  /** Personalization TLV data. */
+  uint8_t perso_tlv_data[8192];
+  /** Personalization firmware SHA256 hash. */
+  uint32_t perso_fw_sha256_hash[8];
+} register_device_request_t;
 
 /**
  * Creates an AteClient instance.
@@ -498,6 +583,23 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char* sku,
                            size_t cert_count,
                            const endorse_cert_request_t* request,
                            endorse_cert_response_t* certs);
+
+/**
+ * Register a device.
+ *
+ * The function registers a provisioned device in the device registry.
+ *
+ * @param client A client instance.
+ * @param sku The SKU of the product to endorse the certificates for.
+ * @param request The request parameters for the registration.
+ * @return The result of the operation.
+ */
+DLLEXPORT int RegisterDevice(
+    ate_client_ptr client, const char* sku, const device_id_t* device_id,
+    device_life_cycle_t device_life_cycle, const metadata_t* metadata,
+    const wrapped_seed_t* wrapped_rma_unlock_token_seed,
+    const perso_tlv_data_t* perso_tlv_data,
+    const perso_fw_sha256_hash_t* perso_fw_hash);
 
 /**
  * Generate JSON command to inject tokens.
