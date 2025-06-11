@@ -23,11 +23,53 @@
 #include "src/pa/proto/pa.grpc.pb.h"
 #include "src/proto/crypto/common.pb.h"
 #include "src/proto/crypto/ecdsa.pb.h"
+#include "src/proto/device_id.pb.h"
 
 namespace {
 using provisioning::ate::AteClient;
 using namespace provisioning::ate;
 }  // namespace
+
+/**
+ * Check the ate_api.h device_life_cycle_t enum values match those in the
+ * device_id.proto enum.
+ */
+static_assert(kDeviceLifeCycleUnspecified ==
+                  static_cast<uint32_t>(
+                      ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_UNSPECIFIED),
+              "LC state enum must match proto enum (Unspecified)");
+static_assert(
+    kDeviceLifeCycleRaw ==
+        static_cast<uint32_t>(ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_RAW),
+    "LC state enum must match proto enum (Raw)");
+static_assert(kDeviceLifeCycleTestLocked ==
+                  static_cast<uint32_t>(
+                      ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_TEST_LOCKED),
+              "LC state enum must match proto enum (TestLocked)");
+static_assert(kDeviceLifeCycleTestUnlocked ==
+                  static_cast<uint32_t>(
+                      ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_TEST_UNLOCKED),
+              "LC state enum must match proto enum (TestUnlocked)");
+static_assert(
+    kDeviceLifeCycleDev ==
+        static_cast<uint32_t>(ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_DEV),
+    "LC state enum must match proto enum (Dev)");
+static_assert(
+    kDeviceLifeCycleProd ==
+        static_cast<uint32_t>(ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_PROD),
+    "LC state enum must match proto enum (Prod)");
+static_assert(
+    kDeviceLifeCycleProdEnd ==
+        static_cast<uint32_t>(ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_PROD_END),
+    "LC state enum must match proto enum (ProdEnd)");
+static_assert(
+    kDeviceLifeCycleRma ==
+        static_cast<uint32_t>(ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_RMA),
+    "LC state enum must match proto enum (Rma)");
+static_assert(
+    kDeviceLifeCycleScrap ==
+        static_cast<uint32_t>(ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_SCRAP),
+    "LC state enum must match proto enum (Scrap)");
 
 std::string extractDNSNameFromCert(const char *certPath) {
   DLOG(INFO) << "extractDNSNameFromCert";
@@ -212,7 +254,6 @@ DLLEXPORT int CloseSession(ate_client_ptr client) {
 }
 
 namespace {
-
 // Convert `token_seed_t` to `TokenSeed`.
 int TokenSetSeedConfig(token_seed_t seed_kind, pa::TokenParams *param) {
   switch (seed_kind) {

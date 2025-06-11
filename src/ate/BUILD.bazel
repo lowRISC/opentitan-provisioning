@@ -51,6 +51,7 @@ ATE_LIB_DEPS = [
     ":ate_client",
     "//src/ate/proto:dut_commands_cc_proto",
     "//src/pa/proto:pa_cc_grpc",
+    "//src/proto:device_id_cc_proto",
     "//src/proto/crypto:common_cc_proto",
     "//src/proto/crypto:ecdsa_cc_proto",
     "@com_google_absl//absl/log",

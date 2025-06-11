@@ -10,8 +10,6 @@
 
 #include <string>
 
-#include "src/proto/device_id.pb.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -403,19 +401,16 @@ typedef struct perso_fw_sha256_hash {
  * DeviceLifeCycle encodes the state of the device as it is being manufactured
  * and provisioned for shipment.
  */
-typedef enum DeviceLifeCycle : uint32_t {
-  kDeviceLifeCycleUnspecified =
-      ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_UNSPECIFIED,
-  kDeviceLifeCycleRaw = ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_RAW,
-  kDeviceLifeCycleTestLocked =
-      ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_TEST_LOCKED,
-  kDeviceLifeCycleTestUnlocked =
-      ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_TEST_UNLOCKED,
-  kDeviceLifeCycleDev = ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_DEV,
-  kDeviceLifeCycleProd = ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_PROD,
-  kDeviceLifeCycleProdEnd = ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_PROD_END,
-  kDeviceLifeCycleRma = ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_RMA,
-  kDeviceLifeCycleScrap = ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_SCRAP,
+typedef enum device_life_cycle : uint32_t {
+  kDeviceLifeCycleUnspecified = 0,
+  kDeviceLifeCycleRaw = 1,
+  kDeviceLifeCycleTestLocked = 2,
+  kDeviceLifeCycleTestUnlocked = 3,
+  kDeviceLifeCycleDev = 4,
+  kDeviceLifeCycleProd = 5,
+  kDeviceLifeCycleProdEnd = 6,
+  kDeviceLifeCycleRma = 7,
+  kDeviceLifeCycleScrap = 8,
 } device_life_cycle_t;
 
 /**
