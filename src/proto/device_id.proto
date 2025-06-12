@@ -167,6 +167,8 @@ message DeviceData {
   //
   // (Size is enforced at a higher level, not by protobuf).
   bytes perso_tlv_data = 6;
+  // Number of objects in the personalization TLV data structure above.
+  uint32 num_perso_tlv_objects = 8;
   // Personalization firmware SHA256 hash.
   bytes perso_fw_sha256_hash = 7;
 }

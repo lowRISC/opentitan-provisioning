@@ -675,6 +675,7 @@ DLLEXPORT int RegisterDevice(
   device_data->set_perso_tlv_data(
       std::string(reinterpret_cast<const char *>(perso_blob_for_registry->body),
                   perso_blob_for_registry->next_free));
+  device_data->set_num_perso_tlv_objects(perso_blob_for_registry->num_objects);
 
   // Perso firmware SHA256 hash.
   device_data->set_perso_fw_sha256_hash(std::string(
