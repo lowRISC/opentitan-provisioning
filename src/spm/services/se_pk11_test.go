@@ -370,6 +370,14 @@ func TestVerifyWASSignature(t *testing.T) {
 	mac.Write(dev)
 	was := mac.Sum(nil)
 
+	// The WAS key is loaded into the HMAC peripheral on the device as an array
+	// of 32-bit words. On a little-endian system, this causes the bytes within
+	// each word to be swapped. We must perform the same transformation on the
+	// key before using it in Go's HMAC implementation.
+	for i := 0; i < len(was); i += 4 {
+		was[i], was[i+1], was[i+2], was[i+3] = was[i+3], was[i+2], was[i+1], was[i]
+	}
+
 	mac = hmac.New(sha256.New, was)
 	mac.Write(data)
 	sig := mac.Sum(nil)

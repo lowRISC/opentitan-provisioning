@@ -554,14 +554,21 @@ func (h *HSM) VerifyWASSignature(params VerifyWASParams) error {
 		return fmt.Errorf("failed to hash seed: %v", err)
 	}
 
+	// The WAS key is loaded into the HMAC peripheral on the device as an array
+	// of 32-bit words. On a little-endian system, this causes the bytes within
+	// each word to be swapped. We must perform the same transformation on the
+	// key before using it in Go's HMAC implementation.
+	for i := 0; i < len(was); i += 4 {
+		was[i], was[i+1], was[i+2], was[i+3] = was[i+3], was[i+2], was[i+1], was[i]
+	}
+
 	mac := hmac.New(sha256.New, was)
 	mac.Write(params.Data)
 	sig := mac.Sum(nil)
 
 	if !hmac.Equal(sig, params.Signature) {
 		log.Printf("SE.VerifyWASSignature: WAS signature check failed")
-		// TODO(timothytrippel): re-enable and fix this check
-		//return fmt.Errorf("failed to verify signature: %x, got %x", params.Signature, sig)
+		return fmt.Errorf("failed to verify signature (expected/got): \n%x,\n%x", params.Signature, sig)
 	}
 	return nil
 }

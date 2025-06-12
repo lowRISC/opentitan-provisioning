@@ -283,7 +283,15 @@ func NewEndorseCertTest(tbs []byte) callFunc {
 		if len(result.Tokens) != 1 {
 			log.Fatalf("expected 1 token, got %d", len(result.Tokens))
 		}
-		mac := hmac.New(sha256.New, result.Tokens[0].Token)
+		was := result.Tokens[0].Token
+		// The WAS key is loaded into the HMAC peripheral on the device as an array
+		// of 32-bit words. On a little-endian system, this causes the bytes within
+		// each word to be swapped. We must perform the same transformation on the
+		// key before using it in Go's HMAC implementation.
+		for i := 0; i < len(was); i += 4 {
+			was[i], was[i+1], was[i+2], was[i+3] = was[i+3], was[i+2], was[i+1], was[i]
+		}
+		mac := hmac.New(sha256.New, was)
 		mac.Write(tbs)
 		sig := mac.Sum(nil)
 
