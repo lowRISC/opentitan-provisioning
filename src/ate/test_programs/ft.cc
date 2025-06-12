@@ -302,11 +302,12 @@ int main(int argc, char **argv) {
   endorse_cert_request_t x509_tbs_certs[kMaxNumCerts];
   size_t num_certs = kMaxNumCerts;
   endorse_cert_response_t x509_certs[kMaxNumCerts];
-  dev_seed_t dev_seeds;
-  size_t num_dev_seeds = 1;
+  constexpr size_t kMaxDevSeeds = 5;
+  dev_seed_t dev_seeds[kMaxDevSeeds];
+  size_t num_dev_seeds = kMaxDevSeeds;
   if (UnpackPersoBlob(&perso_blob_from_dut, &device_id, &tbs_was_hmac,
                       x509_tbs_certs, &num_tbs_certs, x509_certs, &num_certs,
-                      &dev_seeds, &num_dev_seeds) != 0) {
+                      dev_seeds, &num_dev_seeds) != 0) {
     LOG(ERROR) << "Failed to unpack the perso blob from the DUT.";
     return -1;
   }
@@ -367,8 +368,6 @@ int main(int argc, char **argv) {
   }
 
   // Register the device.
-  // TODO(timothytrippel): add helper function to translate kDifLcCtrlStateProd
-  // to kDeviceLifeCycleProd
   metadata_t dut_metadata = {
       .year = 0,
       .week = 10,
@@ -377,13 +376,21 @@ int main(int argc, char **argv) {
       .x = 25,
       .y = 52,
   };
-  // TODO(timothytrippel): extract the perso TLV data and perso FW hash
-  perso_tlv_data_t perso_tlv_data = {.size = 10, .data = {0}};
+  perso_blob_t perso_blob_for_registry;
+  if (PackRegistryPersoTlvData(x509_certs, num_certs, endorsed_x509_certs,
+                               num_tbs_certs, dev_seeds, num_dev_seeds,
+                               &perso_blob_for_registry) != 0) {
+    LOG(ERROR) << "PackRegistryPersoTlvData failed.";
+    return -1;
+  }
+  // TODO(timothytrippel): extract the perso FW hash
   perso_fw_sha256_hash_t perso_fw_hash = {.raw = {0}};
+  // TODO(timothytrippel): add helper function to translate kDifLcCtrlStateProd
+  // to kDeviceLifeCycleProd
   if (RegisterDevice(ate_client, absl::GetFlag(FLAGS_sku).c_str(),
                      reinterpret_cast<const device_id_t *>(&device_id),
                      kDeviceLifeCycleProd, &dut_metadata,
-                     &wrapped_rma_token_seed, &perso_tlv_data,
+                     &wrapped_rma_token_seed, &perso_blob_for_registry,
                      &perso_fw_hash) != 0) {
     LOG(ERROR) << "RegisterDevice failed.";
     return -1;

@@ -609,12 +609,12 @@ DLLEXPORT int RegisterDevice(
     ate_client_ptr client, const char *sku, const device_id_t *device_id,
     device_life_cycle_t device_life_cycle, const metadata_t *metadata,
     const wrapped_seed_t *wrapped_rma_unlock_token_seed,
-    const perso_tlv_data_t *perso_tlv_data,
+    const perso_blob_t *perso_blob_for_registry,
     const perso_fw_sha256_hash_t *perso_fw_hash) {
   DLOG(INFO) << "RegisterDevice";
 
   if (sku == nullptr || device_id == nullptr || metadata == nullptr ||
-      perso_tlv_data == nullptr || perso_fw_hash == nullptr) {
+      perso_blob_for_registry == nullptr || perso_fw_hash == nullptr) {
     LOG(ERROR) << "RegisterDevice failed - invalid pointer arg.";
     return static_cast<int>(absl::StatusCode::kInvalidArgument);
   }
@@ -673,8 +673,8 @@ DLLEXPORT int RegisterDevice(
 
   // Perso TLV data.
   device_data->set_perso_tlv_data(
-      std::string(reinterpret_cast<const char *>(perso_tlv_data->data),
-                  perso_tlv_data->size));
+      std::string(reinterpret_cast<const char *>(perso_blob_for_registry->body),
+                  perso_blob_for_registry->next_free));
 
   // Perso firmware SHA256 hash.
   device_data->set_perso_fw_sha256_hash(std::string(

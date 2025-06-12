@@ -242,6 +242,33 @@ int PackX509CertTlvObject(const endorse_cert_response_t* cert,
   return 0;
 }
 
+// Helper function to pack a dev_seed object into a perso blob.
+int PackDevSeedTlvObject(const dev_seed_t* dev_seed, perso_blob_t* blob) {
+  // Calculate the size of the object .
+  size_t obj_size = sizeof(perso_tlv_object_header_t) + dev_seed->size;
+  if (blob->next_free + obj_size > sizeof(blob->body)) {
+    LOG(ERROR) << "Personalization blob is full, cannot add more objects.";
+    return -1;
+  }
+
+  // Set up the object header.
+  uint8_t* buf = blob->body + blob->next_free;
+  perso_tlv_object_header_t* obj_hdr =
+      reinterpret_cast<perso_tlv_object_header_t*>(buf);
+  PERSO_TLV_SET_FIELD(Objh, Size, *obj_hdr, obj_size);
+  PERSO_TLV_SET_FIELD(Objh, Type, *obj_hdr, kPersoObjectTypeDevSeed);
+
+  // Copy the certificate data.
+  buf += sizeof(perso_tlv_object_header_t);
+  memcpy(buf, dev_seed->raw, dev_seed->size);
+
+  // Update the next free offset in the blob.
+  blob->next_free += obj_size;
+  blob->num_objects++;
+
+  return 0;
+}
+
 }  // namespace
 
 DLLEXPORT int UnpackPersoBlob(
@@ -429,5 +456,58 @@ DLLEXPORT int PackPersoBlob(size_t cert_count,
       return -1;
     }
   }
+  return 0;
+}
+
+DLLEXPORT int PackRegistryPersoTlvData(
+    const endorse_cert_response_t* certs_endorsed_by_dut,
+    size_t num_certs_endorsed_by_dut,
+    const endorse_cert_response_t* certs_endorsed_by_spm,
+    size_t num_certs_endorsed_by_spm, const dev_seed_t* dev_seeds,
+    size_t num_dev_seeds, perso_blob_t* output) {
+  if (certs_endorsed_by_dut == nullptr || certs_endorsed_by_spm == nullptr ||
+      output == nullptr) {
+    LOG(ERROR) << "Invalid certs or personalization blob pointer.";
+    return -1;
+  }
+  if (num_certs_endorsed_by_dut == 0 && num_certs_endorsed_by_spm == 0 &&
+      num_dev_seeds == 0) {
+    LOG(ERROR) << "No certs or seeds to send to registry.";
+    return -1;
+  }
+
+  memset(output, 0, sizeof(perso_blob_t));
+
+  // Pack all cert objects.
+  const endorse_cert_response_t* all_certs[] = {certs_endorsed_by_dut,
+                                                certs_endorsed_by_spm};
+  size_t num_certs[] = {num_certs_endorsed_by_dut, num_certs_endorsed_by_spm};
+  for (size_t i = 0; i < (sizeof(all_certs) / sizeof(all_certs[0])); i++) {
+    for (size_t j = 0; j < num_certs[i]; j++) {
+      const endorse_cert_response_t& cert = all_certs[i][j];
+      if (cert.cert_size == 0) {
+        LOG(ERROR) << "Invalid certificate at indices i:" << i << ", j:" << j;
+        return -1;
+      }
+      if (PackX509CertTlvObject(&cert, output) != 0) {
+        LOG(ERROR) << "Unable to pack certificate into perso blob.";
+        return -1;
+      }
+    }
+  }
+
+  // Pack all dev seed objects.
+  for (size_t i = 0; i < num_dev_seeds; i++) {
+    const dev_seed_t& dev_seed = dev_seeds[i];
+    if (dev_seed.size == 0) {
+      LOG(ERROR) << "Invalid dev_seed at index " << i;
+      return -1;
+    }
+    if (PackDevSeedTlvObject(&dev_seed, output) != 0) {
+      LOG(ERROR) << "Unable to pack dev seed into perso blob.";
+      return -1;
+    }
+  }
+
   return 0;
 }
