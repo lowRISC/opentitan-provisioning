@@ -49,9 +49,9 @@ enum {
   kDutSpiFrameHeaderSize = 4,
   kDutSpiFrameSize = 2048 - kDutSpiFrameHeaderSize,
 
-  /** Maximum device dev seed max size in uint32_t words. */
-  kDeviceDevSeedWordSize = 32,
-  kDeviceDevSeedBytesSize = kDeviceDevSeedWordSize * sizeof(uint32_t),
+  /** Maximum dev seed max size in uint32_t words. */
+  kDevSeedWordSize = 32,
+  kDevSeedBytesSize = kDevSeedWordSize * sizeof(uint32_t),
 
   /** Diversification string size. */
   kDiversificationStringSize = 48,
@@ -231,16 +231,16 @@ typedef struct endorse_cert_signature {
   uint8_t raw[kWasHmacSignatureSize];
 } endorse_cert_signature_t;
 
-typedef struct device_dev_seed {
+typedef struct dev_seed {
   /**
-   * The size of the seed in bytes.
+   * The size of the dev seed in bytes.
    */
   size_t size;
   /**
-   * The seed data.
+   * The dev seed data.
    */
-  uint8_t raw[kDeviceDevSeedBytesSize];
-} device_dev_seed_t;
+  uint8_t raw[kDevSeedBytesSize];
+} dev_seed_t;
 
 /**
  * Request parameters for endorsing certificates.
@@ -679,20 +679,20 @@ DLLEXPORT int PersoBlobFromJson(const dut_spi_frame_t* frames,
  * @param blob The personalization blob to unpack.
  * @param[out] device_id The extracted device ID.
  * @param[out] hmac The HMAC over the TBS certificates.
- * @param[out] cert_count The number of TBS certificates found. Initialized to
- * the size of `request`.
- * @param[out] request The request parameters for certificate endorsement.
- * @param[out] seeds The extracted device seeds. Initialized to the size of
- * `seeds`.
- * @param[out] seed_count The number of device seeds found.
+ * @param[out] x509_tbs_certs Array of X.509 TBS certs.
+ * @param[out] tbs_cert_count The number of TBS certs found. Initialized
+ * to the size of `x509_tbs_certs`.
+ * @param[out] dev_seeds The extracted dev_seeds.
+ * @param[out] dev_seed_count The number of dev_seeds found. Initialized to the
+ * size of `dev_seeds`.
  * @return The result of the operation.
  */
 DLLEXPORT int UnpackPersoBlob(const perso_blob_t* blob,
                               device_id_bytes_t* device_id,
                               endorse_cert_signature_t* signature,
-                              size_t* cert_count,
-                              endorse_cert_request_t* request,
-                              device_dev_seed_t* seeds, size_t* seed_count);
+                              endorse_cert_request_t* x509_tbs_certs,
+                              size_t* tbs_cert_count, dev_seed_t* dev_seeds,
+                              size_t* dev_seed_count);
 
 /**
  * Pack a personalization blob from the endorsed certificates.

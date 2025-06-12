@@ -212,11 +212,12 @@ int PackCertObject(const endorse_cert_response_t* cert, perso_blob_t* blob) {
 DLLEXPORT int UnpackPersoBlob(const perso_blob_t* blob,
                               device_id_bytes_t* device_id,
                               endorse_cert_signature_t* signature,
-                              size_t* cert_count,
-                              endorse_cert_request_t* requests,
-                              device_dev_seed_t* seeds, size_t* seed_count) {
-  if (device_id == nullptr || signature == nullptr || cert_count == nullptr ||
-      requests == nullptr || seeds == nullptr || seed_count == nullptr) {
+                              endorse_cert_request_t* x509_tbs_certs,
+                              size_t* tbs_cert_count, dev_seed_t* dev_seeds,
+                              size_t* dev_seed_count) {
+  if (device_id == nullptr || signature == nullptr ||
+      tbs_cert_count == nullptr || x509_tbs_certs == nullptr ||
+      dev_seeds == nullptr || dev_seed_count == nullptr) {
     LOG(ERROR) << "Invalid output parameters";
     return -1;
   }
@@ -229,10 +230,10 @@ DLLEXPORT int UnpackPersoBlob(const perso_blob_t* blob,
   memset(device_id->raw, 0, sizeof(device_id_bytes_t));
   memset(signature->raw, 0, sizeof(signature->raw));
 
-  size_t max_cert_count = *cert_count;
-  *cert_count = 0;
-  size_t max_seed_count = *seed_count;
-  *seed_count = 0;
+  size_t max_cert_count = *tbs_cert_count;
+  *tbs_cert_count = 0;
+  size_t max_dev_seed_count = *dev_seed_count;
+  *dev_seed_count = 0;
 
   const uint8_t* buf = blob->body;
   size_t remaining = blob->next_free;
@@ -268,9 +269,9 @@ DLLEXPORT int UnpackPersoBlob(const perso_blob_t* blob,
       }
 
       case kPersoObjectTypeX509Tbs: {
-        if (*cert_count >= max_cert_count) {
+        if (*tbs_cert_count >= max_cert_count) {
           LOG(ERROR) << "Exceeded maximum number of TBS certificates: "
-                     << *cert_count << " >= " << max_cert_count;
+                     << *tbs_cert_count << " >= " << max_cert_count;
           return -1;
         }
         perso_tlv_cert_obj_t cert_obj;
@@ -278,12 +279,12 @@ DLLEXPORT int UnpackPersoBlob(const perso_blob_t* blob,
           LOG(ERROR) << "Failed to extract X509 TBS certificate object";
           return -1;
         }
-        if (PackTbsCertEndorsementRequest(&cert_obj, &requests[*cert_count]) !=
-            0) {
+        if (PackTbsCertEndorsementRequest(
+                &cert_obj, &x509_tbs_certs[*tbs_cert_count]) != 0) {
           LOG(ERROR) << "Failed to pack TBS certificate endorsement request.";
           return -1;
         }
-        (*cert_count)++;
+        (*tbs_cert_count)++;
         break;
       }
 
@@ -302,23 +303,23 @@ DLLEXPORT int UnpackPersoBlob(const perso_blob_t* blob,
       }
 
       case kPersoObjectTypeDevSeed: {
-        if (*seed_count >= max_seed_count) {
-          LOG(ERROR) << "Exceeded maximum number of device seeds: "
-                     << *seed_count << " >= " << max_seed_count;
+        if (*dev_seed_count >= max_dev_seed_count) {
+          LOG(ERROR) << "Exceeded maximum number of dev seeds: "
+                     << *dev_seed_count << " >= " << max_dev_seed_count;
           return -1;
         }
-        if (obj_size >
-            kDeviceDevSeedBytesSize + sizeof(perso_tlv_object_header_t)) {
+        if (obj_size > kDevSeedBytesSize + sizeof(perso_tlv_object_header_t)) {
           LOG(ERROR) << "Invalid device seed object size: " << obj_size
                      << ", expected: "
-                     << (kDeviceDevSeedBytesSize +
-                         sizeof(perso_tlv_object_header_t));
+                     << (kDevSeedBytesSize + sizeof(perso_tlv_object_header_t));
           return -1;
         }
-        seeds[*seed_count].size = obj_size - sizeof(perso_tlv_object_header_t);
-        memcpy(seeds[*seed_count].raw, buf + sizeof(perso_tlv_object_header_t),
-               seeds[*seed_count].size);
-        (*seed_count)++;
+        dev_seeds[*dev_seed_count].size =
+            obj_size - sizeof(perso_tlv_object_header_t);
+        memcpy(dev_seeds[*dev_seed_count].raw,
+               buf + sizeof(perso_tlv_object_header_t),
+               dev_seeds[*dev_seed_count].size);
+        (*dev_seed_count)++;
         break;
       }
     }
@@ -331,7 +332,7 @@ DLLEXPORT int UnpackPersoBlob(const perso_blob_t* blob,
     LOG(ERROR) << "No WAS TBS HMAC found in the blob";
     return -1;
   }
-  if (*cert_count == 0) {
+  if (*tbs_cert_count == 0) {
     LOG(ERROR) << "No TBS certificates found in the blob";
     return -1;
   }

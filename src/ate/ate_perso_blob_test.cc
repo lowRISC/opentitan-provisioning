@@ -114,25 +114,30 @@ TEST_F(AtePersoBlobTest, UnpackPersoBlobSuccess) {
 
   device_id_bytes_t device_id;
   endorse_cert_signature_t signature;
+  size_t tbs_cert_count = 10;
   size_t cert_count = 10;
-  endorse_cert_request_t request[10];
-  device_dev_seed_t seeds[10];
+  endorse_cert_request_t x509_tbs_certs[10];
+  endorse_cert_response_t x509_certs[10];
+  dev_seed_t seeds[10];
   size_t seed_count = 10;
 
-  EXPECT_EQ(UnpackPersoBlob(&test_blob, &device_id, &signature, &cert_count,
-                            request, seeds, &seed_count),
+  EXPECT_EQ(UnpackPersoBlob(&test_blob, &device_id, &signature, x509_tbs_certs,
+                            &tbs_cert_count, x509_certs, &cert_count, seeds,
+                            &seed_count),
             0);
 
-  EXPECT_EQ(cert_count, 1);
+  EXPECT_EQ(tbs_cert_count, 1);
+  EXPECT_EQ(cert_count, 0);
   EXPECT_EQ(seed_count, 0);
   EXPECT_THAT(device_id.raw, testing::ElementsAreArray(test_device_id_.raw));
   EXPECT_THAT(signature.raw, testing::ElementsAreArray(test_signature_.raw));
 
-  EXPECT_EQ(request[0].key_label_size, test_request_.key_label_size);
-  EXPECT_EQ(request[0].tbs_size, test_request_.tbs_size);
-  EXPECT_THAT(request[0].key_label,
+  EXPECT_EQ(x509_tbs_certs[0].key_label_size, test_request_.key_label_size);
+  EXPECT_EQ(x509_tbs_certs[0].tbs_size, test_request_.tbs_size);
+  EXPECT_THAT(x509_tbs_certs[0].key_label,
               testing::ElementsAreArray(test_request_.key_label));
-  EXPECT_THAT(request[0].tbs, testing::ElementsAreArray(test_request_.tbs));
+  EXPECT_THAT(x509_tbs_certs[0].tbs,
+              testing::ElementsAreArray(test_request_.tbs));
 }
 
 TEST_F(AtePersoBlobTest, UnpackPersoBlobNullInputs) {
@@ -141,22 +146,27 @@ TEST_F(AtePersoBlobTest, UnpackPersoBlobNullInputs) {
 
   device_id_bytes_t device_id;
   endorse_cert_signature_t signature;
+  size_t tbs_cert_count = 10;
   size_t cert_count = 10;
-  endorse_cert_request_t request[10];
-  device_dev_seed_t seeds[10];
+  endorse_cert_request_t x509_tbs_certs[10];
+  endorse_cert_response_t x509_certs[10];
+  dev_seed_t seeds[10];
   size_t seed_count = 10;
 
   // Test null blob
-  EXPECT_EQ(UnpackPersoBlob(nullptr, &device_id, &signature, &cert_count,
-                            request, seeds, &seed_count),
+  EXPECT_EQ(UnpackPersoBlob(nullptr, &device_id, &signature, x509_tbs_certs,
+                            &tbs_cert_count, x509_certs, &cert_count, seeds,
+                            &seed_count),
             -1);
 
   // Test null output parameters
-  EXPECT_EQ(UnpackPersoBlob(&test_blob, nullptr, &signature, &cert_count,
-                            request, seeds, &seed_count),
+  EXPECT_EQ(UnpackPersoBlob(&test_blob, nullptr, &signature, x509_tbs_certs,
+                            &tbs_cert_count, x509_certs, &cert_count, seeds,
+                            &seed_count),
             -1);
-  EXPECT_EQ(UnpackPersoBlob(&test_blob, &device_id, nullptr, &cert_count,
-                            request, seeds, &seed_count),
+  EXPECT_EQ(UnpackPersoBlob(&test_blob, &device_id, nullptr, x509_tbs_certs,
+                            &tbs_cert_count, x509_certs, &cert_count, seeds,
+                            &seed_count),
             -1);
 }
 

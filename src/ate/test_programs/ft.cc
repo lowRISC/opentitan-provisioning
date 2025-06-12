@@ -295,16 +295,16 @@ int main(int argc, char **argv) {
 
   // Unpack the provisioning data (TBS certs, device ID, dev seeds, etc.) from
   // the perso blob.
-  constexpr size_t kNumTbsCerts = 10;
   device_id_bytes_t device_id;
   endorse_cert_signature_t tbs_was_hmac = {.raw = {0}};
-  size_t num_tbs_certs = kNumTbsCerts;
-  endorse_cert_request_t endorse_certs_requests[kNumTbsCerts];
-  device_dev_seed_t dev_seeds;
-  size_t dev_seeds_count;
+  constexpr size_t kMaxNumTbsCerts = 10;
+  size_t num_tbs_certs = kMaxNumTbsCerts;
+  endorse_cert_request_t x509_tbs_certs[kMaxNumTbsCerts];
+  dev_seed_t dev_seeds;
+  size_t num_dev_seeds = 1;
   if (UnpackPersoBlob(&perso_blob_from_dut, &device_id, &tbs_was_hmac,
-                      &num_tbs_certs, endorse_certs_requests, &dev_seeds,
-                      &dev_seeds_count) != 0) {
+                      x509_tbs_certs, &num_tbs_certs, &dev_seeds,
+                      &num_dev_seeds) != 0) {
     LOG(ERROR) << "Failed to unpack the perso blob from the DUT.";
     return -1;
   }
@@ -325,10 +325,10 @@ int main(int argc, char **argv) {
     LOG(ERROR) << "Failed to set diversifier for WAS.";
     return -1;
   }
-  endorse_cert_response_t endorse_certs_responses[kNumTbsCerts];
+  endorse_cert_response_t x509_certs[num_tbs_certs];
   if (EndorseCerts(ate_client, absl::GetFlag(FLAGS_sku).c_str(),
                    &was_diversifier, &tbs_was_hmac, num_tbs_certs,
-                   endorse_certs_requests, endorse_certs_responses) != 0) {
+                   x509_tbs_certs, x509_certs) != 0) {
     LOG(ERROR) << "Failed to endorse certs.";
     return -1;
   }
@@ -338,8 +338,7 @@ int main(int argc, char **argv) {
   constexpr size_t kNumPersoBlobMaxNumSpiFrames = 10;
   dut_spi_frame_t perso_blob_from_ate_spi_frames[kNumPersoBlobMaxNumSpiFrames];
   size_t num_perso_blob_spi_frames = kNumPersoBlobMaxNumSpiFrames;
-  if (PackPersoBlob(num_tbs_certs, endorse_certs_responses,
-                    &perso_blob_from_ate) != 0) {
+  if (PackPersoBlob(num_tbs_certs, x509_certs, &perso_blob_from_ate) != 0) {
     LOG(ERROR) << "Failed to repack the perso blob.";
     return -1;
   }
