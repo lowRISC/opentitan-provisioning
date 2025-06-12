@@ -682,17 +682,19 @@ DLLEXPORT int PersoBlobFromJson(const dut_spi_frame_t* frames,
  * @param[out] x509_tbs_certs Array of X.509 TBS certs.
  * @param[out] tbs_cert_count The number of TBS certs found. Initialized
  * to the size of `x509_tbs_certs`.
+ * @param[out] x509_certs Array of (fully formed) X.509 certs.
+ * @param[out] cert_count The number of certs found. Initialized to the size of
+ * `x509_certs`.
  * @param[out] dev_seeds The extracted dev_seeds.
  * @param[out] dev_seed_count The number of dev_seeds found. Initialized to the
  * size of `dev_seeds`.
  * @return The result of the operation.
  */
-DLLEXPORT int UnpackPersoBlob(const perso_blob_t* blob,
-                              device_id_bytes_t* device_id,
-                              endorse_cert_signature_t* signature,
-                              endorse_cert_request_t* x509_tbs_certs,
-                              size_t* tbs_cert_count, dev_seed_t* dev_seeds,
-                              size_t* dev_seed_count);
+DLLEXPORT int UnpackPersoBlob(
+    const perso_blob_t* blob, device_id_bytes_t* device_id,
+    endorse_cert_signature_t* signature, endorse_cert_request_t* x509_tbs_certs,
+    size_t* tbs_cert_count, endorse_cert_response_t* x509_certs,
+    size_t* cert_count, dev_seed_t* dev_seeds, size_t* dev_seed_count);
 
 /**
  * Pack a personalization blob from the endorsed certificates.

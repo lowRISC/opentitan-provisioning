@@ -297,14 +297,16 @@ int main(int argc, char **argv) {
   // the perso blob.
   device_id_bytes_t device_id;
   endorse_cert_signature_t tbs_was_hmac = {.raw = {0}};
-  constexpr size_t kMaxNumTbsCerts = 10;
-  size_t num_tbs_certs = kMaxNumTbsCerts;
-  endorse_cert_request_t x509_tbs_certs[kMaxNumTbsCerts];
+  constexpr size_t kMaxNumCerts = 10;
+  size_t num_tbs_certs = kMaxNumCerts;
+  endorse_cert_request_t x509_tbs_certs[kMaxNumCerts];
+  size_t num_certs = kMaxNumCerts;
+  endorse_cert_response_t x509_certs[kMaxNumCerts];
   dev_seed_t dev_seeds;
   size_t num_dev_seeds = 1;
   if (UnpackPersoBlob(&perso_blob_from_dut, &device_id, &tbs_was_hmac,
-                      x509_tbs_certs, &num_tbs_certs, &dev_seeds,
-                      &num_dev_seeds) != 0) {
+                      x509_tbs_certs, &num_tbs_certs, x509_certs, &num_certs,
+                      &dev_seeds, &num_dev_seeds) != 0) {
     LOG(ERROR) << "Failed to unpack the perso blob from the DUT.";
     return -1;
   }
@@ -316,7 +318,8 @@ int main(int argc, char **argv) {
                                device_id_words[5], device_id_words[4],
                                device_id_words[3], device_id_words[2],
                                device_id_words[1], device_id_words[0]);
-  LOG(INFO) << "Number of TBS certs to endorse: " << num_tbs_certs;
+  LOG(INFO) << "Number of X.509 TBS certs extracted: " << num_tbs_certs;
+  LOG(INFO) << "Number of X.509 certs extracted:     " << num_certs;
 
   // Endorse the TBS certs with the PA/SPM.
   // TODO(timothytrippel): Set diversifier to "was" || CP device ID.
@@ -325,10 +328,10 @@ int main(int argc, char **argv) {
     LOG(ERROR) << "Failed to set diversifier for WAS.";
     return -1;
   }
-  endorse_cert_response_t x509_certs[num_tbs_certs];
+  endorse_cert_response_t endorsed_x509_certs[num_tbs_certs];
   if (EndorseCerts(ate_client, absl::GetFlag(FLAGS_sku).c_str(),
                    &was_diversifier, &tbs_was_hmac, num_tbs_certs,
-                   x509_tbs_certs, x509_certs) != 0) {
+                   x509_tbs_certs, endorsed_x509_certs) != 0) {
     LOG(ERROR) << "Failed to endorse certs.";
     return -1;
   }
