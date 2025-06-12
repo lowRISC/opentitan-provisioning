@@ -12,6 +12,7 @@
 #include "src/ate/ate_api.h"
 
 namespace {
+
 // Helper function to extract a certificate from a perso blob.
 int ExtractCertObject(const uint8_t* buf, size_t buf_size,
                       perso_tlv_cert_obj_t* cert_obj) {
@@ -82,6 +83,42 @@ int ExtractCertObject(const uint8_t* buf, size_t buf_size,
   }
   cert_obj->cert_body_size = cert_body_size;
   cert_obj->cert_body_p = reinterpret_cast<const char*>(buf);
+
+  return 0;
+}
+
+// Helper function to extract a certificate from a perso blob.
+int PackTbsCertEndorsementRequest(const perso_tlv_cert_obj_t* cert_obj,
+                                  endorse_cert_request_t* request) {
+  if (cert_obj == nullptr || request == nullptr) {
+    LOG(ERROR) << "Invalid cert_obj or request object pointers.";
+    return -1;
+  }
+
+  // Copy the certificate body.
+  if (cert_obj->cert_body_size > kCertificateMaxSize) {
+    LOG(ERROR) << "TBS certificate body size exceeds maximum: "
+               << cert_obj->cert_body_size << " > " << kCertificateMaxSize;
+    return -1;
+  }
+  memset(request->tbs, 0, sizeof(request->tbs));
+  memcpy(request->tbs, cert_obj->cert_body_p, cert_obj->cert_body_size);
+  request->tbs_size = cert_obj->cert_body_size;
+
+  // Copy the key label.
+  size_t key_label_size = strlen(cert_obj->name);
+  if (key_label_size > kCertificateKeyLabelMaxSize) {
+    LOG(ERROR) << "Key label size exceeds maximum: " << key_label_size << " > "
+               << kCertificateKeyLabelMaxSize;
+    return -1;
+  }
+  memset(request->key_label, 0, sizeof(request->key_label));
+  memcpy(request->key_label, cert_obj->name, key_label_size);
+  request->key_label_size = key_label_size;
+
+  request->hash_type = kHashTypeSha256;
+  request->curve_type = kCurveTypeP256;
+  request->signature_encoding = kSignatureEncodingDer;
 
   return 0;
 }
@@ -176,15 +213,15 @@ DLLEXPORT int UnpackPersoBlob(const perso_blob_t* blob,
                               device_id_bytes_t* device_id,
                               endorse_cert_signature_t* signature,
                               size_t* cert_count,
-                              endorse_cert_request_t* request,
+                              endorse_cert_request_t* requests,
                               device_dev_seed_t* seeds, size_t* seed_count) {
   if (device_id == nullptr || signature == nullptr || cert_count == nullptr ||
-      request == nullptr || seeds == nullptr || seed_count == nullptr) {
+      requests == nullptr || seeds == nullptr || seed_count == nullptr) {
     LOG(ERROR) << "Invalid output parameters";
     return -1;
   }
 
-  if (blob == nullptr || blob->body == nullptr || blob->next_free == 0) {
+  if (blob == nullptr || blob->next_free == 0) {
     LOG(ERROR) << "Invalid personalization blob";
     return -1;  // Invalid blob
   }
@@ -229,45 +266,23 @@ DLLEXPORT int UnpackPersoBlob(const perso_blob_t* blob,
         }
         break;
       }
+
       case kPersoObjectTypeX509Tbs: {
         if (*cert_count >= max_cert_count) {
           LOG(ERROR) << "Exceeded maximum number of TBS certificates: "
                      << *cert_count << " >= " << max_cert_count;
           return -1;
         }
-
         perso_tlv_cert_obj_t cert_obj;
         if (ExtractCertObject(buf, obj_size, &cert_obj) != 0) {
           LOG(ERROR) << "Failed to extract X509 TBS certificate object";
           return -1;
         }
-
-        // Copy the certificate body.
-        if (cert_obj.cert_body_size > kCertificateMaxSize) {
-          LOG(ERROR) << "TBS certificate body size exceeds maximum: "
-                     << cert_obj.cert_body_size << " > " << kCertificateMaxSize;
+        if (PackTbsCertEndorsementRequest(&cert_obj, &requests[*cert_count]) !=
+            0) {
+          LOG(ERROR) << "Failed to pack TBS certificate endorsement request.";
           return -1;
         }
-        memset(request[*cert_count].tbs, 0, sizeof(request[*cert_count].tbs));
-        memcpy(request[*cert_count].tbs, cert_obj.cert_body_p,
-               cert_obj.cert_body_size);
-        request[*cert_count].tbs_size = cert_obj.cert_body_size;
-
-        // Copy the key label.
-        size_t key_label_size = strlen(cert_obj.name);
-        if (key_label_size > kCertificateKeyLabelMaxSize) {
-          LOG(ERROR) << "Key label size exceeds maximum: " << key_label_size
-                     << " > " << kCertificateKeyLabelMaxSize;
-          return -1;
-        }
-        memset(request[*cert_count].key_label, 0,
-               sizeof(request[*cert_count].key_label));
-        memcpy(request[*cert_count].key_label, cert_obj.name, key_label_size);
-        request[*cert_count].key_label_size = key_label_size;
-
-        request[*cert_count].hash_type = kHashTypeSha256;
-        request[*cert_count].curve_type = kCurveTypeP256;
-        request[*cert_count].signature_encoding = kSignatureEncodingDer;
         (*cert_count)++;
         break;
       }
@@ -300,11 +315,9 @@ DLLEXPORT int UnpackPersoBlob(const perso_blob_t* blob,
                          sizeof(perso_tlv_object_header_t));
           return -1;
         }
-
         seeds[*seed_count].size = obj_size - sizeof(perso_tlv_object_header_t);
         memcpy(seeds[*seed_count].raw, buf + sizeof(perso_tlv_object_header_t),
                seeds[*seed_count].size);
-
         (*seed_count)++;
         break;
       }
