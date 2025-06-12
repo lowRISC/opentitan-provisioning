@@ -12,7 +12,7 @@
 #include "src/ate/ate_api.h"
 
 namespace {
-
+// Helper function to extract a certificate from a perso blob.
 int ExtractCertObject(const uint8_t* buf, size_t buf_size,
                       perso_tlv_cert_obj_t* cert_obj) {
   if (buf == nullptr || cert_obj == nullptr) {
@@ -86,7 +86,7 @@ int ExtractCertObject(const uint8_t* buf, size_t buf_size,
   return 0;
 }
 
-// Helper function to extract device ID from a perso blob
+// Helper function to extract a device ID from a perso blob.
 int ExtractDeviceId(const uint8_t* buf, size_t buf_size,
                     device_id_bytes_t* device_id) {
   enum {
@@ -128,6 +128,48 @@ int ExtractDeviceId(const uint8_t* buf, size_t buf_size,
              << ", expected: " << kPersoObjectTypeDeviceId;
   return -1;
 }
+
+// Helper function to pack a certificate object into a perso blob.
+int PackCertObject(const endorse_cert_response_t* cert, perso_blob_t* blob) {
+  // Calculate the size of the object header and certificate header.
+  size_t cert_entry_size =
+      sizeof(perso_tlv_cert_header_t) + cert->key_label_size + cert->cert_size;
+  size_t obj_size = sizeof(perso_tlv_object_header_t) + cert_entry_size;
+
+  if (blob->next_free + obj_size > sizeof(blob->body)) {
+    LOG(ERROR) << "Personalization blob is full, cannot add more objects.";
+    return -1;
+  }
+
+  // Set up the object header.
+  uint8_t* buf = blob->body + blob->next_free;
+  perso_tlv_object_header_t* obj_hdr =
+      reinterpret_cast<perso_tlv_object_header_t*>(buf);
+  PERSO_TLV_SET_FIELD(Objh, Size, *obj_hdr, obj_size);
+  PERSO_TLV_SET_FIELD(Objh, Type, *obj_hdr, kPersoObjectTypeX509Cert);
+
+  // Set up the certificate header.
+  buf += sizeof(perso_tlv_object_header_t);
+  perso_tlv_cert_header_t* cert_hdr =
+      reinterpret_cast<perso_tlv_cert_header_t*>(buf);
+  PERSO_TLV_SET_FIELD(Crth, Size, *cert_hdr, cert_entry_size);
+  PERSO_TLV_SET_FIELD(Crth, NameSize, *cert_hdr, cert->key_label_size);
+
+  // Copy the certificate name string.
+  buf += sizeof(perso_tlv_cert_header_t);
+  memcpy(buf, cert->key_label, cert->key_label_size);
+
+  // Copy the certificate data.
+  buf += cert->key_label_size;
+  memcpy(buf, cert->cert, cert->cert_size);
+
+  // Update the next free offset in the blob.
+  blob->next_free += obj_size;
+  blob->num_objects++;
+
+  return 0;
+}
+
 }  // namespace
 
 DLLEXPORT int UnpackPersoBlob(const perso_blob_t* blob,
@@ -312,42 +354,10 @@ DLLEXPORT int PackPersoBlob(size_t cert_count,
       LOG(ERROR) << "Invalid certificate at index " << i;
       return -1;
     }
-
-    // Calculate the size of the object header and certificate header.
-    size_t cert_entry_size =
-        sizeof(perso_tlv_cert_header_t) + cert.key_label_size + cert.cert_size;
-    size_t obj_size = sizeof(perso_tlv_object_header_t) + cert_entry_size;
-
-    if (blob->next_free + obj_size > sizeof(blob->body)) {
-      LOG(ERROR) << "Personalization blob is full, cannot add more objects";
+    if (PackCertObject(&cert, blob) != 0) {
+      LOG(ERROR) << "Unable to pack certificate into perso blob.";
       return -1;
     }
-
-    // Set up the object header.
-    uint8_t* buf = blob->body + blob->next_free;
-    perso_tlv_object_header_t* obj_hdr =
-        reinterpret_cast<perso_tlv_object_header_t*>(buf);
-    PERSO_TLV_SET_FIELD(Objh, Size, *obj_hdr, obj_size);
-    PERSO_TLV_SET_FIELD(Objh, Type, *obj_hdr, kPersoObjectTypeX509Cert);
-
-    // Set up the certificate header.
-    buf += sizeof(perso_tlv_object_header_t);
-    perso_tlv_cert_header_t* cert_hdr =
-        reinterpret_cast<perso_tlv_cert_header_t*>(buf);
-    PERSO_TLV_SET_FIELD(Crth, Size, *cert_hdr, cert_entry_size);
-    PERSO_TLV_SET_FIELD(Crth, NameSize, *cert_hdr, cert.key_label_size);
-
-    // Copy the name and certificate data.
-    buf += sizeof(perso_tlv_cert_header_t);
-    memcpy(buf, cert.key_label, cert.key_label_size);
-
-    // Copy the certificate data.
-    buf += cert.key_label_size;
-    memcpy(buf, cert.cert, cert.cert_size);
-
-    // Update the next free offset in the blob.
-    blob->next_free += obj_size;
-    blob->num_objects++;
   }
   return 0;
 }
