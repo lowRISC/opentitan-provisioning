@@ -49,8 +49,10 @@ installation directory (e.g., `/opt/opentitan-prov`).
     release_bundle.tar.xz
     softhsm_dev.tar.xz
     ```
-
-    > Note: The release packages can be built using the following Bazel
+    > Note: Releases are available in GitHub: 
+    > https://github.com/lowRISC/opentitan-provisioning/releases
+    > 
+    > The release packages can be built using the following Bazel
     > Commands. Use the `prod` configuration when targeting production
     > deployments.
     >
