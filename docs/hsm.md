@@ -66,219 +66,213 @@ sival-token-hisec: High security generic secret used for token generation.
 sival-token-losec: Low security generic securet used for token generation.
 ```
 
-##  End to End SKU Configuration
+## End to End SKU Provisioning Flow
 
-The following sequence diagram shows the end to end SKU provisioning flow
-involving `Offline` and `SPM` HSMs.
+The end-to-end SKU provisioning flow involves two physically separate HSMs: a
+highly secure, air-gapped **Offline HSM** that protects the root of trust, and
+an online **SPM (Secure Provisioning Module) HSM** used in the manufacturing
+line.
 
-Each SKU should have the following configuration bundles:
-
-1. SPM HSM Initialization
-2. SKU Initialization (Offline HSM)
-3. SKU Export (Offline HSM)
-4. SKU Import (SPM HSM)
-5. Certificate Authority Operations
-
-### Certificate Authority Operations
-
-The certificate authority operations are split into three main steps:
-
-1. Root CA Certificate Generation (Offline HSM)
-2. Intermediate CA CSR Generation (SPM HSM)
-3. Intermediate CA CSR Signing (Offline HSM)
+An operator facilitates the secure transfer of cryptographic artifacts between
+these two environments. The following diagram illustrates the complete flow.
 
 ```mermaid
 sequenceDiagram
-    participant Offline
-    participant SPM
-    participant File
-    autonumber
+    participant Operator
+    participant OfflineHSM
+    participant SPMHSM
 
-    note left of Offline: Root CA Certificate Generation
-    Offline->>File: generate-root-cert(opentitan-ca-root)
+    Operator->>SPMHSM: 1. Initialize SPM (`spm-init`)
+    SPMHSM-->>Operator: `spm_hsm_init.tar.gz`
 
-    note left of SPM: Intermediate CA CSR Generation
-    SPM->>SPM: ecdsa-generate(sival-dice-key-p256)
-    SPM->>File: generate-csr(sival-dice-key-p256)
+    Note right of Operator: Transfer `spm_hsm_init.tar.gz`
+    Operator->>OfflineHSM: 2. Initialize Offline HSM (`offline-common-init`)
+    Operator->>OfflineHSM: 3. Export Offline Secrets (`offline-common-export`)
+    OfflineHSM-->>Operator: `hsm_offline_export.tar.gz`
 
-    note left of Offline: Intermediate CA CSR Signing
-    File->>Offline: import-csr(sival-dice-key-p256)
-    Offline->>File: sign-csr(opentitan-ca-root, sival-dice-key-p256)
+    Note right of Operator: Transfer `hsm_offline_export.tar.gz`
+    Operator->>SPMHSM: 4. Initialize SPM SKUs (`spm-sku-init`)
+
+    Operator->>SPMHSM: 5. Generate CSRs (`spm-sku-csr`)
+    SPMHSM-->>Operator: `hsm_ca_intermediate_csr.tar.gz` (for each SKU)
+
+    Note right of Operator: Transfer CSRs
+    Operator->>OfflineHSM: 6. Generate Root Cert (`offline-ca-root-certgen`)
+    OfflineHSM-->>Operator: `hsm_ca_root_certs.tar.gz`
+    Operator->>OfflineHSM: 7. Sign Intermediate Certs (`offline-sku-certgen`)
+    OfflineHSM-->>Operator: `hsm_ca_intermediate_certs.tar.gz` (for each SKU)
+
+    Note right of Operator: Transfer signed certs to SPM environment.
 ```
 
-### Build SKU
+The entire process is orchestrated by the `config/token_init.sh` script. The
+following sections detail the responsibilities of each HSM operator.
 
-Build the release packages for the target SKU. The packages may also be
-distributed directly by the SKU Owner to the Silicon Creator.
+---
+
+### Phase 1: SPM HSM Operator - Initial Setup
+
+The first phase begins in the SPM (online) environment.
+
+#### **Step 1: Initialize SPM HSM**
+
+This step generates the primary identity and wrapping keys on the SPM HSM.
 
 ```shell
-# Using Sival SKU as an example.
-$ bazel build \
-  //config/spm/sku:release \
-  //config/spm/sku/sival:release
+# Ensure DEPLOY_ENV is set, e.g., "prod"
+export DEPLOY_ENV=prod
 
-$ mkdir -p /tmp/sku-release
-# The build output will be located under the `bazel-bin` folder:
-$ cp bazel-bin/config/spm/sku/release.tar.gz \
-  /tmp/sku-release/spm_init_release.tar.gz
-$ cp bazel-bin/config/spm/sku/sival/release.tar.gz \
-  /tmp/sku-release/sival_sku_release.tar.gz
+./config/token_init.sh --action spm-init
 ```
 
-### SPM HSM Initialization
+*   **Description:** Creates the `spm-hsm-id` and `spm-rsa-wrap` key pairs on
+    the SPM HSM. It then exports the public components.
+*   **Output Artifact:** `spm_hsm_init.tar.gz`.
+*   **Action:** The operator must securely transfer the `spm_hsm_init.tar.gz`
+    file to the Offline HSM operator.
 
-The following steps cover the initialization of the SPM HSM. The following
-sequence diagram describes the HSM operations.
+---
 
-```mermaid
-sequenceDiagram
-    participant SPM
-    participant File
-    autonumber
-    SPM->>SPM: rsa-generate(spm-rsa-wrap)
-    SPM->>SPM: ecdsa-generate(spm-hsm-id)
-    SPM->>File: rsa-export(spm-rsa-wrap)
-```
+### Phase 2: Offline HSM Operator - Root of Trust Management
 
-1. Expand the contents of the `spm_init_release.tar.gz`.
+This phase takes place in the secure, offline environment.
+
+#### **Step 2: Initialize Offline HSM**
+
+This step creates the root CA private key and other critical secrets.
 
 ```shell
-$ tar xvf spm_init_release.tar.gz
+# Ensure DEPLOY_ENV is set, e.g., "prod"
+export DEPLOY_ENV=prod
+
+./config/token_init.sh --action offline-common-init
 ```
 
-2. Run initialization scripts.
+*   **Description:** Generates the root CA private key and RMA (Return
+    Merchandise Authorization) keys. These keys never leave the Offline HSM.
+*   **Input Artifact:** None.
+
+#### **Step 3: Export Offline Secrets**
+
+This step exports wrapped secrets for use by the SPM HSM.
 
 ```shell
-# See config/env/prod/spm.env for an example of how to set the environment
-# variables needed by the following commands.
-
-# Initialize Keys.
-$ ./spm_init.bash \
-  -m "${HSMTOOL_MODULE}" \
-  -t "${SPM_HSM_TOKEN_SPM}" \
-  -p "${HSMTOOL_PIN}"
-
-# Export Keys. `spm_export.tar.gz` will be required by the SKU initialization
-# steps later.
-$ ./spm_export.bash \
-  -m "${HSMTOOL_MODULE}" \
-  -t "${SPM_HSM_TOKEN_SPM}" \
-  -p "${HSMTOOL_PIN}" \
-  -o spm_export.tar.gz
+./config/token_init.sh --action offline-common-export
 ```
 
-> Note: The scripts will fail if there are any existing objects with matching
-> labels in the HSM. The `-w` option can be used to destroy the objects before
-> initialization. Make sure you only use the `-w` option if you have a way to
-> recover the asset from a backup, or if you are ok with destroying the objects.
-> Otherwise, contact the SKU owner and request them to change update the object
-> labels.
+*   **Description:** This script imports the SPM's public wrapping key from
+    `spm_hsm_init.tar.gz` and uses it to wrap and export seeds and the RMA
+    public key.
+*   **Input Artifact:** `spm_hsm_init.tar.gz` (from Phase 1).
+*   **Output Artifact:** `hsm_offline_export.tar.gz`.
+*   **Action:** The operator must securely transfer `hsm_offline_export.tar.gz`
+    back to the SPM HSM operator.
 
-### SKU Initialization
+---
 
-```mermaid
-sequenceDiagram
-    participant Offline
-    autonumber
+### Phase 3: SPM HSM Operator - SKU Initialization
 
-    note left of Offline: Offline - SKU Transport key generation
-    Offline->>Offline: aes-generate(sku-aes-wrap)
+This phase returns to the SPM (online) environment.
 
-    note left of Offline: Offline - HSM SKU Keygen
-    Offline->>Offline: rsa-generate(sku-rsa-rma)
-    Offline->>Offline: generic-secret-generate(sku-token-hisec)
-    Offline->>Offline: generic-secret-generate(sku-token-losec)
-```
+#### **Step 4: Initialize SPM with SKU Keys**
 
-1. Expand the contents of `sival_sku_release.tar.gz`.
+This step imports the wrapped secrets from the Offline HSM and generates
+SKU-specific keys.
 
 ```shell
-$ tar vxf sival_sku_release.tar.gz
+# Initialize for all desired SKUs
+./config/token_init.sh \
+  --action spm-sku-init \
+  --sku sival \
+  --sku cr01 \
+  --sku pi01 \
+  --sku ti01
 ```
 
-2. Run initialization scripts.
+*   **Description:** Imports the secrets from `hsm_offline_export.tar.gz`. It
+    then generates the per-SKU intermediate CA private keys (e.g.,
+    `sival-dice-key-p256`) on the SPM HSM.
+*   **Input Artifact:** `hsm_offline_export.tar.gz` (from Phase 2).
+
+#### **Step 5: Generate Intermediate CA CSRs**
+
+This step generates Certificate Signing Requests (CSRs) for the intermediate
+keys.
 
 ```shell
-# Generate SKU assets.
-./offline_init.bash \
-  -m "${HSMTOOL_MODULE}" \
-  -t "${SPM_HSM_TOKEN_OFFLINE}" \
-  -p "${HSMTOOL_PIN}"
+# Generate CSRs for all desired SKUs
+./config/token_init.sh \
+  --action spm-sku-csr \
+  --sku sival \
+  --sku cr01 \
+  --sku pi01 \
+  --sku ti01
 ```
 
-### SKU Export
+*   **Description:** Uses the intermediate CA keys on the SPM HSM to create
+    CSRs.
+*   **Output Artifacts:** An `hsm_ca_intermediate_csr.tar.gz` file for each
+    SKU's subdirectory (e.g.,
+    `config/spm/sku/sival/hsm_ca_intermediate_csr.tar.gz`).
+*   **Action:** The operator must collect all `hsm_ca_intermediate_csr.tar.gz`
+    files and securely transfer them to the Offline HSM operator.
 
-```mermaid
-sequenceDiagram
-    participant Offline
-    participant File
-    autonumber
+---
 
-    note left of Offline: Offline - SKU Key Export
-    File->>Offline: rsa-import(spm-rsa-wrap)
-    Offline->File: wrap(spm-rsa-wrap, sku-aes-wrap)
-    Offline->>File: wrap(sku-aes-wrap, sku-token-hisec)
-    Offline->>File: wrap(sku-aes-wrap, sku-token-losec)
-```
+### Phase 4: Offline HSM Operator - Certificate Authority Actions
 
-1. Expand the contents of `sival_sku_release.tar.gz`.
+This final phase of key generation takes place back in the secure, offline
+environment.
+
+#### **Step 6: Generate Root CA Certificate**
+
+This step creates the self-signed root certificate.
 
 ```shell
-$ tar vxf sival_sku_release.tar.gz
+./config/token_init.sh --action offline-ca-root-certgen
 ```
 
-2. Run SKU export scripts.
+*   **Description:** Uses the root CA private key (created in Step 2) to
+    generate the root CA's public certificate.
+*   **Output Artifact:** `hsm_ca_root_certs.tar.gz`. This file contains the root
+    of trust for the entire PKI.
+*   **Action:** The operator must securely archive this file and provide it to
+    the SPM HSM operator. It is needed for the next step.
 
-The following script generates a key export package specific for each SPM
-HSM. The following parameters are important to note:
+#### **Step 7: Sign Intermediate Certificates**
 
-* `-i`: Should point to the SPM export package generated during the SPM
-   initialization step. There should be one package per SPM HSM.
-* `-o`: Should point to the SKU output bundle. This bundle will only work with
-   the target SPM HSM associated with the `-i` option.
-* `-w`: Use this flag if you are planning to run the SKU export flow several
-  times. This ensures that the SPM wrapping key is removed before importing
-  a new one. Inspect the contents of the `offline_export_down.hjson` file to
-  make sure no other keys will be removed by using this option.
+This is the final and most critical step: the Offline HSM's root CA signs the
+intermediate CSRs from the SPM HSM, thus completing the chain of trust.
 
 ```shell
-./offline_export.bash \
-  -m "${HSMTOOL_MODULE}" \
-  -t "${SPM_HSM_TOKEN_OFFLINE}" \
-  -p "${HSMTOOL_PIN}" \
-  -i spm_export.tar.gz \
-  -w \
-  -o offline_export_sival_sku.tar.gz
+# Sign CSRs for all desired SKUs
+./config/token_init.sh \
+  --action offline-sku-certgen \
+  --sku sival \
+  --sku cr01 \
+  --sku pi01 \
+  --sku ti01
 ```
 
-### SKU Import
-
-```mermaid
-sequenceDiagram
-    participant File
-    participant SPM
-    autonumber
-
-    note left of File: SPM SKU Initialization
-    File->>SPM: unwrap(spm-rsa-unwrap, sku-aes-wrap)
-    SPM->>SPM: ecdsa-generate(sival-dice-key-p256)
-    File->>SPM: unwrap(sku-aes-wrap, sku-token-hisec)
-    File->>SPM: unwrap(sku-aes-wrap, sku-token-losec)
-```
-
-1. Expand the contents of `sival_sku_release.tar.gz`.
-
-```shell
-$ tar vxf sival_sku_release.tar.gz
-```
-
-2. Run scripts
-
-See `token_init.sh` script for examples.
+*   **Description:** Imports the intermediate CSRs and the root certificate. It
+    then uses the root CA private key to sign each CSR, creating a valid
+    intermediate certificate.
+*   **Input Artifacts:**
+    *   `hsm_ca_intermediate_csr.tar.gz` for each SKU (from Phase 3).
+    *   `hsm_ca_root_certs.tar.gz` (from Step 6).
+*   **Output Artifacts:** An `hsm_ca_intermediate_certs.tar.gz` file for each
+    SKU's subdirectory.
+*   **Action:** The operator must securely transfer the final
+    `hsm_ca_intermediate_certs.tar.gz` files and the
+    `hsm_ca_root_certs.tar.gz` file to the SPM HSM environment. These are now
+    ready to be used in production to endorse device certificates.
 
 ## Troubleshooting
 
 ### Deleting objects with `hsmtool`
+
+To manually delete an object from an HSM token, you can use the `hsmtool`.
+This is useful if a script fails midway and leaves dangling objects.
 
 ```shell
 $ ./hsmtool -t <token-name> object destroy -l <object-label>

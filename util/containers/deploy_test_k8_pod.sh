@@ -45,8 +45,24 @@ ${OPENTITAN_VAR_DIR}/config/deploy.sh ${DEPLOY_ENV}
 
 TOKEN_INIT_SCRIPT="${OPENTITAN_VAR_DIR}/config/token_init.sh"
 if [ -f "${TOKEN_INIT_SCRIPT}" ]; then
-    echo "Initializing tokens ..."
-    DEPLOY_ENV="${DEPLOY_ENV}" ${TOKEN_INIT_SCRIPT}
+    export DEPLOY_ENV="${DEPLOY_ENV}"
+    if [[ "${DEPLOY_ENV}" == "dev" ]]; then
+        echo "Initializing tokens for dev environment ..."
+        echo " -- Step 1: Initialize SPM HSM with a new identity key and wrapping key."
+        ${TOKEN_INIT_SCRIPT} --action "spm-init"
+        echo " -- Step 2: Initialize offline HSM with secrets and CA private key."
+        ${TOKEN_INIT_SCRIPT} --action "offline-common-init"
+        echo " -- Step 3: Export the offline HSM secrets."
+        ${TOKEN_INIT_SCRIPT} --action "offline-common-export"
+        echo " -- Step 4: Initialize the SPM with all SKU private keys."
+        ${TOKEN_INIT_SCRIPT} --action "spm-sku-init" --sku sival --sku cr01 --sku pi01 --sku ti01
+    fi
+    echo " -- Step 5: Generate the CSRs for all SKUs."
+    ${TOKEN_INIT_SCRIPT} --action "spm-sku-csr" --sku sival --sku cr01 --sku pi01 --sku ti01
+    echo " -- Step 6: Generate the root certificate."
+    ${TOKEN_INIT_SCRIPT} --action "offline-ca-root-certgen"
+    echo " -- Step 7: Endorse the CSRs for all SKUs."
+    ${TOKEN_INIT_SCRIPT} --action "offline-sku-certgen" --sku sival --sku cr01 --sku pi01 --sku ti01 
 fi
 
 echo "Provisioning services launched."

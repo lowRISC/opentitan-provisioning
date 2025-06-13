@@ -125,18 +125,35 @@ installation directory (e.g., `/opt/opentitan-prov`).
     $ systemctl --user start provapp.service
     ```
 
-7. (Optional) Initialize tokens. If the deployment uses an HSM, it may be
-   necessary to initialize the tokens. This script currently used in `dev`
-   mode. The `prod` configuration requires interacting with an offline
-   HSM, so it is recommended to call the HSM initialization scripts
-   directly.
+7. (Optional) HSM Token Initialization
 
-    ```console
-    $ if [ -f "${OPENTITAN_VAR_DIR}/config/token_init.sh" ]; then
-        echo "Initializing tokens ..."
-        sudo DEPLOY_ENV="${DEPLOY_ENV}" ${OPENTITAN_VAR_DIR}/config/token_init.sh
-    fi
-    ```
+   If the deployment uses Hardware Security Modules (HSMs), the tokens must be
+   initialized with the required cryptographic assets. This is a multi-step
+   process that involves both an offline, air-gapped HSM and the online SPM HSM.
+
+   Before you begin, you must configure the HSM settings by editing the
+   environment file for your deployment. For a production environment, this file
+   is located at:
+
+   `${OPENTITAN_VAR_DIR}/config/env/prod/spm.env`
+
+   You must update the following variables in this file to match your HSM
+   hardware and security policies:
+   *   `SPM_HSM_TOKEN_SPM`: The name of the online SPM HSM token.
+   *   `SPM_HSM_TOKEN_OFFLINE`: The name of the offline HSM token.
+   *   `SPM_HSM_PIN_USER`: The user PIN for accessing the HSMs.
+   *   `HSMTOOL_MODULE`: The absolute path to the HSM's PKCS#11 library
+       (e.g., `/usr/safenet/lunaclient/lib/libCryptoki2_64.so`).
+   *   See configuration file for other PKCS11 related settings.
+
+   Once the `spm.env` file is configured, you can proceed with the
+   initialization flow. This process is orchestrated by the `token_init.sh`
+   script but requires manual intervention to transfer artifacts between the
+   physically separate HSM environments.
+
+   For a complete, step-by-step guide on this procedure, please refer to the
+   [End to End SKU Provisioning Flow](https://github.com/lowRISC/opentitan-provisioning/wiki/hsm#end-to-end-sku-provisioning-flow)
+   section in the HSM Configuration document.
 
 8. (Optional) Use the following command to execute the PA server load test:
 
