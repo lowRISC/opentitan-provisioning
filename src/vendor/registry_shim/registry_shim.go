@@ -41,7 +41,7 @@ func StartRegistryBuffer(registryBufferAddress string, enableTLS bool, caRootCer
 	return nil
 }
 
-func RegisterDevice(ctx context.Context, spmClient spmpb.SpmServiceClient, request *papb.RegistrationRequest) (*papb.RegistrationResponse, error) {
+func RegisterDevice(ctx context.Context, request *papb.RegistrationRequest, endorsement *spmpb.EndorseDataResponse) (*papb.RegistrationResponse, error) {
 	log.Printf("In PA - Received RegisterDevice request with DeviceID: %v", diu.DeviceIdToHexString(request.DeviceData.DeviceId))
 
 	// Vendor-specific implementation of RegisterDevice call goes here.

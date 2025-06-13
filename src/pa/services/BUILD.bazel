@@ -25,9 +25,13 @@ go_library(
     importpath = "github.com/lowRISC/opentitan-provisioning/src/pa/services/pa",
     deps = [
         "//src/pa/proto:pa_go_pb",
+        "//src/proto/crypto:cert_go_pb",
+        "//src/proto/crypto:common_go_pb",
+        "//src/proto/crypto:ecdsa_go_pb",
         "//src/spm/proto:spm_go_pb",
         "//src/transport/auth_service",
         "//src/utils",
+        "@com_github_golang_protobuf//proto:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//metadata",

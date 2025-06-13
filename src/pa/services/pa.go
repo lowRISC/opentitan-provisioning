@@ -11,12 +11,16 @@ import (
 	"log"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	pap "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
 	rs "github.com/lowRISC/opentitan-provisioning/src/pa/services/registry_shim"
+	certpb "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/cert_go_pb"
+	commonpb "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/common_go_pb"
+	ecdsapb "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/ecdsa_go_pb"
 	pbs "github.com/lowRISC/opentitan-provisioning/src/spm/proto/spm_go_pb"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/auth_service"
 )
@@ -153,5 +157,31 @@ func (s *server) GetCaSubjectKeys(ctx context.Context, request *pap.GetCaSubject
 // interface with their registry service(s), an overrideable shim layer is used
 // to implement this RPC.
 func (s *server) RegisterDevice(ctx context.Context, request *pap.RegistrationRequest) (*pap.RegistrationResponse, error) {
-	return rs.RegisterDevice(ctx, s.spmClient, request)
+	// Extract ot.DeviceData to a raw byte buffer.
+	deviceDataBytes, err := proto.Marshal(request.DeviceData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal device data: %v", err)
+	}
+
+	// Endorse data payload.
+	edRequest := &pbs.EndorseDataRequest{
+		Sku: request.DeviceData.Sku,
+		KeyParams: &certpb.SigningKeyParams{
+			KeyLabel: "SigningKey/Identity/v0",
+			Key: &certpb.SigningKeyParams_EcdsaParams{
+				EcdsaParams: &ecdsapb.EcdsaParams{
+					HashType: commonpb.HashType_HASH_TYPE_SHA384,
+					Curve:    commonpb.EllipticCurveType_ELLIPTIC_CURVE_TYPE_NIST_P384,
+					Encoding: ecdsapb.EcdsaSignatureEncoding_ECDSA_SIGNATURE_ENCODING_DER,
+				},
+			},
+		},
+		Data: deviceDataBytes,
+	}
+	edResponse, err := s.spmClient.EndorseData(ctx, edRequest)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "SPM-EndorseData returned error: %v", err)
+	}
+
+	return rs.RegisterDevice(ctx, request, edResponse)
 }
