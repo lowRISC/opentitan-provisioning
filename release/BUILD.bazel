@@ -97,11 +97,15 @@ pkg_tar(
 release(
     name = "release",
     artifacts = {
-        "//config:release": "Deployment scripts",
+        ":fakeregistry_binaries": "FakeRegistry binaries",
+        ":fakeregistry_containers_tar": "FakeRegistry container",
+        ":hsmutils": "HSM configuration binaries",
         ":provisioning_appliance_binaries": "Provisioning Appliance binaries",
+        ":provisioning_appliance_containers_tar": "Provisioning Appliance container",
         ":proxybuffer_binaries": "ProxyBuffer binaries",
+        ":proxybuffer_containers_tar": "ProxyBuffer container",
+        ":release_bundle": "Deployment scripts",
         ":softhsm_dev": "SoftHSM2 development binaries",
         "//src/ate:windows": "ATE Win32 binaries",
-        ":hsmutils": "HSM configuration binaries",
     },
 )

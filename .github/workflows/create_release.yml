@@ -24,10 +24,10 @@ jobs:
           sudo apt-get install -y $(find . -name apt-requirements.txt | xargs sed -e "s/#.*//g")
       - name: Build
         run: |
-          bazel build //release:release
+          bazel build --stamp //release:release --define "env=prod"
       - name: Test
         run: |
-          bazel test //...
+          bazel test --stamp //... --define "env=prod"
       - name: Publish Release
         env:
           GH_TOKEN: ${{ github.token }}
