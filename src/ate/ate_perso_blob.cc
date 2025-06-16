@@ -243,7 +243,7 @@ int PackX509CertTlvObject(const endorse_cert_response_t* cert,
 }
 
 // Helper function to pack a seed object into a perso blob.
-int PackDevSeedTlvObject(const seed_t* seed, perso_blob_t* blob) {
+int PackSeedTlvObject(const seed_t* seed, perso_blob_t* blob) {
   // Calculate the size of the object .
   size_t obj_size = sizeof(perso_tlv_object_header_t) + seed->size;
   if (blob->next_free + obj_size > sizeof(blob->body)) {
@@ -256,7 +256,7 @@ int PackDevSeedTlvObject(const seed_t* seed, perso_blob_t* blob) {
   perso_tlv_object_header_t* obj_hdr =
       reinterpret_cast<perso_tlv_object_header_t*>(buf);
   PERSO_TLV_SET_FIELD(Objh, Size, *obj_hdr, obj_size);
-  PERSO_TLV_SET_FIELD(Objh, Type, *obj_hdr, kPersoObjectTypeDevSeed);
+  PERSO_TLV_SET_FIELD(Objh, Type, *obj_hdr, seed->type);
 
   // Copy the certificate data.
   buf += sizeof(perso_tlv_object_header_t);
@@ -385,15 +385,17 @@ DLLEXPORT int UnpackPersoBlob(
         break;
       }
 
-      case kPersoObjectTypeDevSeed: {
+      case kPersoObjectTypeDevSeed:
+      case kPersoObjectTypeGenericSeed: {
         if (*seed_count >= max_seed_count) {
-          LOG(ERROR) << "Exceeded maximum number of dev seeds: " << *seed_count
+          LOG(ERROR) << "Exceeded maximum number of seeds: " << *seed_count
                      << " >= " << max_seed_count;
           return -1;
         }
+        // The size of a "dev_seed" is the maximum size a seed can be.
         if (obj_size > kDevSeedBytesSize + sizeof(perso_tlv_object_header_t)) {
-          LOG(ERROR) << "Invalid device seed object size: " << obj_size
-                     << ", expected: "
+          LOG(ERROR) << "Invalid seed object size: " << obj_size
+                     << ", expected size <=: "
                      << (kDevSeedBytesSize + sizeof(perso_tlv_object_header_t));
           return -1;
         }
@@ -495,15 +497,15 @@ DLLEXPORT int PackRegistryPersoTlvData(
     }
   }
 
-  // Pack all dev seed objects.
+  // Pack all seed objects.
   for (size_t i = 0; i < num_seeds; i++) {
     const seed_t& seed = seeds[i];
     if (seed.size == 0) {
       LOG(ERROR) << "Invalid seed at index " << i;
       return -1;
     }
-    if (PackDevSeedTlvObject(&seed, output) != 0) {
-      LOG(ERROR) << "Unable to pack dev seed into perso blob.";
+    if (PackSeedTlvObject(&seed, output) != 0) {
+      LOG(ERROR) << "Unable to pack seed into perso blob.";
       return -1;
     }
   }

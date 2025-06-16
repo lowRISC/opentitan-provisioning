@@ -49,9 +49,19 @@ enum {
   kDutSpiFrameHeaderSize = 4,
   kDutSpiFrameSize = 2048 - kDutSpiFrameHeaderSize,
 
-  /** Maximum dev seed max size in uint32_t words. */
+  /**
+   * Dev seed size in bytes; Must be equal to the value defined in
+   * perso_tlb_data.h in the lowRISC/opentitan repo.
+   */
   kDevSeedWordSize = 32,
   kDevSeedBytesSize = kDevSeedWordSize * sizeof(uint32_t),
+
+  /**
+   * Generic seed max size in bytes; Must be equal or larger to the maximum seed
+   * size provisioned by the personalization firmware.
+   */
+  kGenericSeedMaxWordSize = 8,
+  kGenericSeedMaxBytesSize = kGenericSeedMaxWordSize * sizeof(uint32_t),
 
   /** Diversification string size. */
   kDiversificationStringSize = 48,
@@ -234,9 +244,11 @@ typedef struct seed {
   /**
    * The type of the seed.
    */
-  size_t type;
+  uint16_t type;
   /**
    * The seed data.
+   *
+   * Should be the max of (kDevSeedBytesSize, kGenericSeedMaxBytesSize).
    */
   uint8_t raw[kDevSeedBytesSize];
 } seed_t;
