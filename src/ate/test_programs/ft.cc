@@ -282,11 +282,7 @@ int main(int argc, char **argv) {
                     /*skip_crc_check=*/true,
                     /*quiet=*/true,
                     /*timeout_ms=*/5000);
-  perso_blob_t perso_blob_from_dut = {
-      .num_objects = 0,
-      .next_free = kPersoBlobMaxSize,
-      .body = {0},
-  };
+  perso_blob_t perso_blob_from_dut = {0};
   if (PersoBlobFromJson(pb_spi_frames, num_pb_spi_frames,
                         &perso_blob_from_dut)) {
     LOG(ERROR) << "PersoBlobFromJson failed.";
@@ -338,7 +334,7 @@ int main(int argc, char **argv) {
   }
 
   // Send the endorsed certs back to the device.
-  perso_blob_t perso_blob_from_ate;
+  perso_blob_t perso_blob_from_ate = {0};
   constexpr size_t kNumPersoBlobMaxNumSpiFrames = 10;
   dut_spi_frame_t perso_blob_from_ate_spi_frames[kNumPersoBlobMaxNumSpiFrames];
   size_t num_perso_blob_spi_frames = kNumPersoBlobMaxNumSpiFrames;

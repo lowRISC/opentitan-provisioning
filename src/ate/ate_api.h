@@ -63,16 +63,11 @@ enum {
   kCertificateKeyLabelMaxSize = 32,
 
   /**
-   * Maximum perso blob (RXed from DUT) size in bytes; Must match definition in
-   * provisioning_data.h in lowRISC/opentitan repo.
+   * Maximum perso blob (RXed from DUT and TXed to the PA/Registry) size in
+   * bytes; Must be equal-to or larger than the value definited in
+   * provisioning_data.h in the lowRISC/opentitan repo.
    */
-  kPersoBlobMaxSize = 5120,
-
-  /**
-   * Maximum perso TLV data structure size in bytes; this is the data structure
-   * that is stored in the device registry.
-   */
-  kPersoTlvDataMaxSize = 8192,
+  kPersoBlobMaxSize = 8192,
 };
 
 /**

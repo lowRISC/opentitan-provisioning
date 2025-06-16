@@ -269,7 +269,7 @@ DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob, dut_spi_frame_t *result,
   blob_cmd.set_num_objs(blob->num_objects);
   blob_cmd.set_next_free(blob->next_free);
 
-  for (size_t i = 0; i < sizeof(blob->body); ++i) {
+  for (size_t i = 0; i < blob->next_free; ++i) {
     blob_cmd.add_body(blob->body[i]);
   }
 
@@ -338,7 +338,7 @@ DLLEXPORT int PersoBlobFromJson(const dut_spi_frame_t *frames,
   blob->num_objects = blob_cmd.num_objs();
   blob->next_free = blob_cmd.next_free();
 
-  for (size_t i = 0; i < sizeof(blob->body); ++i) {
+  for (size_t i = 0; i < blob->next_free; ++i) {
     blob->body[i] = blob_cmd.body(i);
   }
 

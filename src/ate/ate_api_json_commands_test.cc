@@ -199,22 +199,22 @@ TEST_F(AteJsonTest, CaSubjectKeys) {
 TEST_F(AteJsonTest, PersoBlob) {
   perso_blob_t blob = {0};
   blob.num_objects = 1;
-  blob.next_free = 0;
 
   // Fill the blob with random data for testing.
   for (size_t i = 0; i < sizeof(blob.body); ++i) {
     blob.body[i] = static_cast<uint8_t>((i | 0x80) & 0xFF);
   }
+  blob.next_free = sizeof(blob.body);
 
-  dut_spi_frame_t frames[16] = {0};
+  dut_spi_frame_t frames[20] = {0};
   size_t num_frames = sizeof(frames) / sizeof(frames[0]);
   EXPECT_EQ(PersoBlobToJson(&blob, frames, &num_frames), 0);
-  EXPECT_EQ(num_frames, 11);
+  EXPECT_EQ(num_frames, 17);
 
   perso_blob_t blob_got = {0};
   EXPECT_EQ(PersoBlobFromJson(frames, num_frames, &blob_got), 0);
   EXPECT_EQ(blob_got.num_objects, 1);
-  EXPECT_EQ(blob_got.next_free, 0);
+  EXPECT_EQ(blob_got.next_free, 8192);
   EXPECT_THAT(blob_got.body,
               testing::ElementsAreArray(blob.body, sizeof(blob.body)));
 }
