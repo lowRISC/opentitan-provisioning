@@ -118,7 +118,7 @@ TEST_F(AtePersoBlobTest, UnpackPersoBlobSuccess) {
   size_t cert_count = 10;
   endorse_cert_request_t x509_tbs_certs[10];
   endorse_cert_response_t x509_certs[10];
-  dev_seed_t seeds[10];
+  seed_t seeds[10];
   size_t seed_count = 10;
 
   EXPECT_EQ(UnpackPersoBlob(&test_blob, &device_id, &signature, x509_tbs_certs,
@@ -150,7 +150,7 @@ TEST_F(AtePersoBlobTest, UnpackPersoBlobNullInputs) {
   size_t cert_count = 10;
   endorse_cert_request_t x509_tbs_certs[10];
   endorse_cert_response_t x509_certs[10];
-  dev_seed_t seeds[10];
+  seed_t seeds[10];
   size_t seed_count = 10;
 
   // Test null blob

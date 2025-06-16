@@ -242,10 +242,10 @@ int PackX509CertTlvObject(const endorse_cert_response_t* cert,
   return 0;
 }
 
-// Helper function to pack a dev_seed object into a perso blob.
-int PackDevSeedTlvObject(const dev_seed_t* dev_seed, perso_blob_t* blob) {
+// Helper function to pack a seed object into a perso blob.
+int PackDevSeedTlvObject(const seed_t* seed, perso_blob_t* blob) {
   // Calculate the size of the object .
-  size_t obj_size = sizeof(perso_tlv_object_header_t) + dev_seed->size;
+  size_t obj_size = sizeof(perso_tlv_object_header_t) + seed->size;
   if (blob->next_free + obj_size > sizeof(blob->body)) {
     LOG(ERROR) << "Personalization blob is full, cannot add more objects.";
     return -1;
@@ -260,7 +260,7 @@ int PackDevSeedTlvObject(const dev_seed_t* dev_seed, perso_blob_t* blob) {
 
   // Copy the certificate data.
   buf += sizeof(perso_tlv_object_header_t);
-  memcpy(buf, dev_seed->raw, dev_seed->size);
+  memcpy(buf, seed->raw, seed->size);
 
   // Update the next free offset in the blob.
   blob->next_free += obj_size;
@@ -275,11 +275,11 @@ DLLEXPORT int UnpackPersoBlob(
     const perso_blob_t* blob, device_id_bytes_t* device_id,
     endorse_cert_signature_t* signature, endorse_cert_request_t* x509_tbs_certs,
     size_t* tbs_cert_count, endorse_cert_response_t* x509_certs,
-    size_t* cert_count, dev_seed_t* dev_seeds, size_t* dev_seed_count) {
+    size_t* cert_count, seed_t* seeds, size_t* seed_count) {
   if (device_id == nullptr || signature == nullptr ||
       x509_tbs_certs == nullptr || tbs_cert_count == nullptr ||
-      x509_certs == nullptr || cert_count == nullptr || dev_seeds == nullptr ||
-      dev_seed_count == nullptr) {
+      x509_certs == nullptr || cert_count == nullptr || seeds == nullptr ||
+      seed_count == nullptr) {
     LOG(ERROR) << "Invalid output parameters";
     return -1;
   }
@@ -296,8 +296,8 @@ DLLEXPORT int UnpackPersoBlob(
   *tbs_cert_count = 0;
   size_t max_cert_count = *cert_count;
   *cert_count = 0;
-  size_t max_dev_seed_count = *dev_seed_count;
-  *dev_seed_count = 0;
+  size_t max_seed_count = *seed_count;
+  *seed_count = 0;
 
   const uint8_t* buf = blob->body;
   size_t remaining = blob->next_free;
@@ -386,9 +386,9 @@ DLLEXPORT int UnpackPersoBlob(
       }
 
       case kPersoObjectTypeDevSeed: {
-        if (*dev_seed_count >= max_dev_seed_count) {
-          LOG(ERROR) << "Exceeded maximum number of dev seeds: "
-                     << *dev_seed_count << " >= " << max_dev_seed_count;
+        if (*seed_count >= max_seed_count) {
+          LOG(ERROR) << "Exceeded maximum number of dev seeds: " << *seed_count
+                     << " >= " << max_seed_count;
           return -1;
         }
         if (obj_size > kDevSeedBytesSize + sizeof(perso_tlv_object_header_t)) {
@@ -397,12 +397,11 @@ DLLEXPORT int UnpackPersoBlob(
                      << (kDevSeedBytesSize + sizeof(perso_tlv_object_header_t));
           return -1;
         }
-        dev_seeds[*dev_seed_count].size =
-            obj_size - sizeof(perso_tlv_object_header_t);
-        memcpy(dev_seeds[*dev_seed_count].raw,
-               buf + sizeof(perso_tlv_object_header_t),
-               dev_seeds[*dev_seed_count].size);
-        (*dev_seed_count)++;
+        seeds[*seed_count].size = obj_size - sizeof(perso_tlv_object_header_t);
+        seeds[*seed_count].type = obj_type;
+        memcpy(seeds[*seed_count].raw, buf + sizeof(perso_tlv_object_header_t),
+               seeds[*seed_count].size);
+        (*seed_count)++;
         break;
       }
     }
@@ -463,15 +462,15 @@ DLLEXPORT int PackRegistryPersoTlvData(
     const endorse_cert_response_t* certs_endorsed_by_dut,
     size_t num_certs_endorsed_by_dut,
     const endorse_cert_response_t* certs_endorsed_by_spm,
-    size_t num_certs_endorsed_by_spm, const dev_seed_t* dev_seeds,
-    size_t num_dev_seeds, perso_blob_t* output) {
+    size_t num_certs_endorsed_by_spm, const seed_t* seeds, size_t num_seeds,
+    perso_blob_t* output) {
   if (certs_endorsed_by_dut == nullptr || certs_endorsed_by_spm == nullptr ||
       output == nullptr) {
     LOG(ERROR) << "Invalid certs or personalization blob pointer.";
     return -1;
   }
   if (num_certs_endorsed_by_dut == 0 && num_certs_endorsed_by_spm == 0 &&
-      num_dev_seeds == 0) {
+      num_seeds == 0) {
     LOG(ERROR) << "No certs or seeds to send to registry.";
     return -1;
   }
@@ -497,13 +496,13 @@ DLLEXPORT int PackRegistryPersoTlvData(
   }
 
   // Pack all dev seed objects.
-  for (size_t i = 0; i < num_dev_seeds; i++) {
-    const dev_seed_t& dev_seed = dev_seeds[i];
-    if (dev_seed.size == 0) {
-      LOG(ERROR) << "Invalid dev_seed at index " << i;
+  for (size_t i = 0; i < num_seeds; i++) {
+    const seed_t& seed = seeds[i];
+    if (seed.size == 0) {
+      LOG(ERROR) << "Invalid seed at index " << i;
       return -1;
     }
-    if (PackDevSeedTlvObject(&dev_seed, output) != 0) {
+    if (PackDevSeedTlvObject(&seed, output) != 0) {
       LOG(ERROR) << "Unable to pack dev seed into perso blob.";
       return -1;
     }

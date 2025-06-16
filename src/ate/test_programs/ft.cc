@@ -302,12 +302,12 @@ int main(int argc, char **argv) {
   endorse_cert_request_t x509_tbs_certs[kMaxNumCerts];
   size_t num_certs = kMaxNumCerts;
   endorse_cert_response_t x509_certs[kMaxNumCerts];
-  constexpr size_t kMaxDevSeeds = 5;
-  dev_seed_t dev_seeds[kMaxDevSeeds];
-  size_t num_dev_seeds = kMaxDevSeeds;
+  constexpr size_t kMaxSeeds = 5;
+  seed_t seeds[kMaxSeeds];
+  size_t num_seeds = kMaxSeeds;
   if (UnpackPersoBlob(&perso_blob_from_dut, &device_id, &tbs_was_hmac,
                       x509_tbs_certs, &num_tbs_certs, x509_certs, &num_certs,
-                      dev_seeds, &num_dev_seeds) != 0) {
+                      seeds, &num_seeds) != 0) {
     LOG(ERROR) << "Failed to unpack the perso blob from the DUT.";
     return -1;
   }
@@ -378,7 +378,7 @@ int main(int argc, char **argv) {
   };
   perso_blob_t perso_blob_for_registry;
   if (PackRegistryPersoTlvData(x509_certs, num_certs, endorsed_x509_certs,
-                               num_tbs_certs, dev_seeds, num_dev_seeds,
+                               num_tbs_certs, seeds, num_seeds,
                                &perso_blob_for_registry) != 0) {
     LOG(ERROR) << "PackRegistryPersoTlvData failed.";
     return -1;
