@@ -17,6 +17,7 @@ cc_library(
     name = "ate_client",
     srcs = ["ate_client.cc"],
     hdrs = ["ate_client.h"],
+    copts = ["-Wno-switch-default"],
     defines = ["BAZEL_BUILD"],
     linkopts = select({
         "//:windows": WINDOWS_LIBS,
@@ -100,6 +101,7 @@ cc_binary(
         "ate_api.h",
         "ate_perso_blob.h",
     ] + ATE_LIB_SRCS,
+    copts = ["-Wno-switch-default"],
     linkopts = select({
         "//:windows": WINDOWS_LIBS,
         "//conditions:default": [],
@@ -114,6 +116,7 @@ cc_binary(
 pkg_win(
     name = "windows",
     srcs = [
+        "ate_api.h",
         ":ate",
     ],
     platform = "@crt//platforms/x86_32:win32",
