@@ -338,7 +338,8 @@ int main(int argc, char **argv) {
   constexpr size_t kNumPersoBlobMaxNumSpiFrames = 10;
   dut_spi_frame_t perso_blob_from_ate_spi_frames[kNumPersoBlobMaxNumSpiFrames];
   size_t num_perso_blob_spi_frames = kNumPersoBlobMaxNumSpiFrames;
-  if (PackPersoBlob(num_tbs_certs, x509_certs, &perso_blob_from_ate) != 0) {
+  if (PackPersoBlob(num_tbs_certs, endorsed_x509_certs, &perso_blob_from_ate) !=
+      0) {
     LOG(ERROR) << "Failed to repack the perso blob.";
     return -1;
   }
