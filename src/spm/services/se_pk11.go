@@ -568,6 +568,10 @@ func (h *HSM) VerifyWASSignature(params VerifyWASParams) error {
 
 	if !hmac.Equal(sig, params.Signature) {
 		log.Printf("SE.VerifyWASSignature: WAS signature check failed")
+		if params.LogOnly {
+			log.Printf("SE.VerifyWASSignature: WAS signature check failed (expected/got): \n%x,\n%x", params.Signature, sig)
+			return nil
+		}
 		return fmt.Errorf("failed to verify signature (expected/got): \n%x,\n%x", params.Signature, sig)
 	}
 	return nil

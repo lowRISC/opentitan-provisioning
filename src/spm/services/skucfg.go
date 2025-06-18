@@ -18,6 +18,7 @@ const (
 	AttrNameWrappingKeyLabel           = "WrappingKeyLabel"
 	AttrNameWrappingMechanism          = "WrappingMechanism"
 	AttrNameWASKeyLabel                = "WASKeyLabel"
+	AttrNameWASDisable                 = "WASDisable"
 )
 
 // WrappingMechanism provides the wrapping method for symmetric keys.

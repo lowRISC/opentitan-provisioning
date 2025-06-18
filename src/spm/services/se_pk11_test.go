@@ -391,3 +391,53 @@ func TestVerifyWASSignature(t *testing.T) {
 	})
 	ts.Check(t, err)
 }
+
+func TestVerifyWASSignatureLogOnly(t *testing.T) {
+	hsm, hsSeed, _ := MakeHSM(t)
+
+	data, err := utils.GenerateRandom(4096)
+	ts.Check(t, err)
+
+	devID, err := utils.GenerateRandom(16)
+	ts.Check(t, err)
+
+	dev := append([]byte("was"), devID...)
+
+	mac := hmac.New(sha256.New, hsSeed)
+	mac.Write(dev)
+	was := mac.Sum(nil)
+
+	mac = hmac.New(sha256.New, was)
+	mac.Write(data)
+	sig := mac.Sum(nil)
+	// Make the signature incorrect.
+	sig[0] ^= 0xff
+
+	t.Run("incorrect signature log only", func(t *testing.T) {
+		err = hsm.VerifyWASSignature(VerifyWASParams{
+			Data:        data,
+			Diversifier: dev,
+			Sku:         "sival",
+			Seed:        "HighSecKdfSeed",
+			Signature:   sig,
+			LogOnly:     true,
+		})
+		if err != nil {
+			t.Errorf("VerifyWASSignature() with LogOnly failed: %v", err)
+		}
+	})
+
+	t.Run("incorrect signature no log only", func(t *testing.T) {
+		err = hsm.VerifyWASSignature(VerifyWASParams{
+			Data:        data,
+			Diversifier: dev,
+			Sku:         "sival",
+			Seed:        "HighSecKdfSeed",
+			Signature:   sig,
+			LogOnly:     false,
+		})
+		if err == nil {
+			t.Errorf("VerifyWASSignature() with incorrect signature and no LogOnly should have failed")
+		}
+	})
+}

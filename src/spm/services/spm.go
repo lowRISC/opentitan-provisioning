@@ -338,12 +338,19 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 		return nil, status.Errorf(codes.Internal, "could not get WAS key label: %s", err)
 	}
 
+	// The WASDisable attribute will be removed in a future version of the spm.
+	wasDisable, err := sku.Config.GetAttribute(skucfg.AttrNameWASDisable)
+	if err != nil {
+		wasDisable = "false"
+	}
+
 	err = sku.SeHandle.VerifyWASSignature(se.VerifyWASParams{
 		Signature:   request.Signature,
 		Data:        wasData,
 		Diversifier: request.Diversifier,
 		Sku:         request.Sku,
 		Seed:        wasLabel,
+		LogOnly:     wasDisable == "true",
 	})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not verify WAS signature: %s", err)

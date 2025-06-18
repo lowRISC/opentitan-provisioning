@@ -93,6 +93,7 @@ type VerifyWASParams struct {
 	Sku         string
 	Seed        string
 	Signature   []byte
+	LogOnly     bool
 }
 
 // SE is an interface representing a secure element, which may be implemented
