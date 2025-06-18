@@ -47,6 +47,9 @@ jobs:
   integration_tests:
     runs-on: ot-provisioning-self-hosted
     timeout-minutes: 30
+    env:
+      OT_PROV_ORCHESTRATOR_PATH: /home/ci/orchestrator/latest/orchestrator.zip
+      OT_PROV_ORCHESTRATOR_UNPACK: /home/ci/orchestrator/latest/copy_files.sh
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,9 +59,9 @@ jobs:
       - name: Initialize LFS objects
         run: git lfs pull
       - name: Run integration tests (SoftHSM2)
-        run: OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./run_integration_tests.sh
+        run: OT_PROV_ORCHESTRATOR_PATH="${OT_PROV_ORCHESTRATOR_PATH}" OT_PROV_ORCHESTRATOR_UNPACK="${OT_PROV_ORCHESTRATOR_UNPACK}" OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./run_integration_tests.sh
       - name: Run integration tests (Thales HSM)
-        run: OPENTITAN_VAR_DIR=$(pwd)/.otvar-prod ./run_integration_tests.sh --prod
+        run: OT_PROV_ORCHESTRATOR_PATH="${OT_PROV_ORCHESTRATOR_PATH}" OT_PROV_ORCHESTRATOR_UNPACK="${OT_PROV_ORCHESTRATOR_UNPACK}" OPENTITAN_VAR_DIR=$(pwd)/.otvar-prod ./run_integration_tests.sh --prod
 
   # Test airgapped build.
   airgapped_build_test:
