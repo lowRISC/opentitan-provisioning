@@ -335,11 +335,22 @@ def _hsm_key_template(ctx):
         fail("Wrapping key must be specified if wrapping mechanism is specified.")
 
     keygen_params = json.decode(ctx.attr.keygen_params)
+    import_template = {}
 
     if ctx.attr.import_template:
         import_template = json.decode(ctx.attr.import_template)
-    else:
-        import_template = {}
+
+    if ctx.attr.type == "generic" and ctx.attr.wrapping_mechanism == "VendorThalesAesKw":
+        # Patch the keygen parameters.
+        keygen_params["template"] |= {
+            "CKA_VALUE_LEN": 32,
+        }
+
+        # Patch the import PKCS#11 attributes template
+        if ctx.attr.import_template:
+            import_template = json.decode(ctx.attr.import_template) | {
+                "CKA_VALUE_LEN": 32,
+            }
 
     if ctx.attr.import_template_private:
         import_template_private = json.decode(ctx.attr.import_template_private)
@@ -931,12 +942,10 @@ def hsm_generic_secret(name, wrapping_key, wrapping_mechanism):
         "CKA_SIGN": True,
         "CKA_TOKEN": True,
     }
-    if wrapping_mechanism == "VendorThalesAesKw":
-        _PK11_ATTRS["CKA_VALUE_LEN"] = 32
     hsm_key_template(
         name = name,
         import_template = hsmtool_pk11_attrs(_PK11_ATTRS | {
-            "CKA_EXTRACTABLE": True,
+            "CKA_EXTRACTABLE": False,
         }),
         keygen_params = hsmtool_generic_keygen(
             label = name,
