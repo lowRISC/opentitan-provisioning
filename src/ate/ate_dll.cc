@@ -72,7 +72,6 @@ static_assert(
     "LC state enum must match proto enum (Scrap)");
 
 std::string extractDNSNameFromCert(const char *certPath) {
-  DLOG(INFO) << "extractDNSNameFromCert";
   FILE *certFile = fopen(certPath, "r");
   if (!certFile) {
     LOG(ERROR) << "Failed to open certificate file";

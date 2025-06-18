@@ -44,14 +44,26 @@ class AteClient {
     std::vector<std::string> sku_tokens;
   };
 
-  // Constructs an AteClient given a GRPC stub.
-  AteClient(
+  // Constructs an AteClient given a GRPC channel.
+  AteClient(std::shared_ptr<grpc::Channel> channel)
+      : channel_(channel),
+        stub_(pa::ProvisioningApplianceService::NewStub(channel)) {}
+
+  // Constructs an AteClient with a mock stub for testing purposes.
+  explicit AteClient(
       std::unique_ptr<pa::ProvisioningApplianceService::StubInterface> stub)
-      : stub_(std::move(stub)) {}
+      : channel_(nullptr), stub_(std::move(stub)) {}
 
   // Forbids copies or assignments of AteClient.
   AteClient(const AteClient&) = delete;
   AteClient& operator=(const AteClient&) = delete;
+
+  // Overload the new and delete operators to allow for usage in a DLL.
+  // This ensures that the memory for AteClient objects is allocated and
+  // deallocated on the same heap, preventing corruption issues when the DLL
+  // and executable have different C++ runtimes.
+  void* operator new(size_t size);
+  void operator delete(void* ptr);
 
   // Creates an AteClient. See configuration `Options` for more details.
   static std::unique_ptr<AteClient> Create(Options options);
@@ -85,6 +97,7 @@ class AteClient {
   std::string ate_id;
 
  private:
+  std::shared_ptr<grpc::Channel> channel_;
   std::unique_ptr<pa::ProvisioningApplianceService::StubInterface> stub_;
   std::string sku_session_token_;
 };

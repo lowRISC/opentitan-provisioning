@@ -56,10 +56,33 @@ std::shared_ptr<grpc::ChannelCredentials> BuildCredentials(
 }
 }  // namespace
 
+// By explicitly defining the new and delete operators for the AteClient class
+// and implementing them in the same compilation unit (the DLL), we ensure
+// that the memory for AteClient objects is allocated and deallocated on the
+// same heap.
+//
+// On Windows, a DLL and the executable that loads it can have different C++
+// runtime heaps. If an object is allocated on one heap (e.g., by a call
+// from the .exe that results in a `new` inside the DLL) and deallocated on
+// another (e.g., by a `delete` call in the DLL that might resolve to the
+// .exe's runtime), it can lead to heap corruption and access violation
+// errors.
+//
+// These overloads ensure that `new AteClient` and `delete AteClient` always
+// use the memory management functions from the C++ runtime linked with this
+// DLL, preventing such issues.
+void* AteClient::operator new(size_t size) {
+  // Forward to the global new operator from the DLL's runtime.
+  return ::operator new(size);
+}
+
+void AteClient::operator delete(void* ptr) {
+  // Forward to the global delete operator from the DLL's runtime.
+  ::operator delete(ptr);
+}
+
 // Instantiates a client
 std::unique_ptr<AteClient> AteClient::Create(AteClient::Options options) {
-  LOG(INFO) << "AteClient::Create";
-
   // establish a grpc channel between the client (test program) and the targeted
   // provisioning appliance server:
   // 1. set the grpc channel properties (insecured by default, authenticated and
@@ -69,8 +92,8 @@ std::unique_ptr<AteClient> AteClient::Create(AteClient::Options options) {
     credentials = BuildCredentials(options);
   }
   // 2. create the grpc channel between the client and the targeted server
-  auto ate = absl::make_unique<AteClient>(ProvisioningApplianceService::NewStub(
-      grpc::CreateChannel(options.pa_socket, credentials)));
+  auto channel = grpc::CreateChannel(options.pa_socket, credentials);
+  auto ate = absl::make_unique<AteClient>(channel);
 
   return ate;
 }
