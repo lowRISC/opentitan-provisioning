@@ -87,15 +87,35 @@ trap shutdown_callback EXIT
 
 . ${DEPLOYMENT_DIR}/env/${DEPLOY_ENV}/spm.env
 
-# Unpack firmware and OpenOCD binaries.
-bazelisk build //third_party/lowrisc/ot_fw:orchestrator_unzip
+
 DEPLOYMENT_BIN_DIR="${OPENTITAN_VAR_DIR}/bin"
 BUILD_BIN_DIR="bazel-bin/third_party/lowrisc/ot_fw/orchestrator/runfiles/lowrisc_opentitan"
-cp "${BUILD_BIN_DIR}"/sw/device/silicon_creator/manuf/base/sram_cp_provision*.elf "${DEPLOYMENT_BIN_DIR}"
-cp "${BUILD_BIN_DIR}"/sw/device/silicon_creator/manuf/base/sram_ft_individualize*.elf "${DEPLOYMENT_BIN_DIR}"
-cp "${BUILD_BIN_DIR}"/sw/device/silicon_creator/manuf/base/ft_personalize*.bin "${DEPLOYMENT_BIN_DIR}"
-cp "${BUILD_BIN_DIR}"/sw/device/silicon_creator/manuf/base/binaries/ft_personalize*.bin "${DEPLOYMENT_BIN_DIR}"
-cp "${BUILD_BIN_DIR}"/sw/device/silicon_creator/manuf/base/ft_fw_bundle*.img "${DEPLOYMENT_BIN_DIR}"
+if [[ -z "${OT_PROV_ORCHESTRATOR_PATH}" ]]; then
+  bazelisk build //third_party/lowrisc/ot_fw:orchestrator_unzip
+else
+  # Check if the path pointed by OT_PROV_ORCHESTRATOR_PATH points to a valid
+  # file.
+  if [[ ! -f "${OT_PROV_ORCHESTRATOR_PATH}" ]]; then
+    echo "Error: OT_PROV_ORCHESTRATOR_PATH is set to an invalid path: ${OT_PROV_ORCHESTRATOR_PATH}"
+    exit 1
+  fi
+  ORCHESTRATOR_OUT="${OPENTITAN_VAR_DIR}/orchestrator"
+  BUILD_BIN_DIR="${ORCHESTRATOR_OUT}/runfiles/lowrisc_opentitan"
+  unzip -q "${OT_PROV_ORCHESTRATOR_PATH}" -d "${ORCHESTRATOR_OUT}"
+
+  # If OT_PROV_ORCHESTRATOR_UNPACK is set, invoke it with the path to
+  # ORCHESTRATOR_OUT and BUILD_BIN_DIR.
+  if [[ -n "${OT_PROV_ORCHESTRATOR_UNPACK}" ]]; then
+    "${OT_PROV_ORCHESTRATOR_UNPACK}" "${ORCHESTRATOR_OUT}" "${DEPLOYMENT_BIN_DIR}"
+  fi
+fi
+
+# Unpack firmware and OpenOCD binaries.
+cp "${BUILD_BIN_DIR}"/sw/device/silicon_creator/manuf/base/*.elf "${DEPLOYMENT_BIN_DIR}"
+cp "${BUILD_BIN_DIR}"/sw/device/silicon_creator/manuf/base/*.bin "${DEPLOYMENT_BIN_DIR}"
+cp "${BUILD_BIN_DIR}"/sw/device/silicon_creator/manuf/base/binaries/*.bin "${DEPLOYMENT_BIN_DIR}"
+cp "${BUILD_BIN_DIR}"/sw/device/silicon_creator/manuf/base/*.img "${DEPLOYMENT_BIN_DIR}"
+
 cp "${BUILD_BIN_DIR}"/third_party/openocd/build_openocd/bin/openocd "${DEPLOYMENT_BIN_DIR}"
 chmod +x "${DEPLOYMENT_BIN_DIR}"/openocd
 
