@@ -111,7 +111,7 @@ def _hsm_key_template_aes(ctx, keygen_params, import_template = {}):
             wrap = ctx.attr.wrapping_key[KeyTemplateInfo].label_pub,
             wrap_mechanism = ctx.attr.wrapping_mechanism,
         ),
-        "destroy": hsmtool_object_destroy(label),
+        "destroy": [hsmtool_object_destroy(label)],
     }
 
     return KeyTemplateInfo(
@@ -165,7 +165,7 @@ def _hsm_key_template_generic(ctx, keygen_params, import_template = {}):
             wrap = ctx.attr.wrapping_key[KeyTemplateInfo].label_pub,
             wrap_mechanism = ctx.attr.wrapping_mechanism,
         ),
-        "destroy": hsmtool_object_destroy(label),
+        "destroy": [hsmtool_object_destroy(label)],
     }
 
     return KeyTemplateInfo(
@@ -224,7 +224,11 @@ def _hsm_key_template_ecdsa(ctx, keygen_params, import_template_private = {}, im
             public_attrs = import_template_public,
         ),
         "export_pub": hsmtool_ecdsa_export_pub(label_pub),
-        "destroy": hsmtool_object_destroy(label),
+        "destroy": [
+            hsmtool_object_destroy(label),
+            hsmtool_object_destroy(label_pub),
+            hsmtool_object_destroy(label_priv),
+        ],
     }
 
     if not ctx.attr.export_public_only:
@@ -294,7 +298,11 @@ def _hsm_key_template_rsa(ctx, keygen_params, import_template_private = {}, impo
             public_attrs = import_template_public,
         ),
         "export_pub": hsmtool_rsa_export_pub(label_pub),
-        "destroy": hsmtool_object_destroy(label),
+        "destroy": [
+            hsmtool_object_destroy(label),
+            hsmtool_object_destroy(label_pub),
+            hsmtool_object_destroy(label_priv),
+        ],
     }
 
     if not ctx.attr.export_public_only:
@@ -473,7 +481,7 @@ def _destroy_command(key):
     """
     if "destroy" not in key.hsmtool_cmds:
         fail("Key %s does not have a destroy command." % key.label)
-    return json.decode(key.hsmtool_cmds["destroy"])
+    return key.hsmtool_cmds["destroy"]
 
 def _process_command(key, command):
     """Creates a command to process a key in the HSM.
@@ -507,7 +515,8 @@ def _hsmtool_genscripts(ctx):
 
         # Update down command sequence.
         if command in ["keygen", "import"]:
-            down_dict.append(_destroy_command(key))
+            for dcmd in _destroy_command(key):
+                down_dict.append(json.decode(dcmd))
 
         # Update up command sequence.
         if command == "import" and key.type in ["ecdsa", "rsa"]:

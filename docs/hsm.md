@@ -154,15 +154,17 @@ export DEPLOY_ENV=prod
 
 #### **Step 3: Export Offline Secrets**
 
-This step exports wrapped secrets for use by the SPM HSM.
+This step exports wrapped secrets for use by the SPM HSM. It is critical to use
+the `--wipe` flag in this step.
 
 ```shell
-./config/token_init.sh --action offline-common-export
+./config/token_init.sh --action offline-common-export --wipe
 ```
 
 *   **Description:** This script imports the SPM's public wrapping key from
     `spm_hsm_init.tar.gz` and uses it to wrap and export seeds and the RMA
-    public key.
+    public key. The `--wipe` flag ensures that any previous SPM's wrapping key is
+    deleted from the Offline HSM before running the export commands.
 *   **Input Artifact:** `spm_hsm_init.tar.gz` (from Phase 1).
 *   **Output Artifact:** `hsm_offline_export.tar.gz`.
 *   **Action:** The operator must securely transfer `hsm_offline_export.tar.gz`

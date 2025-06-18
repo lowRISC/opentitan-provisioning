@@ -9,6 +9,7 @@ usage () {
   echo "Usage: $0 --action <action> [--sku <sku>]..."
   echo "  --action <action>            Action to perform. Required."
   echo "  --sku <sku>                  SKU to process. Can be specified multiple times. Required for some actions."
+  echo "  --wipe                       Wipe the SPM wrapping key before exporting secrets from the offline HSM."
   echo "  --help                       Show this help message."
 
   echo "Available actions:"
@@ -30,9 +31,10 @@ usage () {
 }
 
 FLAG_ACTION=""
+FlAGS_WIPE=""
 FLAGS_SKUS_ARRAY=()
 
-LONGOPTS="action:,sku:,help"
+LONGOPTS="action:,sku:,wipe,help"
 OPTS=$(getopt -o "" --long "${LONGOPTS}" -n "$0" -- "$@")
 
 if [ $? != 0 ] ; then echo "Failed parsing options." >&2 ; exit 1 ; fi
@@ -52,6 +54,10 @@ while true; do
       FLAGS_SKUS_ARRAY+=("$sku_val")
       shift 2
       ;;
+    --wipe)
+      FlAGS_WIPE="--wipe"
+      shift
+      ;;
     --help)
       usage
       ;;
@@ -70,7 +76,6 @@ if [[ "$#" -gt 0 ]]; then
   echo "Unexpected arguments:" "$@" >&2
   exit 1
 fi
-
 
 if [[ -z "${DEPLOY_ENV}" ]]; then
   echo "Error: DEPLOY_ENV environment variable is not set."
@@ -240,8 +245,9 @@ fi
 
 if [[ "${FLAG_ACTION}" == "offline-common-export" ]]; then
   # Exports RMA public key and high and low security seeds from the offline HSM
-  # partition.
-  run_hsm_init "${EG_COMMON_DIR}/offline_export.bash" "${OFFLINE_ARGS[@]}" \
+  # partition. Always run the command with --wipe to ensure the SPM wrapping key
+  # is destroyed if it exists.
+  run_hsm_init "${EG_COMMON_DIR}/offline_export.bash" "${OFFLINE_ARGS[@]}" ${FlAGS_WIPE} \
     --input_tar "${SPM_SKU_DIR}/spm_hsm_init.tar.gz" \
     --output_tar "${EG_COMMON_DIR}/hsm_offline_export.tar.gz"
 fi
