@@ -217,10 +217,12 @@ DLLEXPORT void CreateClient(
 
 DLLEXPORT void DestroyClient(ate_client_ptr client) {
   DLOG(INFO) << "DestroyClient";
-  if (ate_client != nullptr) {
+  if (client != nullptr && client == ate_client) {
     AteClient *ate = reinterpret_cast<AteClient *>(client);
     delete ate;
     ate_client = nullptr;
+  } else {
+    LOG(ERROR) << "DestroyClient called with invalid client pointer";
   }
 }
 
