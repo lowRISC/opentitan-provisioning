@@ -58,10 +58,7 @@ std::shared_ptr<grpc::ChannelCredentials> BuildCredentials(
 
 // Instantiates a client
 std::unique_ptr<AteClient> AteClient::Create(AteClient::Options options) {
-  LOG(INFO) << "AteClient::Create, options: "
-            << "pa: " << options.pa_socket
-            << ", enable_mtls: " << options.enable_mtls
-            << ", sku_tokens: " << options.sku_tokens.size();
+  LOG(INFO) << "AteClient::Create";
 
   // establish a grpc channel between the client (test program) and the targeted
   // provisioning appliance server:
