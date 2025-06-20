@@ -9,6 +9,7 @@ package spm;
 
 import "src/pa/proto/pa.proto";
 import "src/proto/crypto/cert.proto";
+import "src/proto/device_id.proto";
 
 option go_package = "spm_go_bp";
 
@@ -46,6 +47,10 @@ service SpmService {
   // hashed and signed with a private key stored in the SPM.
   rpc EndorseData(EndorseDataRequest)
       returns (EndorseDataResponse) {}
+
+  // VerifyDeviceData verifies the device data for a given SKU.
+  rpc VerifyDeviceData(VerifyDeviceDataRequest)
+      returns (VerifyDeviceDataResponse) {}
 }
 
 // Endorse data request.
@@ -64,4 +69,15 @@ message EndorseDataResponse {
   bytes pubkey = 1;
   // ASN.1 DER signature of data payload.
   bytes signature = 2;
+}
+
+// Verify device data request.
+message VerifyDeviceDataRequest {
+  // Device data to verify. Required.
+  ot.DeviceData device_data = 1;
+}
+
+// Verify device data response.
+message VerifyDeviceDataResponse {
+  // Empty message.
 }

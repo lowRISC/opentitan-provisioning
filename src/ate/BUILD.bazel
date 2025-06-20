@@ -118,6 +118,7 @@ pkg_win(
     name = "windows",
     srcs = [
         "ate_api.h",
+        "ate_perso_blob.h",
         ":ate",
     ],
     platform = "@crt//platforms/x86_32:win32",

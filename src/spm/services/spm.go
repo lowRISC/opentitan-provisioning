@@ -10,16 +10,18 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/asn1"
 	"fmt"
 	"log"
+	"math/big"
 	"os"
 	"strings"
-	"encoding/asn1"
-	"math/big"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/lowRISC/opentitan-provisioning/src/ate"
+	"github.com/lowRISC/opentitan-provisioning/src/proto/validators"
 	"github.com/lowRISC/opentitan-provisioning/src/spm/services/se"
 	"github.com/lowRISC/opentitan-provisioning/src/spm/services/skucfg"
 	"github.com/lowRISC/opentitan-provisioning/src/spm/services/skumgr"
@@ -487,4 +489,119 @@ func (s *server) EndorseData(ctx context.Context, request *pbs.EndorseDataReques
 		Pubkey:    asn1Pubkey,
 		Signature: asn1Sig,
 	}, nil
+}
+
+func (s *server) VerifyDeviceData(ctx context.Context, request *pbs.VerifyDeviceDataRequest) (*pbs.VerifyDeviceDataResponse, error) {
+	log.Printf("SPM.VerifyDeviceDataRequest - Sku:%q", request.DeviceData.Sku)
+	sku, ok := s.skuManager.GetSku(request.DeviceData.Sku)
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.DeviceData.Sku)
+	}
+
+	// Unpack the perso blob.
+	persoBlob, err := ate.UnpackPersoBlob(request.DeviceData.PersoTlvData)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to unpack perso blob: %v", err)
+	}
+
+	// Validate the device ID.
+	if err := validators.ValidateDeviceId(request.DeviceData.DeviceId); err != nil {
+		return nil, status.Errorf(codes.Internal, "device ID is invalid: %v", err)
+	}
+
+	rootCert, ok := sku.Certs["RootCA"]
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "unable to find RootCA cert in SKU configuration")
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(rootCert)
+
+	udsICA, ok := sku.Certs["SigningKey/Dice/v0"]
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "unable to find UDS ICA cert in SKU configuration")
+	}
+	diceIntermediates := x509.NewCertPool()
+	diceIntermediates.AddCert(udsICA)
+
+	// EXT ICA is optional. It is used in non-DICE certificate chains.
+	extIntermediates := x509.NewCertPool()
+	extICA, ok := sku.Certs["SigningKey/Ext/v0"]
+	if ok {
+		extIntermediates.AddCert(extICA)
+	}
+
+	certChainDiceLeaf, err := sku.Config.GetUnsafeAttribute(skucfg.AttrNameCertChainDiceLeaf)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "unable to get cert chain dice leaf: %v", err)
+	}
+
+	diceCerts := []*x509.Certificate{}
+	extCerts := []*x509.Certificate{}
+	extNames := []string{}
+	for _, cert := range persoBlob.X509Certs {
+		certObj, err := x509.ParseCertificate(cert.Cert)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to parse certificate: %v", err)
+		}
+		certObj.UnhandledCriticalExtensions = nil
+
+		// DICE certificate chains are composed based on the certChainDiceLeaf configuration:
+		// - If certChainDiceLeaf is "UDS": The chain is Root CA -> UDS ICA -> UDS (leaf)
+		// - If certChainDiceLeaf is "CDI_0": The chain is Root CA -> UDS ICA -> UDS -> CDI_0 (leaf)
+		// - If certChainDiceLeaf is "CDI_1": The chain is Root CA -> UDS ICA -> UDS -> CDI_0 -> CDI_1 (leaf)
+		// The leaf certificate is added to diceCerts for verification, while intermediate
+		// certificates are added to the diceIntermediates pool.
+		switch cert.KeyLabel {
+		case "UDS":
+			if certChainDiceLeaf == "UDS" {
+				diceCerts = append(diceCerts, certObj)
+			} else {
+				diceIntermediates.AddCert(certObj)
+			}
+		case "CDI_0":
+			if certChainDiceLeaf == "CDI_0" {
+				diceCerts = append(diceCerts, certObj)
+			} else if certChainDiceLeaf == "CDI_1" {
+				diceIntermediates.AddCert(certObj)
+			}
+		case "CDI_1":
+			if certChainDiceLeaf == "CDI_1" {
+				diceCerts = append(diceCerts, certObj)
+			} else {
+				return nil, status.Errorf(codes.Internal, "CDI_1 certificate chain is not expected for this SKU: %v", err)
+			}
+		default:
+			// If the certificate key label is not one of the DICE certificates,
+			// assume it is an EXT leaf certificate.
+			// The certificate chain is Root CA -> EXT ICA -> EXT (leaf)
+			extCerts = append(extCerts, certObj)
+			extNames = append(extNames, cert.KeyLabel)
+		}
+	}
+
+	// Verify the EXT certificate chains.
+	if len(extCerts) > 0 {
+		for i, ext := range extCerts {
+			_, err := ext.Verify(x509.VerifyOptions{
+				Roots:         roots,
+				Intermediates: extIntermediates,
+			})
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "%q certificate chain is invalid: %v", extNames[i], err)
+			}
+		}
+	}
+
+	// Verify the DICE certificate chain.
+	for _, cert := range diceCerts {
+		_, err := cert.Verify(x509.VerifyOptions{
+			Roots:         roots,
+			Intermediates: diceIntermediates,
+		})
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "%q certificate chain is invalid: %v", cert.Subject.CommonName, err)
+		}
+	}
+
+	return &pbs.VerifyDeviceDataResponse{}, nil
 }

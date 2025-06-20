@@ -39,6 +39,8 @@ func ValidateSiliconCreatorId(sc dpb.SiliconCreatorId) error {
 	case dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE:
 		fallthrough
 	case dpb.SiliconCreatorId_SILICON_CREATOR_ID_NUVOTON:
+		fallthrough
+	case dpb.SiliconCreatorId_SILICON_CREATOR_ID_FPGA:
 		return nil
 	}
 	return fmt.Errorf("Invalid SiliconCreatorId: %v", sc)
@@ -53,6 +55,8 @@ func ValidateProductId(pi dpb.ProductId) error {
 	case dpb.ProductId_PRODUCT_ID_EARLGREY_Z1:
 		fallthrough
 	case dpb.ProductId_PRODUCT_ID_EARLGREY_A1:
+		fallthrough
+	case dpb.ProductId_PRODUCT_ID_FPGA:
 		return nil
 	}
 	return fmt.Errorf("Invalid ProductId: %v", pi)

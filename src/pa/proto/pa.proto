@@ -8,7 +8,6 @@ syntax = "proto3";
 package pa;
 
 import "src/proto/crypto/cert.proto";
-import "src/proto/crypto/wrap.proto";
 import "src/proto/device_id.proto";
 
 option go_package = "pa_go_pb";

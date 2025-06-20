@@ -103,8 +103,9 @@ func TestValidateProductId(t *testing.T) {
 			ok:   true,
 		},
 		{
-			name: "invalid: 0xffff",
-			pi:   dpb.ProductId(0xffff),
+			name: "fpga",
+			pi:   dpb.ProductId_PRODUCT_ID_FPGA,
+			ok:   true,
 		},
 	}
 

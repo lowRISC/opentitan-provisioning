@@ -12,6 +12,7 @@ proto_library(
     srcs = ["spm.proto"],
     deps = [
         "//src/pa/proto:pa_proto",
+        "//src/proto:device_id_proto",
         "//src/proto/crypto:cert_proto",
     ],
 )
@@ -23,6 +24,7 @@ go_proto_library(
     proto = ":spm_proto",
     deps = [
         "//src/pa/proto:pa_go_pb",
+        "//src/proto:device_id_go_pb",
         "//src/proto/crypto:cert_go_pb",
     ],
 )

@@ -6,14 +6,19 @@ package dututils
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	mrand "math/rand"
 	"time"
 
@@ -45,11 +50,12 @@ type Dut struct {
 	skuMgr        *skumgr.Manager
 	opts          skumgr.Options
 	skuName       string
-	privKey       *ecdsa.PrivateKey
+	privKeys      map[string]*ecdsa.PrivateKey
 	DeviceID      *ate.DeviceIDBytes
 	persoBlob     *ate.PersoBlob
 	endorsedCerts []ate.EndorseCertResponse
 	tbsCerts      map[string][]byte
+	certChainDiceLeaf string
 
 	// Cached tokens
 	waferAuthSecret     []byte
@@ -60,13 +66,18 @@ type Dut struct {
 	caSubjectKeyIds     [][]byte
 }
 
+// computeSKI calculates the Subject Key Identifier for a public key.
+func computeSKI(pubKey crypto.PublicKey) ([]byte, error) {
+	spki, err := x509.MarshalPKIXPublicKey(pubKey)
+	if err != nil {
+		return nil, err
+	}
+	hash := sha1.Sum(spki)
+	return hash[:], nil
+}
+
 // NewDut creates and initializes a new emulated DUT.
 func NewDut(opts skumgr.Options, skuName string) (*Dut, error) {
-	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate private key: %w", err)
-	}
-
 	devIdProto := &dpb.DeviceId{
 		HardwareOrigin: &dpb.HardwareOrigin{
 			SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
@@ -88,16 +99,47 @@ func NewDut(opts skumgr.Options, skuName string) (*Dut, error) {
 	// Generate TBS certificates for the DUT. This requires accessing the
 	// HSM.
 	certLabels := []string{"UDS"}
-	tbsCerts, _, err := tbsgen.BuildTestTBSCerts(opts, skuName, certLabels)
+	tbsCerts, privKeys, err := tbsgen.BuildTestTBSCerts(opts, skuName, certLabels)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate TBS certificates for SKU %q: %v", skuName, err)
+	}
+
+	// TODO(moidx): Update the following code to read the following value from
+	// the SKU attribute: AttrNameCertChainDiceLeaf.
+	var certChainDiceLeaf string
+	switch skuName {
+	case "cr01":
+		certChainDiceLeaf = "CDI_1"
+	case "pi01":
+		certChainDiceLeaf = "UDS"
+	case "sival":
+		certChainDiceLeaf = "CDI_1"
+	case "ti01":
+		certChainDiceLeaf = "CDI_1"
+	default:
+		return nil, fmt.Errorf("unsupported SKU: %q", skuName)
+	}
+
+	var devKeys []string
+	if certChainDiceLeaf == "CDI_0" {
+		devKeys = []string{"CDI_0"}
+	} else if certChainDiceLeaf == "CDI_1" {
+		devKeys = []string{"CDI_0", "CDI_1"}
+	}
+	
+	for _, label := range devKeys {
+		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate private key %q: %w", label, err)
+		}
+		privKeys[label] = key
 	}
 
 	return &Dut{
 		skuMgr:              skumgr.NewManager(opts),
 		opts:                opts,
 		skuName:             skuName,
-		privKey:             privKey,
+		privKeys:            privKeys,
 		DeviceID:            &deviceID,
 		waferAuthSecret:     []byte{},
 		testUnlockToken:     []byte{},
@@ -106,6 +148,7 @@ func NewDut(opts skumgr.Options, skuName string) (*Dut, error) {
 		wrappedRmaTokenSeed: []byte{},
 		caSubjectKeyIds:     [][]byte{},
 		tbsCerts:            tbsCerts,
+		certChainDiceLeaf:   certChainDiceLeaf,
 	}, nil
 }
 
@@ -315,4 +358,124 @@ func (d *Dut) GeneratePersoBlob() ([]byte, error) {
 		persoBlobJSON.Body[i] = uint32(b)
 	}
 	return json.Marshal(persoBlobJSON)
+}
+
+// GeneratePersoTlv builds a personalization TLV blob containing endorsed 
+// certificates.
+func (d *Dut) GeneratePersoTlv() ([]byte, uint32, error) {
+	time.Sleep(GeneratePersoBlobDelay)
+
+	// Find endorsed UDS certificate.
+	var udsCert *x509.Certificate
+	var endorsedUdsCert ate.EndorseCertResponse
+	for _, cert := range d.endorsedCerts {
+		if cert.KeyLabel == "UDS" {
+			endorsedUdsCert = cert
+			var err error
+			udsCert, err = x509.ParseCertificate(cert.Cert)
+			if err != nil {
+				return nil, 0, fmt.Errorf("failed to parse UDS certificate: %w", err)
+			}
+			break
+		}
+	}
+	if udsCert == nil {
+		return nil, 0, fmt.Errorf("UDS certificate not found in endorsed certs")
+	}
+
+	persoBlob := &ate.PersoBlob{
+		X509Certs: []ate.EndorseCertResponse{
+			endorsedUdsCert,
+		},
+	}
+
+	if d.certChainDiceLeaf == "UDS" {
+		blobBytes, err := ate.BuildPersoBlob(persoBlob)
+		if err != nil {
+			return nil, 0, err
+		}
+		return blobBytes, uint32(len(persoBlob.X509Certs)), nil
+	}
+
+	// Create CDI_0 certificate endorsed by UDS.
+	cdi0Template := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject: pkix.Name{
+			Organization: []string{"CDI_0 Test Certificate"},
+			CommonName:   "CDI_0",
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		Issuer:                udsCert.Subject,
+		AuthorityKeyId:        udsCert.SubjectKeyId,
+	}
+	cdi0Ski, err := computeSKI(&d.privKeys["CDI_0"].PublicKey)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to compute CDI_0 SKI: %w", err)
+	}
+	cdi0Template.SubjectKeyId = cdi0Ski
+	cdi0CertBytes, err := x509.CreateCertificate(rand.Reader, cdi0Template, udsCert, &d.privKeys["CDI_0"].PublicKey, d.privKeys["UDS"])
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to create CDI_0 certificate: %w", err)
+	}
+	cdi0Cert, err := x509.ParseCertificate(cdi0CertBytes)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to parse CDI_0 certificate: %w", err)
+	}
+
+	persoBlob.X509Certs = append(persoBlob.X509Certs, ate.EndorseCertResponse{
+		KeyLabel: "CDI_0",
+		Cert:     cdi0CertBytes,
+	})
+
+	// If the certificate chain is CDI_0, we don't need to create CDI_1.
+	if d.certChainDiceLeaf == "CDI_0" {
+		blobBytes, err := ate.BuildPersoBlob(persoBlob)
+		if err != nil {
+			return nil, 0, err
+		}
+		return blobBytes, uint32(len(persoBlob.X509Certs)), nil
+	}
+
+	// Create a CDI_1 certificate endorsed by CDI_0.
+	cdi1Template := &x509.Certificate{
+		SerialNumber: big.NewInt(3),
+		Subject: pkix.Name{
+			Organization: []string{"CDI_1 Test Certificate"},
+			CommonName:   "CDI_1",
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		Issuer:                cdi0Cert.Subject,
+		AuthorityKeyId:        cdi0Cert.SubjectKeyId,
+	}
+	cdi1Ski, err := computeSKI(&d.privKeys["CDI_1"].PublicKey)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to compute CDI_1 SKI: %w", err)
+	}
+	cdi1Template.SubjectKeyId = cdi1Ski
+	cdi1CertBytes, err := x509.CreateCertificate(rand.Reader, cdi1Template, cdi0Cert, &d.privKeys["CDI_1"].PublicKey, d.privKeys["CDI_0"])
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to create CDI_1 certificate: %w", err)
+	}
+
+	persoBlob.X509Certs = append(persoBlob.X509Certs, ate.EndorseCertResponse{
+		KeyLabel: "CDI_1",
+		Cert:     cdi1CertBytes,
+	})
+
+	blobBytes, err := ate.BuildPersoBlob(persoBlob)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return blobBytes, uint32(len(persoBlob.X509Certs)), nil
 }

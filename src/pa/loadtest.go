@@ -335,11 +335,19 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 	if err != nil {
 		return fmt.Errorf("failed to convert device ID from raw bytes: %w", err)
 	}
+
+	persoTlv, numObjs, err := dut.GeneratePersoTlv()
+	if err != nil {
+		return fmt.Errorf("failed to generate perso TLV: %w", err)
+	}
+
 	regReq := &pbp.RegistrationRequest{
 		DeviceData: &dpb.DeviceData{
-			Sku:             skuName,
-			DeviceId:        deviceData,
-			DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
+			Sku:                skuName,
+			DeviceId:           deviceData,
+			DeviceLifeCycle:    dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
+			PersoTlvData:       persoTlv,
+			NumPersoTlvObjects: numObjs,
 		},
 	}
 	if _, err := c.client.RegisterDevice(client_ctx, regReq); err != nil {
@@ -425,6 +433,7 @@ func run(ctx context.Context, cg *clientGroup, numDutsPerClient int, skuName str
 		r := <-cg.results
 		if r.err != nil {
 			errorMsgs = append(errorMsgs, fmt.Sprintf("client %d: %v", r.id, r.err))
+			log.Printf("client %d: %v", r.id, r.err)
 			errCount++
 		}
 	}
@@ -536,8 +545,16 @@ func main() {
 			failed++
 		}
 		log.Printf("sku: %q", r.skuName)
-		log.Printf("   test: %q, result: %t, msg: %q", r.testName, r.pass, r.msg)
+		log.Printf("   test: %q, result: %t", r.testName, r.pass)
 		log.Printf("   rate: %.2f chips/hour, duration: %.2fs, numDuts: %d", r.rate, r.duration.Seconds(), r.numDuts)
+		if strings.Contains(r.msg, "\n") {
+			log.Print("   msg:")
+			for _, line := range strings.Split(r.msg, "\n") {
+				log.Printf("     %s", line)
+			}
+		} else {
+			log.Printf("   msg: %q", r.msg)
+		}
 	}
 	if failed > 0 {
 		log.Fatalf("Test FAIL!. %d tests failed", failed)

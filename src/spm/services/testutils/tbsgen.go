@@ -34,8 +34,8 @@ func computeSKI(pubKey crypto.PublicKey) ([]byte, error) {
 // buildTestTbsCert creates a To-Be-Signed (TBS) certificate for testing purposes.
 // It takes an intermediate CA certificate. It generates a new key pair for the
 // subject, creates a certificate, and returns the TBS part of it.
-// The public key of the new certificate is also returned.
-func buildTestTbsCert(session *pk11.Session, label string, intermediateCACert *x509.Certificate) ([]byte, crypto.PublicKey, error) {
+// The private key of the new certificate is also returned.
+func buildTestTbsCert(session *pk11.Session, label string, intermediateCACert *x509.Certificate) ([]byte, *ecdsa.PrivateKey, error) {
 	// Get the private key object.
 	keyID, err := se.GetKeyIDByLabel(session, pk11.ClassPrivateKey, label)
 	if err != nil {
@@ -73,14 +73,15 @@ func buildTestTbsCert(session *pk11.Session, label string, intermediateCACert *x
 	template := &x509.Certificate{
 		SerialNumber: serialNumber,
 		Subject: pkix.Name{
-			Organization: []string{"Test Certificate"},
+			Organization: []string{label + " Test Certificate"},
+			CommonName:   label,
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(time.Hour),
-		KeyUsage:              x509.KeyUsageDigitalSignature,
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
-		IsCA:                  false,
+		IsCA:                  true,
 		Issuer:                intermediateCACert.Subject,
 		AuthorityKeyId:        intermediateCACert.SubjectKeyId,
 		SubjectKeyId:          ski,
@@ -96,12 +97,12 @@ func buildTestTbsCert(session *pk11.Session, label string, intermediateCACert *x
 		return nil, nil, err
 	}
 
-	return cert.RawTBSCertificate, &pubKey, nil
+	return cert.RawTBSCertificate, dutKey, nil
 }
 
 // BuildTestTBSCerts generates a set of TBS certificates for a given SKU.
-// It returns a map of TBS certificates and a map of the corresponding public keys.
-func BuildTestTBSCerts(opts skumgr.Options, skuName string, certLabels []string) (map[string][]byte, map[string]crypto.PublicKey, error) {
+// It returns a map of TBS certificates and a map of the corresponding private keys.
+func BuildTestTBSCerts(opts skumgr.Options, skuName string, certLabels []string) (map[string][]byte, map[string]*ecdsa.PrivateKey, error) {
 	mgr := skumgr.NewManager(opts)
 	sku, err := mgr.LoadSku(skuName)
 	if err != nil {
@@ -109,7 +110,7 @@ func BuildTestTBSCerts(opts skumgr.Options, skuName string, certLabels []string)
 	}
 
 	tbsCerts := make(map[string][]byte)
-	pubKeys := make(map[string]crypto.PublicKey)
+	privKeys := make(map[string]*ecdsa.PrivateKey)
 	for _, kl := range certLabels {
 		var label string
 		if kl == "UDS" {
@@ -127,17 +128,17 @@ func BuildTestTBSCerts(opts skumgr.Options, skuName string, certLabels []string)
 		}
 		hsm := sku.SeHandle.(*se.HSM)
 		if err := hsm.ExecuteCmd(func(session *pk11.Session) error {
-			tbs, pub, err := buildTestTbsCert(session, privKeyLabel, issuerCert)
+			tbs, priv, err := buildTestTbsCert(session, privKeyLabel, issuerCert)
 			if err != nil {
 				return err
 			}
 			tbsCerts[kl] = tbs
-			pubKeys[kl] = pub
+			privKeys[kl] = priv
 			return nil
 		}); err != nil {
 			return nil, nil, fmt.Errorf("failed to generate TBS certificate: %w", err)
 		}
 	}
 
-	return tbsCerts, pubKeys, nil
+	return tbsCerts, privKeys, nil
 }

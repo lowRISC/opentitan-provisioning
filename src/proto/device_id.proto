@@ -23,6 +23,8 @@ enum SiliconCreatorId {
   SILICON_CREATOR_ID_OPENSOURCE = 0x0001;
   // Nuvoton
   SILICON_CREATOR_ID_NUVOTON = 0x4001;
+  // FPGA
+  SILICON_CREATOR_ID_FPGA = 0xffff;
 }
 
 // OpenTitan Product ID.
@@ -39,6 +41,8 @@ enum ProductId {
   PRODUCT_ID_EARLGREY_A1 = 0x0002;
   // Earlgrey Production v1.0.0 (A2).
   PRODUCT_ID_EARLGREY_A2 = 0x0003;
+  // FPGA
+  PRODUCT_ID_FPGA = 0xffff;
 }
 
 // OpenTitan Hardware Origin.

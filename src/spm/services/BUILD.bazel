@@ -20,9 +20,11 @@ go_library(
     deps = [
         ":se",
         ":skucfg",
+        "//src/ate:ate_go_lib",
         "//src/pa/proto:pa_go_pb",
         "//src/pk11",
         "//src/proto:device_id_go_pb",
+        "//src/proto:validators",
         "//src/proto/crypto:cert_go_pb",
         "//src/proto/crypto:common_go_pb",
         "//src/spm/proto:spm_go_pb",

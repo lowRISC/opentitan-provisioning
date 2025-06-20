@@ -163,6 +163,13 @@ func (s *server) RegisterDevice(ctx context.Context, request *pap.RegistrationRe
 		return nil, fmt.Errorf("failed to marshal device data: %v", err)
 	}
 
+	// Verify the device data.
+	if _, err := s.spmClient.VerifyDeviceData(ctx, &pbs.VerifyDeviceDataRequest{
+		DeviceData: request.DeviceData,
+	}); err != nil {
+		return nil, status.Errorf(codes.Internal, "SPM-VerifyDeviceData returned error: %v", err)
+	}
+	
 	// Endorse data payload.
 	edRequest := &pbs.EndorseDataRequest{
 		Sku: request.DeviceData.Sku,

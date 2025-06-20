@@ -77,6 +77,7 @@ type fakeSpmClient struct {
 	getCaSubjectKeys    getCaSubjectKeysResponse
 	endorseCerts        endorseCertsResponse
 	endorseData         endorseDataResponse
+	verifyDeviceData    verifyDeviceDataResponse
 }
 
 type initSessionResponse struct {
@@ -109,6 +110,11 @@ type endorseDataResponse struct {
 	err      error
 }
 
+type verifyDeviceDataResponse struct {
+	response *pbs.VerifyDeviceDataResponse
+	err      error
+}
+
 func (c *fakeSpmClient) InitSession(ctx context.Context, request *pbp.InitSessionRequest, opts ...grpc.CallOption) (*pbp.InitSessionResponse, error) {
 	return c.initSession.response, c.initSession.err
 }
@@ -131,6 +137,10 @@ func (c *fakeSpmClient) EndorseCerts(ctx context.Context, request *pbp.EndorseCe
 
 func (c *fakeSpmClient) EndorseData(ctx context.Context, request *pbs.EndorseDataRequest, opts ...grpc.CallOption) (*pbs.EndorseDataResponse, error) {
 	return c.endorseData.response, c.endorseData.err
+}
+
+func (c *fakeSpmClient) VerifyDeviceData(ctx context.Context, request *pbs.VerifyDeviceDataRequest, opts ...grpc.CallOption) (*pbs.VerifyDeviceDataResponse, error) {
+	return c.verifyDeviceData.response, c.verifyDeviceData.err
 }
 
 func TestDeriveSymmetricKey(t *testing.T) {
