@@ -270,3 +270,15 @@ def hsmtool_object_destroy(label):
         "command": "object-destroy",
         "label": label,
     })
+
+def hsmtool_object_show(label):
+    """Creates a command to show an object in the HSM.
+
+    Args:
+        label: The label for the object.
+    """
+    return json.encode_indent({
+        "command": "object-show",
+        "label": label,
+        "redact": True,
+    })

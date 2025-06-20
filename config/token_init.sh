@@ -10,6 +10,7 @@ usage () {
   echo "  --action <action>            Action to perform. Required."
   echo "  --sku <sku>                  SKU to process. Can be specified multiple times. Required for some actions."
   echo "  --wipe                       Wipe the SPM wrapping key before exporting secrets from the offline HSM."
+  echo "  --show                       Show the HSM contents."
   echo "  --help                       Show this help message."
 
   echo "Available actions:"
@@ -32,9 +33,10 @@ usage () {
 
 FLAG_ACTION=""
 FlAGS_WIPE=""
+FLAGS_SHOW=""
 FLAGS_SKUS_ARRAY=()
 
-LONGOPTS="action:,sku:,wipe,help"
+LONGOPTS="action:,sku:,wipe,show,help"
 OPTS=$(getopt -o "" --long "${LONGOPTS}" -n "$0" -- "$@")
 
 if [ $? != 0 ] ; then echo "Failed parsing options." >&2 ; exit 1 ; fi
@@ -58,6 +60,10 @@ while true; do
       FlAGS_WIPE="--wipe"
       shift
       ;;
+    --show)
+      FLAGS_SHOW="--show"
+      shift
+      ;;
     --help)
       usage
       ;;
@@ -71,6 +77,11 @@ while true; do
   esac
 done
 shift $((OPTIND - 1))
+
+if [[ -z "${FLAG_ACTION}" ]]; then
+  echo "Error: --action is required." >&2
+  usage
+fi
 
 if [[ "$#" -gt 0 ]]; then
   echo "Unexpected arguments:" "$@" >&2
@@ -173,7 +184,7 @@ function run_hsm_init() {
   local init_script="$1"
   local original_dir="$(pwd)"
 
-  trap 'cd "${original_dir}" || { echo "Error: Could not change back to original directory '${original_dir}'."; return 1; }' EXIT
+  trap 'cd "${original_dir}" || { echo "Error: Could not change back to original directory ${original_dir}."; return 1; }' EXIT
 
   if [ ! -f "${init_script}" ]; then
     echo "Error: File '${init_script}' does not exist."
@@ -198,87 +209,81 @@ function run_hsm_init() {
   }
 }
 
-# Helper function to create common HSM args array
-function create_hsm_args() {
-  local token="$1"
-  local softhsm_conf="$2"
-
-  echo "(
-    \"--hsm_module\" \"${HSMTOOL_MODULE}\"
-    \"--token\" \"${token}\"
-    \"--softhsm_config\" \"${softhsm_conf}\"
-    \"--hsm_pin\" \"${HSMTOOL_PIN}\"
-  )"
-}
-
-if [[ "dev" == "${DEPLOY_ENV}" ]]; then
-  # Create argument arrays using the helper function
-  eval "SPM_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_SPM}" "${SOFTHSM2_CONF_SPM}")"
-  eval "OFFLINE_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_OFFLINE}" "${SOFTHSM2_CONF_OFFLINE}")"
-
-  # Create CA argument arrays using the helper function with long args
-  eval "CA_SPM_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_SPM}" "${SOFTHSM2_CONF_SPM}")"
-  eval "CA_OFFLINE_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_OFFLINE}" "${SOFTHSM2_CONF_OFFLINE}")"
-else
-  # Create argument arrays using the helper function
-  eval "SPM_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_SPM}" "")"
-  eval "OFFLINE_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_OFFLINE}" "")"
-
-  # Create CA argument arrays using the helper function with long args
-  eval "CA_SPM_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_SPM}" "")"
-  eval "CA_OFFLINE_ARGS=$(create_hsm_args "${SPM_HSM_TOKEN_OFFLINE}" "")"
-fi
-
-if [[ "${FLAG_ACTION}" == "spm-init" ]]; then
+function action_spm_init() {
+  run_hsm_init "${SPM_SKU_DIR}/spm_init.bash" "${SPM_ARGS[@]}" ${FLAGS_SHOW}
+  if [[ -n "${FLAGS_SHOW}" ]]; then
+    exit 0
+  fi
   # Run the HSM initialization script for SPM.
-  run_hsm_init "${SPM_SKU_DIR}/spm_init.bash" "${SPM_ARGS[@]}"
-
   run_hsm_init "${SPM_SKU_DIR}/spm_export.bash" "${SPM_ARGS[@]}" \
     --output_tar "${SPM_SKU_DIR}/spm_hsm_init.tar.gz"
-fi
+}
 
-if [[ "${FLAG_ACTION}" == "offline-common-init" ]]; then
+function action_offline_common_init() {
   # Run the SKU initilization script in the offline HSM partition.
   # Creates root CA private key and RMA wrap/unwrap key.
-  run_hsm_init "${EG_COMMON_DIR}/offline_init.bash" "${OFFLINE_ARGS[@]}"
-fi
+  run_hsm_init "${EG_COMMON_DIR}/offline_init.bash" "${OFFLINE_ARGS[@]}" ${FLAGS_SHOW}
+}
 
-if [[ "${FLAG_ACTION}" == "offline-common-export" ]]; then
+function action_offline_common_export() {
+  if [[ -n "${FLAGS_SHOW}" ]]; then
+    echo "Action 'offline-common-export' does not support --show." >&2
+    exit 1
+  fi
   # Exports RMA public key and high and low security seeds from the offline HSM
   # partition. Always run the command with --wipe to ensure the SPM wrapping key
   # is destroyed if it exists.
   run_hsm_init "${EG_COMMON_DIR}/offline_export.bash" "${OFFLINE_ARGS[@]}" ${FlAGS_WIPE} \
     --input_tar "${SPM_SKU_DIR}/spm_hsm_init.tar.gz" \
     --output_tar "${EG_COMMON_DIR}/hsm_offline_export.tar.gz"
-fi
+}
 
-if [[ "${FLAG_ACTION}" == "spm-sku-init" ]]; then
-  # Generate SPM private keys.
-  run_hsm_init "${EG_COMMON_DIR}/spm_sku_init.bash" "${SPM_ARGS[@]}" \
-    --input_tar "${EG_COMMON_DIR}/hsm_offline_export.tar.gz"
+function action_spm_sku_init() {
+  if [[ -n "${FLAGS_SHOW}" ]]; then
+    run_hsm_init "${EG_COMMON_DIR}/spm_sku_init.bash" "${SPM_ARGS[@]}" ${FLAGS_SHOW}
+    for i in "${!SKU_DIRS[@]}"; do
+      run_hsm_init "${SKU_DIRS[i]}/${CA_KEYGEN_SCRIPTS[i]}" "${SPM_ARGS[@]}" ${FLAGS_SHOW}
+    done
+  else
+    # Generate SPM private keys.
+    run_hsm_init "${EG_COMMON_DIR}/spm_sku_init.bash" "${SPM_ARGS[@]}" \
+      --input_tar "${EG_COMMON_DIR}/hsm_offline_export.tar.gz"
 
-  # Generate Intermediate CA private keys.
-  for i in "${!SKU_DIRS[@]}"; do
-    run_hsm_init "${SKU_DIRS[i]}/${CA_KEYGEN_SCRIPTS[i]}" "${SPM_ARGS[@]}"
-  done
-fi
+    # Generate Intermediate CA private keys.
+    for i in "${!SKU_DIRS[@]}"; do
+      run_hsm_init "${SKU_DIRS[i]}/${CA_KEYGEN_SCRIPTS[i]}" "${SPM_ARGS[@]}"
+    done
+  fi
+}
 
-if [[ "${FLAG_ACTION}" == "offline-ca-root-certgen" ]]; then
+function action_offline_ca_root_certgen() {
+  if [[ -n "${FLAGS_SHOW}" ]]; then
+    echo "Action 'offline-ca-root-certgen' does not support --show." >&2
+    exit 1
+  fi
   # Generate Root Certificate.
   run_hsm_init "${EG_COMMON_DIR}/ca_root_certgen.bash" "${CA_OFFLINE_ARGS[@]}" \
     --output_tar "${EG_COMMON_DIR}/${HSM_CA_ROOT_CERTS_TAR_GZ}"
-fi
+}
 
-if [[ "${FLAG_ACTION}" == "spm-sku-csr" ]]; then
+function action_spm_sku_csr() {
+  if [[ -n "${FLAGS_SHOW}" ]]; then
+    echo "Action 'spm-sku-csr' does not support --show." >&2
+    exit 1
+  fi
   # Export Intermediate CA CSRs from SPM HSM.
   for i in "${!SKU_DIRS[@]}"; do
     run_hsm_init "${SKU_DIRS[i]}/${CA_CERTGEN_SCRIPTS[i]}" "${CA_SPM_ARGS[@]}" \
       --output_tar "${SKU_DIRS[i]}/${HSM_CA_INTERMEDIATE_CSR_TAR_GZ}" \
       --csr_only
   done
-fi
+}
 
-if [[ "${FLAG_ACTION}" == "offline-sku-certgen" ]]; then
+function action_offline_sku_certgen() {
+  if [[ -n "${FLAGS_SHOW}" ]]; then
+    echo "Action 'offline-sku-certgen' does not support --show." >&2
+    exit 1
+  fi
   # Endorse Intermediate CA CSRs in offline HSM.
   for i in "${!SKU_DIRS[@]}"; do
     run_hsm_init "${SKU_DIRS[i]}/${CA_CERTGEN_SCRIPTS[i]}" "${CA_OFFLINE_ARGS[@]}" \
@@ -286,6 +291,57 @@ if [[ "${FLAG_ACTION}" == "offline-sku-certgen" ]]; then
       --output_tar "${SKU_DIRS[i]}/${HSM_CA_INTERMEDIATE_CERTS_TAR_GZ}" \
       --sign_only
   done
+}
+
+if [[ "dev" == "${DEPLOY_ENV}" ]]; then
+  spm_softhsm_conf="${SOFTHSM2_CONF_SPM}"
+  offline_softhsm_conf="${SOFTHSM2_CONF_OFFLINE}"
+else
+  spm_softhsm_conf=""
+  offline_softhsm_conf=""
 fi
+
+SPM_ARGS=(
+  "--hsm_module" "${HSMTOOL_MODULE}"
+  "--token" "${SPM_HSM_TOKEN_SPM}"
+  "--softhsm_config" "${spm_softhsm_conf}"
+  "--hsm_pin" "${HSMTOOL_PIN}"
+)
+OFFLINE_ARGS=(
+  "--hsm_module" "${HSMTOOL_MODULE}"
+  "--token" "${SPM_HSM_TOKEN_OFFLINE}"
+  "--softhsm_config" "${offline_softhsm_conf}"
+  "--hsm_pin" "${HSMTOOL_PIN}"
+)
+CA_SPM_ARGS=("${SPM_ARGS[@]}")
+CA_OFFLINE_ARGS=("${OFFLINE_ARGS[@]}")
+
+case "${FLAG_ACTION}" in
+  spm-init)
+    action_spm_init
+    ;;
+  offline-common-init)
+    action_offline_common_init
+    ;;
+  offline-common-export)
+    action_offline_common_export
+    ;;
+  spm-sku-init)
+    action_spm_sku_init
+    ;;
+  offline-ca-root-certgen)
+    action_offline_ca_root_certgen
+    ;;
+  spm-sku-csr)
+    action_spm_sku_csr
+    ;;
+  offline-sku-certgen)
+    action_offline_sku_certgen
+    ;;
+  *)
+    echo "Error: Invalid action '${FLAG_ACTION}'." >&2
+    usage
+    ;;
+esac
 
 echo "HSM initialization complete."

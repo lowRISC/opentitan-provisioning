@@ -269,12 +269,81 @@ intermediate CSRs from the SPM HSM, thus completing the chain of trust.
     `hsm_ca_root_certs.tar.gz` file to the SPM HSM environment. These are now
     ready to be used in production to endorse device certificates.
 
+## Auditing HSM State
+
+It is important to be able to audit the cryptographic assets stored in both the
+Offline and SPM HSMs. This allows an operator to verify that keys have been
+generated or imported correctly and that their attributes (e.g., key type,
+size, permissions) are what is expected.
+
+The `config/token_init.sh` script provides a `--show` flag for this purpose.
+When this flag is used with an action, instead of performing the initialization
+step, the script will list all objects in the relevant HSM token and display
+their attributes.
+
+### Auditing the SPM HSM
+
+#### Verifying SPM Identity and Wrapping Keys
+
+After initializing the SPM HSM (Phase 1, Step 1), you can verify the
+`spm-hsm-id` and `spm-rsa-wrap` keys:
+
+```shell
+./config/token_init.sh --action spm-init --show
+```
+
+This command will list all objects in the SPM token, allowing you to inspect
+the primary keys.
+
+#### Verifying SKU-Specific Keys
+
+After importing the offline secrets and generating the SKU keys on the SPM HSM
+(Phase 3, Step 4), you can audit the per-SKU keys. This is particularly
+important when adding a new SKU.
+
+To audit the keys for a single SKU:
+
+```shell
+# Replace <sku> with the SKU identifier, e.g., sival
+./config/token_init.sh --action spm-sku-init --sku <sku> --show
+```
+
+To audit the keys for multiple SKUs at once:
+
+```shell
+./config/token_init.sh \
+  --action spm-sku-init \
+  --sku sival \
+  --sku cr01 \
+  --sku pi01 \
+  --sku ti01 \
+  --show
+```
+
+This will show the intermediate CA private keys (e.g.,
+`sival-dice-key-p256`) and other SKU-specific assets on the SPM HSM.
+
+### Auditing the Offline HSM
+
+The Offline HSM protects the root of trust.
+
+#### Verifying Root CA and Offline Keys
+
+After initializing the Offline HSM (Phase 2, Step 2), you can verify that the
+root CA private key and RMA keys have been created correctly:
+
+```shell
+./config/token_init.sh --action offline-common-init --show
+```
+
+This provides a way to inspect the most sensitive keys in the system without
+ever exporting them.
+
 ## Troubleshooting
 
 ### Deleting objects with `hsmtool`
 
 To manually delete an object from an HSM token, you can use the `hsmtool`.
-This is useful if a script fails midway and leaves dangling objects.
 
 ```shell
 $ ./hsmtool -t <token-name> object destroy -l <object-label>

@@ -62,7 +62,12 @@ if [ -f "${TOKEN_INIT_SCRIPT}" ]; then
     echo " -- Step 6: Generate the root certificate."
     ${TOKEN_INIT_SCRIPT} --action "offline-ca-root-certgen"
     echo " -- Step 7: Endorse the CSRs for all SKUs."
-    ${TOKEN_INIT_SCRIPT} --action "offline-sku-certgen" --sku sival --sku cr01 --sku pi01 --sku ti01 
+    ${TOKEN_INIT_SCRIPT} --action "offline-sku-certgen" --sku sival --sku cr01 --sku pi01 --sku ti01
+
+    echo "Print object attributes ..."
+    ${TOKEN_INIT_SCRIPT} --action "spm-init" --show
+    ${TOKEN_INIT_SCRIPT} --action "offline-common-init" --show
+    ${TOKEN_INIT_SCRIPT} --action "spm-sku-init" --sku sival --sku cr01 --sku pi01 --sku ti01 --show
 fi
 
 echo "Provisioning services launched."

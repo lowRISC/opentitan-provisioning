@@ -14,6 +14,7 @@ usage () {
   echo "  --hsm_pin <pin>              PIN for the token."
   echo "  --input_tar <input.tar.gz>   Path to the input tarball."
   echo "  --wipe                       Execute destroy commands before initializing the assets."
+  echo "  --show                       Execute show commands to dump the asset attributes."
   echo "  --output_tar <output.tar.gz> Path to the output tarball. Optional."
   echo "  --help                       Show this help message."
   exit 1
@@ -24,6 +25,7 @@ readonly OUTDIR_PUB="pub"
 
 readonly INIT_HJSON=@@INIT_HJSON@@
 readonly DESTROY_HJSON=@@DESTROY_HJSON@@
+readonly SHOW_HJSON=@@SHOW_HJSON@@
 readonly HSMTOOL_BIN_DEFAULT=@@HSMTOOL_BIN@@
 
 HSMTOOL_BIN="${HSMTOOL_BIN:-./${HSMTOOL_BIN_DEFAULT}}"
@@ -35,9 +37,9 @@ FLAGS_HSMTOOL_PIN=""
 FLAGS_IN_TAR=""
 FLAGS_OUT_TAR=""
 FLAGS_WIPE=false
-FLAGS_CA_CERTGEN_ONLY=false
+FLAGS_SHOW=false
 
-LONGOPTS="hsm_module:,token:,softhsm_config:,hsm_pin:,input_tar:,output_tar:,wipe,help"
+LONGOPTS="hsm_module:,token:,softhsm_config:,hsm_pin:,input_tar:,output_tar:,wipe,show,help"
 OPTS=$(getopt -o "" --long "${LONGOPTS}" -n "$0" -- "$@")
 
 if [ $? != 0 ] ; then echo "Failed parsing options." >&2 ; exit 1 ; fi
@@ -72,6 +74,10 @@ while true; do
       ;;
     --wipe)
       FLAGS_WIPE=true
+      shift
+      ;;
+    --show)
+      FLAGS_SHOW=true
       shift
       ;;
     --help)
@@ -157,6 +163,13 @@ hsmtool_args=(
   "${HSMTOOL_BIN}"
   --logging=info
 )
+
+# If the --show flag is set, run the show command and exit.
+if [[ "${FLAGS_SHOW}" == true ]]; then
+  echo "Running hsmtool show (--show) operation."
+  env "${hsmtool_vars[@]}" "${hsmtool_args[@]}" exec "${SHOW_HJSON}"
+  exit 0
+fi
 
 if [[ "${FLAGS_WIPE}" == true ]]; then
   echo "Running hsmtool destroy (--wipe) operation."
