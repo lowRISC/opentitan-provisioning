@@ -169,7 +169,7 @@ absl::Status LoadPEMResources(AteClient::Options *options,
 
 static ate_client_ptr ate_client = nullptr;
 
-DLLEXPORT void CreateClient(
+DLLEXPORT int CreateClient(
     ate_client_ptr *client,    // Out: the created client instance
     client_options_t *options  // In: secure channel attributes
 ) {
@@ -186,6 +186,7 @@ DLLEXPORT void CreateClient(
                          options->pem_root_certs);
     if (!s.ok()) {
       LOG(ERROR) << "Failed to load needed PEM resources";
+      return static_cast<int>(s.code());
     }
   }
 
@@ -212,6 +213,7 @@ DLLEXPORT void CreateClient(
   *client = ate_client;
 
   LOG(INFO) << "debug info: returned from CreateClient with ate = " << *client;
+  return 0;
 }
 
 DLLEXPORT void DestroyClient(ate_client_ptr client) {

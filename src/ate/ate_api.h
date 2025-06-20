@@ -469,8 +469,9 @@ typedef struct register_device_request {
  *
  * @param client A pointer (an `ate_client_ptr`) to the created client instance.
  * @param options The secure channel attributes.
+ * @return The result of the operation.
  */
-DLLEXPORT void CreateClient(ate_client_ptr* client, client_options_t* options);
+DLLEXPORT int CreateClient(ate_client_ptr* client, client_options_t* options);
 
 /**
  * Destroys an AteClient instance.

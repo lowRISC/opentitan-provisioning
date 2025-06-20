@@ -93,7 +93,8 @@ std::unique_ptr<AteClient> AteClient::Create(AteClient::Options options) {
   }
   // 2. create the grpc channel between the client and the targeted server
   auto channel = grpc::CreateChannel(options.pa_socket, credentials);
-  auto ate = absl::make_unique<AteClient>(channel);
+  auto ate = absl::make_unique<AteClient>(
+      ProvisioningApplianceService::NewStub(channel));
 
   return ate;
 }

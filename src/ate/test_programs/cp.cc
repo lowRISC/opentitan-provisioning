@@ -87,8 +87,7 @@ absl::StatusOr<ate_client_ptr> AteClientNew(void) {
   }
 
   ate_client_ptr ate_client;
-  CreateClient(&ate_client, &options);
-  if (ate_client == nullptr) {
+  if (CreateClient(&ate_client, &options) != 0) {
     return absl::InternalError("Failed to create ATE client.");
   }
   return ate_client;
