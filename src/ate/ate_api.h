@@ -630,9 +630,11 @@ DLLEXPORT int DeviceIdFromJson(const dut_spi_frame_t* frame,
  *
  * @param rma_token The RMA token.
  * @param[out] result The generated JSON command.
+ * @param skip_crc Whether or not to skip attaching of the CRC.
  * @return The result of the operation.
  */
-DLLEXPORT int RmaTokenToJson(const token_t* rma_token, dut_spi_frame_t* result);
+DLLEXPORT int RmaTokenToJson(const token_t* rma_token, dut_spi_frame_t* result,
+                             bool skip_crc);
 
 /**
  * Parse JSON command to extract the RMA token from the SPI frame.
