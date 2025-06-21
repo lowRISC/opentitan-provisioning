@@ -92,7 +92,12 @@ std::unique_ptr<AteClient> AteClient::Create(AteClient::Options options) {
     credentials = BuildCredentials(options);
   }
   // 2. create the grpc channel between the client and the targeted server
-  auto channel = grpc::CreateChannel(options.pa_socket, credentials);
+  grpc::ChannelArguments args;
+  if (!options.load_balancing_policy.empty()) {
+    args.SetLoadBalancingPolicyName(options.load_balancing_policy);
+  }
+  auto channel =
+      grpc::CreateCustomChannel(options.pa_target, credentials, args);
   auto ate = absl::make_unique<AteClient>(
       ProvisioningApplianceService::NewStub(channel));
 
@@ -189,7 +194,9 @@ Status AteClient::RegisterDevice(RegistrationRequest& request,
 // overloads operator<< for AteClient::Options objects printouts
 std::ostream& operator<<(std::ostream& os, const AteClient::Options& options) {
   // write obj to stream
-  os << std::endl << "options.pa_socket = " << options.pa_socket << std::endl;
+  os << std::endl << "options.pa_target = " << options.pa_target << std::endl;
+  os << "options.load_balancing_policy = " << options.load_balancing_policy
+     << std::endl;
   os << "options.enable_mtls = " << options.enable_mtls << std::endl;
   os << "options.pem_cert_chain = " << options.pem_cert_chain << std::endl;
   os << "options.pem_private_key = " << options.pem_private_key << std::endl;

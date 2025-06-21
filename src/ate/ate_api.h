@@ -78,6 +78,9 @@ enum {
    * provisioning_data.h in the lowRISC/opentitan repo.
    */
   kPersoBlobMaxSize = 8192,
+
+  /** Maximum length of an endpoint address string. */
+  kEndpointAddressMaxSize = 256,
 };
 
 /**
@@ -87,9 +90,16 @@ typedef struct {
 } * ate_client_ptr;
 
 typedef struct {
-  // Endpoint address in IP or DNS format including port number. For example:
-  // "localhost:5000".
-  const char* pa_socket;
+  // Endpoint address in gRPC name-syntax format, including port number. For
+  // example: "localhost:5000", "ipv4:127.0.0.1:5000,127.0.0.2:5000", or
+  // "ipv6:[::1]:5000,[::1]:5001".
+  // Using a single address will disable load balancing.
+  const char* pa_target;
+
+  // gRPC load balancing policy. If not set, it will be selected by the gRPC
+  // library. For example: "round_robin" or "pick_first". Leaving this field
+  // empty will use the default policy.
+  const char* load_balancing_policy;
 
   // File containing the Client certificate in PEM format. Required when
   // `enable_mtls` set to true.
