@@ -233,7 +233,8 @@ int main(int argc, char **argv) {
     return -1;
   }
   dut_spi_frame_t rma_token_spi_frame;
-  if (RmaTokenToJson(&rma_token, &rma_token_spi_frame) != 0) {
+  if (RmaTokenToJson(&rma_token, &rma_token_spi_frame, /*skip_crc=*/false) !=
+      0) {
     LOG(ERROR) << "RmaTokenToJson failed.";
     return -1;
   }
@@ -298,6 +299,7 @@ int main(int argc, char **argv) {
   // the perso blob.
   device_id_bytes_t device_id;
   endorse_cert_signature_t tbs_was_hmac = {.raw = {0}};
+  perso_fw_sha256_hash_t perso_fw_hash = {.raw = {0}};
   constexpr size_t kMaxNumCerts = 10;
   size_t num_tbs_certs = kMaxNumCerts;
   endorse_cert_request_t x509_tbs_certs[kMaxNumCerts];
@@ -307,8 +309,8 @@ int main(int argc, char **argv) {
   seed_t seeds[kMaxSeeds];
   size_t num_seeds = kMaxSeeds;
   if (UnpackPersoBlob(&perso_blob_from_dut, &device_id, &tbs_was_hmac,
-                      x509_tbs_certs, &num_tbs_certs, x509_certs, &num_certs,
-                      seeds, &num_seeds) != 0) {
+                      &perso_fw_hash, x509_tbs_certs, &num_tbs_certs,
+                      x509_certs, &num_certs, seeds, &num_seeds) != 0) {
     LOG(ERROR) << "Failed to unpack the perso blob from the DUT.";
     return -1;
   }
@@ -385,8 +387,6 @@ int main(int argc, char **argv) {
     LOG(ERROR) << "PackRegistryPersoTlvData failed.";
     return -1;
   }
-  // TODO(timothytrippel): extract the perso FW hash
-  perso_fw_sha256_hash_t perso_fw_hash = {.raw = {0}};
   // TODO(timothytrippel): add helper function to translate kDifLcCtrlStateProd
   // to kDeviceLifeCycleProd
   if (RegisterDevice(ate_client, absl::GetFlag(FLAGS_sku).c_str(),

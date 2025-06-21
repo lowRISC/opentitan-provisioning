@@ -630,9 +630,11 @@ DLLEXPORT int DeviceIdFromJson(const dut_spi_frame_t* frame,
  *
  * @param rma_token The RMA token.
  * @param[out] result The generated JSON command.
+ * @param skip_crc Whether or not to skip attaching of the CRC.
  * @return The result of the operation.
  */
-DLLEXPORT int RmaTokenToJson(const token_t* rma_token, dut_spi_frame_t* result);
+DLLEXPORT int RmaTokenToJson(const token_t* rma_token, dut_spi_frame_t* result,
+                             bool skip_crc);
 
 /**
  * Parse JSON command to extract the RMA token from the SPI frame.
@@ -683,7 +685,8 @@ DLLEXPORT int PersoBlobFromJson(const dut_spi_frame_t* frames,
  *
  * @param blob The personalization blob to unpack.
  * @param[out] device_id The extracted device ID.
- * @param[out] hmac The HMAC over the TBS certificates.
+ * @param[out] signature The HMAC signature over the TBS certificates.
+ * @param[out] perso_fw_hash The hash of the personalization firmware.
  * @param[out] x509_tbs_certs Array of X.509 TBS certs.
  * @param[out] tbs_cert_count The number of TBS certs found. Initialized
  * to the size of `x509_tbs_certs`.
@@ -697,9 +700,10 @@ DLLEXPORT int PersoBlobFromJson(const dut_spi_frame_t* frames,
  */
 DLLEXPORT int UnpackPersoBlob(
     const perso_blob_t* blob, device_id_bytes_t* device_id,
-    endorse_cert_signature_t* signature, endorse_cert_request_t* x509_tbs_certs,
-    size_t* tbs_cert_count, endorse_cert_response_t* x509_certs,
-    size_t* cert_count, seed_t* seeds, size_t* seed_count);
+    endorse_cert_signature_t* signature, perso_fw_sha256_hash_t* perso_fw_hash,
+    endorse_cert_request_t* x509_tbs_certs, size_t* tbs_cert_count,
+    endorse_cert_response_t* x509_certs, size_t* cert_count, seed_t* seeds,
+    size_t* seed_count);
 
 /**
  * Pack a personalization blob from the endorsed certificates.

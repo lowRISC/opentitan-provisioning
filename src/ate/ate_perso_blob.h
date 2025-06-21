@@ -24,6 +24,7 @@ typedef enum perso_tlv_object_type {
   kPersoObjectTypeWasTbsHmac = 4,
   kPersoObjectTypeDeviceId = 5,
   kPersoObjectTypeGenericSeed = 6,
+  kPersoObjectTypePersoSha256Hash = 7,
 } perso_tlv_object_type_t;
 
 // Header types
