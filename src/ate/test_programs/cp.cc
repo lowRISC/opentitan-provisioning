@@ -39,7 +39,15 @@ ABSL_FLAG(std::string, cp_sram_elf, "", "CP SRAM ELF (device binary).");
 /**
  * PA configuration flags.
  */
-ABSL_FLAG(std::string, pa_socket, "", "host:port of the PA server.");
+ABSL_FLAG(std::string, pa_target, "",
+          "Endpoint address in gRPC name-syntax format, including port "
+          "number. For example: \"localhost:5000\", "
+          "\"ipv4:127.0.0.1:5000,127.0.0.2:5000\", or "
+          "\"ipv6:[::1]:5000,[::1]:5001\".");
+ABSL_FLAG(std::string, load_balancing_policy, "",
+          "gRPC load balancing policy. If not set, it will be selected by "
+          "the gRPC library. For example: \"round_robin\" or "
+          "\"pick_first\".");
 ABSL_FLAG(std::string, sku, "", "SKU string to initialize the PA session.");
 ABSL_FLAG(std::string, sku_auth_pw, "",
           "SKU authorization password string to initialize the PA session.");
@@ -62,13 +70,16 @@ using provisioning::test_programs::DutLib;
 absl::StatusOr<ate_client_ptr> AteClientNew(void) {
   client_options_t options;
 
-  std::string pa_socket = absl::GetFlag(FLAGS_pa_socket);
-  if (pa_socket.empty()) {
+  std::string pa_target = absl::GetFlag(FLAGS_pa_target);
+  if (pa_target.empty()) {
     return absl::InvalidArgumentError(
-        "--pa_socket not set. This is a required argument.");
+        "--pa_target not set. This is a required argument.");
   }
-  options.pa_socket = pa_socket.c_str();
+  options.pa_target = pa_target.c_str();
   options.enable_mtls = absl::GetFlag(FLAGS_enable_mtls);
+
+  std::string lb_policy = absl::GetFlag(FLAGS_load_balancing_policy);
+  options.load_balancing_policy = lb_policy.c_str();
 
   std::string pem_private_key = absl::GetFlag(FLAGS_client_key);
   std::string pem_cert_chain = absl::GetFlag(FLAGS_client_cert);

@@ -20,9 +20,14 @@ namespace ate {
 class AteClient {
  public:
   struct Options {
-    // Endpoint address in IP or DNS format including port number. For example:
-    // "localhost:5000".
-    std::string pa_socket;
+    // Endpoint address in gRPC name-syntax format, including port number. For
+    // example: "localhost:5000", "ipv4:127.0.0.1:5000,127.0.0.2:5000", or
+    // "ipv6:[::1]:5000,[::1]:5001".
+    std::string pa_target;
+
+    // gRPC load balancing policy. If not set, it will be selected by the gRPC
+    // library. For example: "round_robin" or "pick_first".
+    std::string load_balancing_policy;
 
     // Set to true to enable mTLS connection. When set to false, the connection
     // is established with insecure credentials.
