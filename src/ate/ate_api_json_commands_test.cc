@@ -104,7 +104,7 @@ TEST_F(AteJsonTest, RmaToken) {
   rma_token.data[1] = 0x22;
 
   dut_spi_frame_t frame;
-  EXPECT_EQ(RmaTokenToJson(&rma_token, &frame), 0);
+  EXPECT_EQ(RmaTokenToJson(&rma_token, &frame, /*skip_crc=*/true), 0);
 
   std::string json_string =
       std::string(reinterpret_cast<char*>(frame.payload), frame.cursor);

@@ -233,7 +233,8 @@ int main(int argc, char **argv) {
     return -1;
   }
   dut_spi_frame_t rma_token_spi_frame;
-  if (RmaTokenToJson(&rma_token, &rma_token_spi_frame) != 0) {
+  if (RmaTokenToJson(&rma_token, &rma_token_spi_frame, /*skip_crc=*/false) !=
+      0) {
     LOG(ERROR) << "RmaTokenToJson failed.";
     return -1;
   }

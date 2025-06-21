@@ -19,7 +19,7 @@ fi
 
 OT_REPO_TOP=$1
 
-_OT_REPO_BRANCH="Earlgrey-A2-Orchestrator-RC1"
+_OT_REPO_BRANCH="Earlgrey-A2-Orchestrator-RC2"
 _PROVISIONING_REPO_TOP=$(pwd)
 _FPGAS=("hyper310" "cw340")
 _CP_SKUS=("emulation")

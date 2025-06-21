@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "absl/log/log.h"
+#include "absl/strings/str_format.h"
 #include "src/ate/ate_api.h"
 #include "src/ate/proto/dut_commands.pb.h"
 
@@ -46,6 +47,51 @@ inline uint64_t ByteSwap64(uint64_t value) {
          ((value & 0x0000000000FF0000ULL) << 24) |
          ((value & 0x000000000000FF00ULL) << 40) |
          ((value & 0x00000000000000FFULL) << 56);
+}
+
+/**
+ * Table to store the pre-computed CRC values for each possible 8-bit byte.
+ */
+static uint32_t crc32_table[256];
+
+/**
+ * Flag to ensure the table is initialized only once.
+ */
+static bool crc32_table_initialized = false;
+
+// Function to initialize the CRC32 lookup table
+void InitCrc32Table(void) {
+  if (crc32_table_initialized) {
+    // Table already initialized.
+    return;
+  }
+  constexpr uint32_t kCrc32Polynomial =
+      0xEDB88320;  // CRC-32 reversed polynomial.
+
+  for (size_t i = 0; i < 256; ++i) {
+    uint32_t c = (uint32_t)i;
+    for (size_t j = 0; j < 8; ++j) {
+      if (c & 1) {
+        c = kCrc32Polynomial ^ (c >> 1);
+      } else {
+        c = c >> 1;
+      }
+    }
+    crc32_table[i] = c;
+  }
+  crc32_table_initialized = true;
+}
+
+uint32_t CalculateCrc32(const char *data, size_t length) {
+  // Ensure the CRC32 table is initialized before calculation.
+  if (!crc32_table_initialized) {
+    InitCrc32Table();
+  }
+  uint32_t crc = 0xFFFFFFFF;
+  for (size_t i = 0; i < length; i++) {
+    crc = crc32_table[(crc ^ data[i]) & 0xFF] ^ (crc >> 8);
+  }
+  return crc ^ 0xFFFFFFFF;
 }
 
 }  // namespace
@@ -138,8 +184,8 @@ DLLEXPORT int DeviceIdFromJson(const dut_spi_frame_t *frame,
   return 0;
 }
 
-DLLEXPORT int RmaTokenToJson(const token_t *rma_token,
-                             dut_spi_frame_t *result) {
+DLLEXPORT int RmaTokenToJson(const token_t *rma_token, dut_spi_frame_t *result,
+                             bool skip_crc) {
   if (result == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
@@ -164,6 +210,11 @@ DLLEXPORT int RmaTokenToJson(const token_t *rma_token,
   google::protobuf::util::Status status =
       google::protobuf::util::MessageToJsonString(rma_hash_cmd, &command,
                                                   options);
+  if (!skip_crc) {
+    // The personalization firmware expects a CRC on this JSON payload.
+    uint32_t crc = CalculateCrc32(command.data(), command.length());
+    command += absl::StrFormat("{\"crc\": %d}", crc);
+  }
   if (!status.ok()) {
     LOG(ERROR) << "Failed to convert token hash command to JSON: "
                << status.ToString();
