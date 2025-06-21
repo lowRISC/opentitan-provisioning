@@ -110,7 +110,13 @@ func BuildTestTBSCerts(opts skumgr.Options, skuName string, certLabels []string)
 
 	tbsCerts := make(map[string][]byte)
 	pubKeys := make(map[string]crypto.PublicKey)
-	for _, label := range certLabels {
+	for _, kl := range certLabels {
+		var label string
+		if kl == "UDS" {
+			label = "SigningKey/Dice/v0"
+		} else {
+			label = "SigningKey/Ext/v0"
+		}
 		issuerCert, ok := sku.Certs[label]
 		if !ok {
 			return nil, nil, fmt.Errorf("issuer certificate %q not found for SKU %q", label, skuName)
@@ -125,8 +131,8 @@ func BuildTestTBSCerts(opts skumgr.Options, skuName string, certLabels []string)
 			if err != nil {
 				return err
 			}
-			tbsCerts[label] = tbs
-			pubKeys[label] = pub
+			tbsCerts[kl] = tbs
+			pubKeys[kl] = pub
 			return nil
 		}); err != nil {
 			return nil, nil, fmt.Errorf("failed to generate TBS certificate: %w", err)

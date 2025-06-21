@@ -185,7 +185,7 @@ func testOTGetCaSubjectKeys(ctx context.Context, numCalls int, skuName string, c
 
 	request := &pbp.GetCaSubjectKeysRequest{
 		Sku:        skuName,
-		CertLabels: []string{"SigningKey/Dice/v0"},
+		CertLabels: []string{"UDS"},
 	}
 
 	// Send request to PA.
@@ -214,7 +214,7 @@ func testOTEndorseCerts(ctx context.Context, numCalls int, skuName string, c *cl
 		Bundles: []*pbp.EndorseCertBundle{
 			{
 				KeyParams: &pbc.SigningKeyParams{
-					KeyLabel: "SigningKey/Dice/v0",
+					KeyLabel: "UDS",
 					Key: &pbc.SigningKeyParams_EcdsaParams{
 						EcdsaParams: &pbe.EcdsaParams{
 							HashType: pbcommon.HashType_HASH_TYPE_SHA256,
@@ -425,7 +425,7 @@ func main() {
 			ConfigDir:    *configDir,
 			HSMSOLibPath: *hsmSOLibPath,
 		}
-		certLabels := []string{"SigningKey/Dice/v0"}
+		certLabels := []string{"UDS"}
 		tbsCerts, _, err := tbsgen.BuildTestTBSCerts(opts, skuName, certLabels)
 		if err != nil {
 			log.Fatalf("failed to generate TBS certificates for SKU %q: %v", skuName, err)
@@ -446,7 +446,7 @@ func main() {
 			},
 			{
 				testName: "OT:EndorseCerts",
-				testFunc: NewEndorseCertTest(tbsCerts["SigningKey/Dice/v0"]),
+				testFunc: NewEndorseCertTest(tbsCerts["UDS"]),
 			},
 			{
 				testName: "OT:RegisterDevice",

@@ -515,11 +515,7 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
       return static_cast<int>(absl::StatusCode::kInvalidArgument);
     }
     std::string cert_label(req_params.key_label, req_params.key_label_size);
-    if (cert_label == "UDS") {
-      signing_params->set_key_label("SigningKey/Dice/v0");
-    } else {
-      signing_params->set_key_label("SigningKey/Ext/v0");
-    }
+    signing_params->set_key_label(cert_label);
 
     // Only ECDSA keys are supported at this time.
     auto key = signing_params->mutable_ecdsa_params();

@@ -66,10 +66,10 @@ type server struct {
 }
 
 const (
-	EKCertSerialNumberSize int  = 10
-	TokenSize              int  = 16
-	BigEndian              bool = true
-	LittleEndian           bool = false
+	SubjectKeySize int  = 10
+	TokenSize      int  = 16
+	BigEndian      bool = true
+	LittleEndian   bool = false
 )
 
 func generateSessionToken(n int) (string, error) {
@@ -298,10 +298,21 @@ func (s *server) GetCaSubjectKeys(ctx context.Context, request *pbp.GetCaSubject
 	// Extract the subject key from each certificate.
 	var subjectKeys [][]byte
 	for _, label := range request.CertLabels {
-		cert, ok := sku.Certs[label]
-		if !ok {
-			return nil, status.Errorf(codes.Internal, "unable to find cert %q in SKU configuration", label)
+		var kl string
+		if label == "UDS" {
+			kl = "SigningKey/Dice/v0"
+		} else {
+			kl = "SigningKey/Ext/v0"
 		}
+
+		cert, ok := sku.Certs[kl]
+		if !ok {
+			emptySK := make([]byte, SubjectKeySize)
+			log.Printf("SPM.GetCaSubjectKeys - unable to find cert %q in SKU configuration", kl)
+			subjectKeys = append(subjectKeys, emptySK)
+			continue
+		}
+
 		subjectKeys = append(subjectKeys, cert.SubjectKeyId)
 	}
 
@@ -363,12 +374,26 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 
 	var certs []*pbp.CertBundle
 	for _, bundle := range request.Bundles {
-		keyLabel, err := sku.Config.GetUnsafeAttribute(bundle.KeyParams.KeyLabel)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "unable to find key label %q in SKU configuration: %v", bundle.KeyParams.KeyLabel, err)
+		if bundle.KeyParams == nil {
+			return nil, status.Errorf(codes.InvalidArgument, "missing key params")
+		}
+		if bundle.Tbs == nil {
+			return nil, status.Errorf(codes.InvalidArgument, "missing tbs data")
 		}
 
-		caCert, ok := sku.Certs[bundle.KeyParams.KeyLabel]
+		var kl string
+		if bundle.KeyParams.KeyLabel == "UDS" {
+			kl = "SigningKey/Dice/v0"
+		} else {
+			kl = "SigningKey/Ext/v0"
+		}
+
+		keyLabel, err := sku.Config.GetUnsafeAttribute(kl)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "unable to find key label %q in SKU configuration: %v", kl, err)
+		}
+
+		caCert, ok := sku.Certs[kl]
 		if !ok {
 			return nil, status.Errorf(codes.Internal, "unable to find cert %q in SKU configuration", bundle.KeyParams.KeyLabel)
 		}

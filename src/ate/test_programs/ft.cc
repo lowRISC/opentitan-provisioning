@@ -239,8 +239,11 @@ int main(int argc, char **argv) {
   }
 
   // Generate CA subject keys.
-  constexpr size_t kNumIcas = 1;
-  const char *kIcaCertLabels[] = {"SigningKey/Dice/v0"};
+  constexpr size_t kNumIcas = 2;
+  const char *kIcaCertLabels[] = {
+      "UDS",
+      "EXT",
+  };
   ca_subject_key_t key_ids[kNumIcas];
   if (GetCaSubjectKeys(ate_client, absl::GetFlag(FLAGS_sku).c_str(),
                        /*count=*/kNumIcas, kIcaCertLabels, key_ids) != 0) {
@@ -248,9 +251,9 @@ int main(int argc, char **argv) {
     return -1;
   }
   const ca_subject_key_t *kDiceCaSk = &key_ids[0];
-  const ca_subject_key_t kExtCaSk = {0};
+  const ca_subject_key_t *kExtCaSk = &key_ids[1];
   dut_spi_frame_t ca_key_ids_spi_frame;
-  if (CaSubjectKeysToJson(kDiceCaSk, &kExtCaSk, &ca_key_ids_spi_frame) != 0) {
+  if (CaSubjectKeysToJson(kDiceCaSk, kExtCaSk, &ca_key_ids_spi_frame) != 0) {
     LOG(ERROR) << "CaSubjectKeysToJson failed.";
     return -1;
   }
