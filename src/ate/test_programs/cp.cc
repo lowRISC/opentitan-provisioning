@@ -231,7 +231,7 @@ int main(int argc, char **argv) {
   dut->DutConsoleTx("Waiting for CP provisioning data ...", spi_frame.payload,
                     spi_frame.cursor,
                     /*timeout_ms=*/1000);
-  dut_spi_frame_t devid_spi_frame;
+  dut_spi_frame_t devid_spi_frame = {0};
   size_t num_spi_frames = 1;
   dut->DutConsoleRx("Exporting CP device ID ...", &devid_spi_frame,
                     &num_spi_frames,

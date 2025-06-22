@@ -45,9 +45,18 @@ enum {
   /** CA subject key size in bytes. This is equivalent to 160 bits. */
   kCaSubjectKeySize = 20,
 
-  /** Maximum size of SPI frame supported by the DUT. */
-  kDutSpiFrameHeaderSize = 4,
-  kDutSpiFrameSize = 2048 - kDutSpiFrameHeaderSize,
+  /**
+   * Maximum size of SPI frame supported by the DUT.
+   *
+   * The max size is defined in the OpenTitan repository in:
+   * sw/device/lib/testing/test_framework/ottf_console_internal.h
+   *
+   * DO NOT MODIFY without also modifying this size in:
+   *   1. src/ate/test_programs/otlib_wrapper/src/lib.rs (BUFFER_SIZE), and
+   *   2. the personalization firmware.
+   */
+  kDutSpiFrameHeaderSizeInBytes = 12,
+  kDutSpiFrameSizeInBytes = 2048 - (2 * kDutSpiFrameHeaderSizeInBytes) - 4,
 
   /**
    * Dev seed size in bytes; Must be equal to the value defined in
@@ -135,9 +144,9 @@ typedef struct {
 typedef struct dut_spi_frame {
   /**
    * The payload is the data to be sent to the DUT. The size of the payload is
-   * limited to kDutSpiFrameSize - kDutSpiFrameHeaderSize bytes.
+   * limited to kDutSpiFrameSizeInBytes.
    */
-  uint8_t payload[kDutSpiFrameSize];
+  uint8_t payload[kDutSpiFrameSizeInBytes];
   /**
    * The cursor is used to keep track of the current position in the payload.
    * The cursor is updated by the ATE test framework based on the header

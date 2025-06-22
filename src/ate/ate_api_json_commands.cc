@@ -338,8 +338,8 @@ DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob, dut_spi_frame_t *result,
   }
 
   const size_t kNumFramesExpected =
-      (command.size() + kDutSpiFrameSize - 1) / kDutSpiFrameSize;
-  const size_t kDutSpiFrameSize = sizeof(result[0].payload);
+      (command.size() + kDutSpiFrameSizeInBytes - 1) / kDutSpiFrameSizeInBytes;
+  const size_t kDutSpiFrameSizeInBytes = sizeof(result[0].payload);
 
   if (*num_frames < kNumFramesExpected) {
     LOG(ERROR) << "Output buffer size is too small"
@@ -349,8 +349,8 @@ DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob, dut_spi_frame_t *result,
   }
 
   for (size_t i = 0; i < kNumFramesExpected; ++i) {
-    size_t offset = i * kDutSpiFrameSize;
-    size_t size = std::min(kDutSpiFrameSize, command.size() - offset);
+    size_t offset = i * kDutSpiFrameSizeInBytes;
+    size_t size = std::min(kDutSpiFrameSizeInBytes, command.size() - offset);
     if (size == 0) {
       break;
     }

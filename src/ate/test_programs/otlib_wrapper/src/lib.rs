@@ -39,7 +39,9 @@ use opentitanlib::test_utils::load_sram_program::{
 };
 use opentitanlib::uart::console::{ExitStatus, UartConsole};
 
-const BUFFER_SIZE: usize = 2044;
+// NOTE: must match kDutSpiFrameSizeInBytes defined in src/ate/ate_api.h
+// TODO(timothytrippel): look into using bindgen here to keep in sync
+const BUFFER_SIZE: usize = 2020;
 
 // NOTE: must match definition of dut_spi_frame_t defined in src/ate/ate_api.h
 // TODO(timothytrippel): look into using bindgen here to keep in sync
