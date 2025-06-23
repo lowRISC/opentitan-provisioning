@@ -98,8 +98,7 @@ std::unique_ptr<AteClient> AteClient::Create(AteClient::Options options) {
   }
   auto channel =
       grpc::CreateCustomChannel(options.pa_target, credentials, args);
-  auto ate = absl::make_unique<AteClient>(
-      ProvisioningApplianceService::NewStub(channel));
+  auto ate = absl::make_unique<AteClient>(channel);
 
   return ate;
 }

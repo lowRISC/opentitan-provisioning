@@ -82,7 +82,7 @@ for OTSKU in "${FPGA_SKUS[@]}"; do
     --client_cert="${DEPLOYMENT_DIR}/certs/out/ate-client-cert.pem" \
     --client_key="${DEPLOYMENT_DIR}/certs/out/ate-client-key.pem" \
     --ca_root_certs=${DEPLOYMENT_DIR}/certs/out/ca-cert.pem \
-    --pa_target="ipv4:${OTPROV_IP_PA}:${OTPROV_PORT_PA}" \
+    --pa_target="ipv4:${OTPROV_IP_PA}:${OTPROV_PORT_PA_2}" \
     --sku="${OTSKU}" \
     --sku_auth_pw="test_password" \
     --fpga="${FPGA}" \

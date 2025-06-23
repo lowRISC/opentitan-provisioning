@@ -62,30 +62,71 @@ policy.
 
 ## Client Lifecycle and Resource Management
 
-The ATE client is designed to be a long-lived object that manages the
-underlying gRPC channel, including all network connections and load balancing
-state. To ensure optimal performance and efficient resource use, follow these
-best practices.
+The ATE client is a heavyweight object that manages the underlying gRPC
+channel, including network connections and load balancing state.
 
-### Singleton Client Instance
+### Creating and Destroying Client Instances
 
-It is strongly recommended to treat the `ate_client_ptr` as a singleton within
-your application. You should call `CreateClient` once when your program
-initializes and reuse that same client instance for all subsequent gRPC calls.
+Each call to `CreateClient` initializes and returns a pointer to a new,
+independent client instance. This process is computationally expensive as it
+involves:
 
-Repeatedly calling `CreateClient` and `DestroyClient` for different operations
-is an anti-pattern. Each call to `CreateClient` initializes a new gRPC channel,
-which involves setting up new TCP connections, performing TLS handshakes (if
-enabled), and resolving server addresses. This process is computationally
-expensive and introduces significant latency.
+-   Setting up a new gRPC channel.
+-   Establishing new TCP connections to the server(s).
+-   Performing a TLS handshake (if mTLS is enabled).
+-   Resolving server addresses.
 
-### When to Call `DestroyClient`
+Because of this overhead, for applications connecting to a single endpoint or a
+load-balanced group of endpoints, it is recommended to create one client
+instance and reuse it for multiple RPC calls.
 
-The `DestroyClient` function should only be called when you are certain that no
-more gRPC calls will be made for the remainder of the program's lifetime,
-typically during application shutdown. Calling `DestroyClient` will tear down
-all underlying network connections, and any subsequent attempt to use the
-client instance will result in an error.
+The caller is responsible for cleaning up every client instance that is created.
+For each `ate_client_ptr` returned by `CreateClient`, a corresponding call to
+`DestroyClient` must be made when the client is no longer needed. This will
+tear down the network connections and free associated resources.
+
+### Using Multiple Clients for Manual Server Selection
+
+While the client library supports gRPC-based load balancing for connecting to a
+pool of servers, you can also manage connections to multiple, distinct
+endpoints manually. This is achieved by creating multiple client instances.
+
+This approach is useful when you need to connect to different provisioning
+environments (e.g., staging vs. production) or to specific servers for
+diagnostic purposes, without relying on gRPC's load balancing policies.
+
+To do this, call `CreateClient` for each server you want to connect to,
+providing a *single* server address in the `pa_target` option for each.
+
+**Example Scenario:** Connecting to two separate PA servers.
+
+```c
+// C/C++ Example Snippet
+ate_client_ptr client_for_server_1 = NULL;
+ate_client_ptr client_for_server_2 = NULL;
+
+client_options_t opts1 = { .pa_target = "ipv4:10.0.0.1:50051", /* other options */ };
+client_options_t opts2 = { .pa_target = "ipv4:10.0.0.2:50051", /* other options */ };
+
+// Create a client for the first server
+int status = CreateClient(&client_for_server_1, &opts1);
+if (status != 0) { /* handle error */ }
+
+// Create a client for the second server
+status = CreateClient(&client_for_server_2, &opts2);
+if (status != 0) { /* handle error */ }
+
+// ... use both clients to make RPC calls ...
+// e.g., InitSession(client_for_server_1, "sku1", ...);
+// e.g., InitSession(client_for_server_2, "sku2", ...);
+
+// At the end of the session, destroy both clients
+DestroyClient(client_for_server_1);
+DestroyClient(client_for_server_2);
+```
+
+**Important:** You must ensure that `DestroyClient` is called for every client
+instance created to avoid resource leaks.
 
 ## Monitoring and Debugging
 

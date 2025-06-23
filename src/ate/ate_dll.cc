@@ -167,8 +167,6 @@ absl::Status LoadPEMResources(AteClient::Options *options,
   return absl::OkStatus();
 }
 
-static ate_client_ptr ate_client = nullptr;
-
 DLLEXPORT int CreateClient(
     ate_client_ptr *client,    // Out: the created client instance
     client_options_t *options  // In: secure channel attributes
@@ -193,27 +191,24 @@ DLLEXPORT int CreateClient(
     }
   }
 
-  if (ate_client == nullptr) {
-    // created client instance
-    auto ate = AteClient::Create(o);
+  // created client instance
+  auto ate = AteClient::Create(o);
 
-    // Clear the ATE name
-    ate->ate_id = "";
-    if (o.enable_mtls) {
-      ate->ate_id = extractDNSNameFromCert(options->pem_cert_chain);
-    }
-
-    // In case there is no name to be found, then set the ATE ID to its default
-    // value
-    if (ate->ate_id.empty()) {
-      ate->ate_id = "No ATE ID";
-    }
-
-    // Release the managed pointer to a raw pointer and cast to the
-    // C out type.
-    ate_client = reinterpret_cast<ate_client_ptr>(ate.release());
+  // Clear the ATE name
+  ate->ate_id = "";
+  if (o.enable_mtls) {
+    ate->ate_id = extractDNSNameFromCert(options->pem_cert_chain);
   }
-  *client = ate_client;
+
+  // In case there is no name to be found, then set the ATE ID to its default
+  // value
+  if (ate->ate_id.empty()) {
+    ate->ate_id = "No ATE ID";
+  }
+
+  // Release the managed pointer to a raw pointer and cast to the
+  // C out type.
+  *client = reinterpret_cast<ate_client_ptr>(ate.release());
 
   LOG(INFO) << "debug info: returned from CreateClient with ate = " << *client;
   return 0;
@@ -221,12 +216,11 @@ DLLEXPORT int CreateClient(
 
 DLLEXPORT void DestroyClient(ate_client_ptr client) {
   DLOG(INFO) << "DestroyClient";
-  if (client != nullptr && client == ate_client) {
+  if (client != nullptr) {
     AteClient *ate = reinterpret_cast<AteClient *>(client);
     delete ate;
-    ate_client = nullptr;
   } else {
-    LOG(ERROR) << "DestroyClient called with invalid client pointer";
+    LOG(WARNING) << "DestroyClient called with a null client pointer";
   }
 }
 

@@ -474,8 +474,8 @@ typedef struct register_device_request {
 /**
  * Creates an AteClient instance.
  *
- * The client instance should be created once and reused many times over a
- * long running session.
+ * Each call to this function creates a new client instance. The caller is
+ * responsible for destroying the client instance by calling `DestroyClient`.
  *
  * @param client A pointer (an `ate_client_ptr`) to the created client instance.
  * @param options The secure channel attributes.

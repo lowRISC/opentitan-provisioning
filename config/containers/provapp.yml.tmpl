@@ -12,7 +12,7 @@ spec:
   hostNetwork: true
   containers:
   # Configuration for the `paserver` container.
-  - name: paserver
+  - name: paserver-1
     args:
     - --enable_tls=true
     - --service_key=/var/lib/opentitan/config/certs/out/pa-service-key.pem
@@ -27,6 +27,54 @@ spec:
     resources: {}
     ports:
       - containerPort: ${OTPROV_PORT_PA}
+    securityContext:
+      capabilities:
+        drop:
+        - CAP_MKNOD
+        - CAP_NET_RAW
+        - CAP_AUDIT_WRITE
+    volumeMounts:
+    - mountPath: /var/lib/opentitan/config
+      name: var-lib-opentitan-spm-config-0
+  - name: paserver-2
+    args:
+    - --enable_tls=true
+    - --service_key=/var/lib/opentitan/config/certs/out/pa-service-key.pem
+    - --service_cert=/var/lib/opentitan/config/certs/out/pa-service-cert.pem
+    - --ca_root_certs=/var/lib/opentitan/config/certs/out/ca-cert.pem
+    - --port=${OTPROV_PORT_PA_2}
+    - --spm_address=${OTPROV_DNS_SPM}:${OTPROV_PORT_SPM}
+    - --enable_registry
+    - --registry_address=${OTPROV_DNS_PB}:${OTPROV_PORT_PB}
+    # TODO: Update label to point to specific release version.
+    image: localhost/pa_server:latest
+    resources: {}
+    ports:
+      - containerPort: ${OTPROV_PORT_PA_2}
+    securityContext:
+      capabilities:
+        drop:
+        - CAP_MKNOD
+        - CAP_NET_RAW
+        - CAP_AUDIT_WRITE
+    volumeMounts:
+    - mountPath: /var/lib/opentitan/config
+      name: var-lib-opentitan-spm-config-0
+  - name: paserver-3
+    args:
+    - --enable_tls=true
+    - --service_key=/var/lib/opentitan/config/certs/out/pa-service-key.pem
+    - --service_cert=/var/lib/opentitan/config/certs/out/pa-service-cert.pem
+    - --ca_root_certs=/var/lib/opentitan/config/certs/out/ca-cert.pem
+    - --port=5005
+    - --spm_address=${OTPROV_DNS_SPM}:${OTPROV_PORT_SPM}
+    - --enable_registry
+    - --registry_address=${OTPROV_DNS_PB}:${OTPROV_PORT_PB}
+    # TODO: Update label to point to specific release version.
+    image: localhost/pa_server:latest
+    resources: {}
+    ports:
+      - containerPort: 5005
     securityContext:
       capabilities:
         drop:
