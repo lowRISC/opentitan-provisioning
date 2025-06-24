@@ -334,16 +334,16 @@ func TestEndorseData(t *testing.T) {
 	})
 	ts.Check(t, err)
 
-	// Check public keys match.
-	var pubKey struct{ X, Y *big.Int }
-	_, err = asn1.Unmarshal(asn1PubKey, &pubKey)
+	// Check public key.
+	pub, err := x509.ParsePKIXPublicKey(asn1PubKey)
+	ts.Check(t, err)
+	pubKey := pub.(*ecdsa.PublicKey)
 	if pubKey.X.Cmp(idPublicKey.X) != 0 {
 		t.Fatal("pubkey (X) exported does not match one in HSM")
 	}
 	if pubKey.Y.Cmp(idPublicKey.Y) != 0 {
 		t.Fatal("pubkey (Y) exported does not match one in HSM")
 	}
-
 	// Verify signatures.
 	log.Printf("Verifying data signature")
 	dataHash := sha256.Sum256(data)

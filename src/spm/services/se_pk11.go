@@ -7,7 +7,6 @@ package se
 
 import (
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/x509"
@@ -498,11 +497,7 @@ func (h *HSM) EndorseData(data []byte, params EndorseCertParams) ([]byte, []byte
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to export public key from SE: %v", err)
 	}
-	var ecdsaPubKey struct{ X, Y *big.Int }
-	ecdsaPubKey.X, ecdsaPubKey.Y = new(big.Int), new(big.Int)
-	ecdsaPubKey.X.Set(publicKey.(*ecdsa.PublicKey).X)
-	ecdsaPubKey.Y.Set(publicKey.(*ecdsa.PublicKey).Y)
-	asn1EcdsaPublicKey, err := asn1.Marshal(ecdsaPubKey)
+	asn1EcdsaPublicKey, err := x509.MarshalPKIXPublicKey(publicKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to marshal public key: %v", err)
 	}

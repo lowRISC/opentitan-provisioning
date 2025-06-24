@@ -7,11 +7,15 @@ package spm
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"fmt"
 	"log"
 	"os"
 	"strings"
+	"encoding/asn1"
+	"math/big"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -453,6 +457,27 @@ func (s *server) EndorseData(ctx context.Context, request *pbs.EndorseDataReques
 		asn1Pubkey, asn1Sig, err = sku.SeHandle.EndorseData(request.Data, params)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "could not endorse data payload: %v", err)
+		}
+		pub, err := x509.ParsePKIXPublicKey(asn1Pubkey)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "could not parse public key: %v", err)
+		}
+		ecdsaPubKey, ok := pub.(*ecdsa.PublicKey)
+		if !ok {
+			return nil, status.Errorf(codes.Internal, "public key is not an ECDSA key")
+		}
+
+		dataHash := sha256.Sum256(request.Data)
+		var sig struct{ R, S *big.Int }
+		_, err = asn1.Unmarshal(asn1Sig, &sig)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "could not unmarshal signature: %v", err)
+		}
+
+		// Verify the signature.
+		verified := ecdsa.Verify(ecdsaPubKey, dataHash[:], sig.R, sig.S)
+		if !verified {
+			return nil, status.Errorf(codes.Internal, "could not verify signature")
 		}
 	default:
 		return nil, status.Errorf(codes.Unimplemented, "unsupported key format")

@@ -170,8 +170,8 @@ func (s *server) RegisterDevice(ctx context.Context, request *pap.RegistrationRe
 			KeyLabel: "SigningKey/Identity/v0",
 			Key: &certpb.SigningKeyParams_EcdsaParams{
 				EcdsaParams: &ecdsapb.EcdsaParams{
-					HashType: commonpb.HashType_HASH_TYPE_SHA384,
-					Curve:    commonpb.EllipticCurveType_ELLIPTIC_CURVE_TYPE_NIST_P384,
+					HashType: commonpb.HashType_HASH_TYPE_SHA256,
+					Curve:    commonpb.EllipticCurveType_ELLIPTIC_CURVE_TYPE_NIST_P256,
 					Encoding: ecdsapb.EcdsaSignatureEncoding_ECDSA_SIGNATURE_ENCODING_DER,
 				},
 			},
