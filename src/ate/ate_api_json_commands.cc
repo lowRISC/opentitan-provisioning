@@ -94,6 +94,44 @@ uint32_t CalculateCrc32(const char *data, size_t length) {
   return crc ^ 0xFFFFFFFF;
 }
 
+std::string TrimJsonString(const std::string &json_str) {
+  // Locate the start of the embedded JSON string.
+  // A JSON string can start with either '{' or '[' characters.
+  size_t first_brace = json_str.find('{');
+  size_t first_bracket = json_str.find('[');
+  size_t start_idx = 0;
+  if (first_brace != std::string::npos && first_bracket != std::string::npos) {
+    start_idx = std::min(first_brace, first_bracket);
+  } else if (first_brace != std::string::npos) {
+    start_idx = first_brace;
+  } else if (first_bracket != std::string::npos) {
+    start_idx = first_bracket;
+  } else {
+    // If we cannot find the start of the embedded JSON string, just return the
+    // unmodified input string.
+    return json_str;
+  }
+
+  // Locate the end of the embedded JSON string.
+  size_t last_brace = json_str.rfind('}');
+  size_t last_bracket = json_str.rfind(']');
+  size_t end_idx = 0;
+  if (last_brace != std::string::npos && last_bracket != std::string::npos) {
+    end_idx = std::max(last_brace, last_bracket);
+  } else if (last_brace != std::string::npos) {
+    end_idx = last_brace;
+  } else if (last_bracket != std::string::npos) {
+    end_idx = last_bracket;
+  } else {
+    return json_str;
+  }
+
+  if (end_idx < start_idx) {
+    return json_str;
+  }
+  return json_str.substr(start_idx, end_idx - start_idx + 1);
+}
+
 }  // namespace
 
 DLLEXPORT int TokensToJson(const token_t *wafer_auth_secret,
@@ -163,14 +201,16 @@ DLLEXPORT int DeviceIdFromJson(const dut_spi_frame_t *frame,
     return -1;
   }
 
+  // Trim non-JSON characters from the start / end of the SPI frame.
+  std::string json_str = TrimJsonString(std::string(
+      reinterpret_cast<const char *>(frame->payload), frame->cursor));
+
   ot::dut_commands::DeviceIdJSON device_id_cmd;
   google::protobuf::util::JsonParseOptions options;
   options.ignore_unknown_fields = true;
   google::protobuf::util::Status status =
-      google::protobuf::util::JsonStringToMessage(
-          std::string(reinterpret_cast<const char *>(frame->payload),
-                      frame->cursor),
-          &device_id_cmd, options);
+      google::protobuf::util::JsonStringToMessage(json_str, &device_id_cmd,
+                                                  options);
   if (!status.ok()) {
     LOG(ERROR) << "Failed to parse JSON: " << status.ToString();
     return -1;
@@ -231,15 +271,23 @@ DLLEXPORT int RmaTokenFromJson(const dut_spi_frame_t *frame,
     return -1;
   }
 
+  // Trim non-JSON characters from the start / end of the SPI frame.
+  std::string json_str = TrimJsonString(std::string(
+      reinterpret_cast<const char *>(frame->payload), frame->cursor));
+
+  // Additionally, the RMA token JSON string contains a CRC in some cases.
+  size_t crc_start_idx = json_str.find("{\"crc\":");
+  if (crc_start_idx != std::string::npos) {
+    json_str.erase(crc_start_idx);
+  }
+
   ot::dut_commands::RmaTokenJSON rma_hash_cmd;
   google::protobuf::util::JsonParseOptions options;
   options.ignore_unknown_fields = true;
 
   google::protobuf::util::Status status =
-      google::protobuf::util::JsonStringToMessage(
-          std::string(reinterpret_cast<const char *>(frame->payload),
-                      frame->cursor),
-          &rma_hash_cmd, options);
+      google::protobuf::util::JsonStringToMessage(json_str, &rma_hash_cmd,
+                                                  options);
   if (!status.ok()) {
     LOG(ERROR) << "Failed to parse JSON: " << status.ToString();
     return -1;
@@ -378,9 +426,11 @@ DLLEXPORT int PersoBlobFromJson(const dut_spi_frame_t *frames,
     json_str.append(std::string(
         reinterpret_cast<const char *>(frames[i].payload), frames[i].cursor));
   }
+  std::string cleaned_json_str = TrimJsonString(json_str);
 
   google::protobuf::util::Status status =
-      google::protobuf::util::JsonStringToMessage(json_str, &blob_cmd, options);
+      google::protobuf::util::JsonStringToMessage(cleaned_json_str, &blob_cmd,
+                                                  options);
   if (!status.ok()) {
     LOG(ERROR) << "Failed to parse JSON: " << status.ToString();
     return -1;

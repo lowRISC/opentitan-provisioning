@@ -97,7 +97,7 @@ TEST_F(AteJsonTest, DeviceIdFromJson) {
            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}));
 }
 
-TEST_F(AteJsonTest, RmaToken) {
+TEST_F(AteJsonTest, RmaTokenWithoutCrc) {
   token_t rma_token = {0};
   rma_token.size = sizeof(uint64_t) * 2;
   rma_token.data[0] = 0x11;
@@ -109,8 +109,7 @@ TEST_F(AteJsonTest, RmaToken) {
   std::string json_string =
       std::string(reinterpret_cast<char*>(frame.payload), frame.cursor);
 
-  // Use the proto representation of RmaTokenJSON to verify the
-  // JSON string.
+  // Use the proto representation of RmaTokenJSON to verify the JSON string.
   ot::dut_commands::RmaTokenJSON rma_hash_cmd;
   google::protobuf::util::JsonParseOptions options;
   options.ignore_unknown_fields = true;
@@ -124,6 +123,43 @@ TEST_F(AteJsonTest, RmaToken) {
 
   token_t rma_token_got = {0};
   EXPECT_EQ(RmaTokenFromJson(&frame, &rma_token_got), 0);
+  EXPECT_THAT(rma_token_got.data, testing::ElementsAreArray(
+                                      rma_token.data, sizeof(rma_token.data)));
+  EXPECT_EQ(rma_token_got.size, sizeof(uint64_t) * 2);
+}
+
+TEST_F(AteJsonTest, RmaTokenWithCrc) {
+  token_t rma_token = {0};
+  rma_token.size = sizeof(uint64_t) * 2;
+  rma_token.data[0] = 0x11;
+  rma_token.data[1] = 0x22;
+
+  dut_spi_frame_t frame_with_crc;
+  EXPECT_EQ(RmaTokenToJson(&rma_token, &frame_with_crc, /*skip_crc=*/false), 0);
+  dut_spi_frame_t frame_without_crc;
+  EXPECT_EQ(RmaTokenToJson(&rma_token, &frame_without_crc, /*skip_crc=*/true),
+            0);
+
+  std::string json_string_without_crc =
+      std::string(reinterpret_cast<char*>(frame_without_crc.payload),
+                  frame_without_crc.cursor);
+  std::string json_string_with_crc = std::string(
+      reinterpret_cast<char*>(frame_with_crc.payload), frame_with_crc.cursor);
+
+  // Use the proto representation of RmaTokenJSON to verify the JSON string.
+  ot::dut_commands::RmaTokenJSON rma_hash_cmd;
+  google::protobuf::util::JsonParseOptions options;
+  options.ignore_unknown_fields = true;
+  google::protobuf::util::Status status =
+      google::protobuf::util::JsonStringToMessage(json_string_without_crc,
+                                                  &rma_hash_cmd, options);
+  EXPECT_EQ(status.ok(), true);
+  EXPECT_THAT(rma_hash_cmd, EqualsProto(R"pb(
+                hash: 8721 hash: 0
+              )pb"));
+
+  token_t rma_token_got = {0};
+  EXPECT_EQ(RmaTokenFromJson(&frame_with_crc, &rma_token_got), 0);
   EXPECT_THAT(rma_token_got.data, testing::ElementsAreArray(
                                       rma_token.data, sizeof(rma_token.data)));
   EXPECT_EQ(rma_token_got.size, sizeof(uint64_t) * 2);
