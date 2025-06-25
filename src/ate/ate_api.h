@@ -297,10 +297,24 @@ typedef struct endorse_cert_request {
 } endorse_cert_request_t;
 
 /**
+ * Certificate type: X509 or CWT.
+ */
+typedef enum cert_type {
+  kCertTypeX509 = 0,
+  kCertTypeCwt = 1,
+} cert_type_t;
+
+/**
  * Response parameters for endorsing certificates.
  */
 typedef struct endorse_cert_response {
-  /** Size of the key label. */
+  /**
+   * Certificate type.
+   */
+  cert_type_t type;
+  /**
+   * Size of the key label.
+   */
   size_t key_label_size;
   /**
    * The key label is used to identify the key used to sign the certificate.
@@ -706,12 +720,12 @@ DLLEXPORT int PersoBlobFromJson(const dut_spi_frame_t* frames,
  * @param[out] device_id The extracted device ID.
  * @param[out] signature The HMAC signature over the TBS certificates.
  * @param[out] perso_fw_hash The hash of the personalization firmware.
- * @param[out] x509_tbs_certs Array of X.509 TBS certs.
+ * @param[out] tbs_certs Array of TBS certs (only X.509 supported at this time).
  * @param[out] tbs_cert_count The number of TBS certs found. Initialized
- * to the size of `x509_tbs_certs`.
- * @param[out] x509_certs Array of (fully formed) X.509 certs.
+ * to the size of `tbs_certs`.
+ * @param[out] certs Array of (fully formed) X.509 or CWT certs.
  * @param[out] cert_count The number of certs found. Initialized to the size of
- * `x509_certs`.
+ * `certs `.
  * @param[out] seeds The extracted seeds.
  * @param[out] seed_count The number of seeds found. Initialized to the size of
  * `seeds`.
@@ -720,8 +734,8 @@ DLLEXPORT int PersoBlobFromJson(const dut_spi_frame_t* frames,
 DLLEXPORT int UnpackPersoBlob(
     const perso_blob_t* blob, device_id_bytes_t* device_id,
     endorse_cert_signature_t* signature, perso_fw_sha256_hash_t* perso_fw_hash,
-    endorse_cert_request_t* x509_tbs_certs, size_t* tbs_cert_count,
-    endorse_cert_response_t* x509_certs, size_t* cert_count, seed_t* seeds,
+    endorse_cert_request_t* tbs_certs, size_t* tbs_cert_count,
+    endorse_cert_response_t* certs, size_t* cert_count, seed_t* seeds,
     size_t* seed_count);
 
 /**

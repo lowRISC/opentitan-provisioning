@@ -579,6 +579,11 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
       return static_cast<int>(absl::StatusCode::kInternal);
     }
 
+    // Set the cert type.
+    // Only signing of X.509 certificates is supported at this time.
+    resp_cert.type = kCertTypeX509;
+
+    // Set the cert size.
     resp_cert.cert_size = c.cert().blob().size();
     memcpy(resp_cert.cert, c.cert().blob().data(), c.cert().blob().size());
 

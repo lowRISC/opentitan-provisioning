@@ -313,15 +313,16 @@ int main(int argc, char **argv) {
   perso_fw_sha256_hash_t perso_fw_hash = {.raw = {0}};
   constexpr size_t kMaxNumCerts = 10;
   size_t num_tbs_certs = kMaxNumCerts;
-  endorse_cert_request_t x509_tbs_certs[kMaxNumCerts];
-  size_t num_certs = kMaxNumCerts;
-  endorse_cert_response_t x509_certs[kMaxNumCerts];
+  endorse_cert_request_t tbs_certs[kMaxNumCerts];
+  size_t num_dut_endorsed_certs = kMaxNumCerts;
+  endorse_cert_response_t dut_endorsed_certs[kMaxNumCerts];
   constexpr size_t kMaxSeeds = 5;
   seed_t seeds[kMaxSeeds];
   size_t num_seeds = kMaxSeeds;
   if (UnpackPersoBlob(&perso_blob_from_dut, &device_id, &tbs_was_hmac,
-                      &perso_fw_hash, x509_tbs_certs, &num_tbs_certs,
-                      x509_certs, &num_certs, seeds, &num_seeds) != 0) {
+                      &perso_fw_hash, tbs_certs, &num_tbs_certs,
+                      dut_endorsed_certs, &num_dut_endorsed_certs, seeds,
+                      &num_seeds) != 0) {
     LOG(ERROR) << "Failed to unpack the perso blob from the DUT.";
     return -1;
   }
@@ -333,8 +334,9 @@ int main(int argc, char **argv) {
                                device_id_words[5], device_id_words[4],
                                device_id_words[3], device_id_words[2],
                                device_id_words[1], device_id_words[0]);
-  LOG(INFO) << "Number of X.509 TBS certs extracted: " << num_tbs_certs;
-  LOG(INFO) << "Number of X.509 certs extracted:     " << num_certs;
+  LOG(INFO) << "Number of TBS certs extracted: " << num_tbs_certs;
+  LOG(INFO) << "Number of (complete) certs extracted: "
+            << num_dut_endorsed_certs;
 
   // Endorse the TBS certs with the PA/SPM.
   // TODO(timothytrippel): Set diversifier to "was" || CP device ID.
@@ -343,10 +345,10 @@ int main(int argc, char **argv) {
     LOG(ERROR) << "Failed to set diversifier for WAS.";
     return -1;
   }
-  endorse_cert_response_t endorsed_x509_certs[num_tbs_certs];
+  endorse_cert_response_t pa_endorsed_certs[num_tbs_certs];
   if (EndorseCerts(ate_client, absl::GetFlag(FLAGS_sku).c_str(),
-                   &was_diversifier, &tbs_was_hmac, num_tbs_certs,
-                   x509_tbs_certs, endorsed_x509_certs) != 0) {
+                   &was_diversifier, &tbs_was_hmac, num_tbs_certs, tbs_certs,
+                   pa_endorsed_certs) != 0) {
     LOG(ERROR) << "Failed to endorse certs.";
     return -1;
   }
@@ -356,7 +358,7 @@ int main(int argc, char **argv) {
   constexpr size_t kNumPersoBlobMaxNumSpiFrames = 10;
   dut_spi_frame_t perso_blob_from_ate_spi_frames[kNumPersoBlobMaxNumSpiFrames];
   size_t num_perso_blob_spi_frames = kNumPersoBlobMaxNumSpiFrames;
-  if (PackPersoBlob(num_tbs_certs, endorsed_x509_certs, &perso_blob_from_ate) !=
+  if (PackPersoBlob(num_tbs_certs, pa_endorsed_certs, &perso_blob_from_ate) !=
       0) {
     LOG(ERROR) << "Failed to repack the perso blob.";
     return -1;
@@ -392,9 +394,9 @@ int main(int argc, char **argv) {
       .y = 52,
   };
   perso_blob_t perso_blob_for_registry;
-  if (PackRegistryPersoTlvData(x509_certs, num_certs, endorsed_x509_certs,
-                               num_tbs_certs, seeds, num_seeds,
-                               &perso_blob_for_registry) != 0) {
+  if (PackRegistryPersoTlvData(dut_endorsed_certs, num_dut_endorsed_certs,
+                               pa_endorsed_certs, num_tbs_certs, seeds,
+                               num_seeds, &perso_blob_for_registry) != 0) {
     LOG(ERROR) << "PackRegistryPersoTlvData failed.";
     return -1;
   }
