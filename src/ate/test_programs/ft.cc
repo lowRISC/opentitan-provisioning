@@ -243,7 +243,7 @@ int main(int argc, char **argv) {
     LOG(ERROR) << "GenerateTokens failed.";
     return -1;
   }
-  dut_spi_frame_t rma_token_spi_frame;
+  dut_tx_spi_frame_t rma_token_spi_frame;
   if (RmaTokenToJson(&rma_token, &rma_token_spi_frame, /*skip_crc=*/false) !=
       0) {
     LOG(ERROR) << "RmaTokenToJson failed.";
@@ -264,7 +264,7 @@ int main(int argc, char **argv) {
   }
   const ca_subject_key_t *kDiceCaSk = &key_ids[0];
   const ca_subject_key_t *kExtCaSk = &key_ids[1];
-  dut_spi_frame_t ca_key_ids_spi_frame;
+  dut_tx_spi_frame_t ca_key_ids_spi_frame;
   if (CaSubjectKeysToJson(kDiceCaSk, kExtCaSk, &ca_key_ids_spi_frame) != 0) {
     LOG(ERROR) << "CaSubjectKeysToJson failed.";
     return -1;
@@ -284,15 +284,15 @@ int main(int argc, char **argv) {
   dut->DutConsoleWaitForRx("Bootstrap requested.", /*timeout_ms=*/1000);
   dut->DutBootstrap(ft_fw_bundle_path);
   dut->DutConsoleTx("Waiting For RMA Unlock Token Hash ...",
-                    rma_token_spi_frame.payload, rma_token_spi_frame.cursor,
+                    rma_token_spi_frame.payload, rma_token_spi_frame.size,
                     /*timeout_ms=*/1000);
   dut->DutConsoleTx("Waiting for certificate inputs ...",
-                    ca_key_ids_spi_frame.payload, ca_key_ids_spi_frame.cursor,
+                    ca_key_ids_spi_frame.payload, ca_key_ids_spi_frame.size,
                     /*timeout_ms=*/1000);
 
   // Receive the TBS certs and other provisioning data from the DUT.
   constexpr size_t kMaxNumPbSpiFrames = 10;
-  dut_spi_frame_t pb_spi_frames[kMaxNumPbSpiFrames];
+  dut_tx_spi_frame_t pb_spi_frames[kMaxNumPbSpiFrames];
   size_t num_pb_spi_frames = kMaxNumPbSpiFrames;
   dut->DutConsoleRx("Exporting TBS certificates ...", pb_spi_frames,
                     &num_pb_spi_frames,
@@ -356,7 +356,8 @@ int main(int argc, char **argv) {
   // Send the endorsed certs back to the device.
   perso_blob_t perso_blob_from_ate = {0};
   constexpr size_t kNumPersoBlobMaxNumSpiFrames = 10;
-  dut_spi_frame_t perso_blob_from_ate_spi_frames[kNumPersoBlobMaxNumSpiFrames];
+  dut_tx_spi_frame_t
+      perso_blob_from_ate_spi_frames[kNumPersoBlobMaxNumSpiFrames];
   size_t num_perso_blob_spi_frames = kNumPersoBlobMaxNumSpiFrames;
   if (PackPersoBlob(num_tbs_certs, pa_endorsed_certs, &perso_blob_from_ate) !=
       0) {
@@ -374,12 +375,12 @@ int main(int argc, char **argv) {
     if (i == 0) {
       dut->DutConsoleTx(perso_blob_sync_msg,
                         perso_blob_from_ate_spi_frames[i].payload,
-                        perso_blob_from_ate_spi_frames[i].cursor,
+                        perso_blob_from_ate_spi_frames[i].size,
                         /*timeout_ms=*/1000);
     } else {
       dut->DutConsoleTx(empty_sync_msg,
                         perso_blob_from_ate_spi_frames[i].payload,
-                        perso_blob_from_ate_spi_frames[i].cursor,
+                        perso_blob_from_ate_spi_frames[i].size,
                         /*timeout_ms=*/1000);
     }
   }

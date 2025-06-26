@@ -26,7 +26,7 @@ void OtLibBootstrap(void* transport, const char* bin);
 void OtLibConsoleWaitForRx(void* transport, const char* msg,
                            uint64_t timeout_ms);
 void OtLibConsoleRx(void* transport, const char* sync_msg,
-                    dut_spi_frame_t* spi_frames, size_t* num_frames,
+                    dut_tx_spi_frame_t* spi_frames, size_t* num_frames,
                     bool skip_crc_check, bool quiet, uint64_t timeout_ms);
 void OtLibConsoleTx(void* transport, const char* sync_msg,
                     const uint8_t* spi_frame, size_t spi_frame_size,
@@ -67,7 +67,7 @@ void DutLib::DutConsoleWaitForRx(const char* msg, uint64_t timeout_ms) {
 }
 
 void DutLib::DutConsoleRx(const std::string& sync_msg,
-                          dut_spi_frame_t* spi_frames, size_t* num_frames,
+                          dut_tx_spi_frame_t* spi_frames, size_t* num_frames,
                           bool skip_crc_check, bool quiet,
                           uint64_t timeout_ms) {
   LOG(INFO) << "in DutLib::DutConsoleRx";

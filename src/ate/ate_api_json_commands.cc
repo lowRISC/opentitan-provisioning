@@ -12,7 +12,7 @@
 #include "src/ate/proto/dut_commands.pb.h"
 
 namespace {
-int SpiFrameSet(dut_spi_frame_t *frame, const std::string &payload) {
+int SpiFrameSet(dut_tx_spi_frame_t *frame, const std::string &payload) {
   if (frame == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
@@ -29,7 +29,7 @@ int SpiFrameSet(dut_spi_frame_t *frame, const std::string &payload) {
   memcpy(frame->payload, payload.data(), payload.size());
   std::fill(frame->payload + payload.size(),
             frame->payload + sizeof(frame->payload), ' ');
-  frame->cursor = payload.size();
+  frame->size = payload.size();
   return 0;
 }
 
@@ -137,7 +137,7 @@ std::string TrimJsonString(const std::string &json_str) {
 DLLEXPORT int TokensToJson(const token_t *wafer_auth_secret,
                            const token_t *test_unlock_token,
                            const token_t *test_exit_token,
-                           dut_spi_frame_t *result) {
+                           dut_tx_spi_frame_t *result) {
   if (result == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
@@ -194,7 +194,7 @@ DLLEXPORT int TokensToJson(const token_t *wafer_auth_secret,
   return SpiFrameSet(result, command);
 }
 
-DLLEXPORT int DeviceIdFromJson(const dut_spi_frame_t *frame,
+DLLEXPORT int DeviceIdFromJson(const dut_tx_spi_frame_t *frame,
                                device_id_bytes_t *device_id) {
   if (frame == nullptr || device_id == nullptr) {
     LOG(ERROR) << "Invalid input buffer";
@@ -202,8 +202,8 @@ DLLEXPORT int DeviceIdFromJson(const dut_spi_frame_t *frame,
   }
 
   // Trim non-JSON characters from the start / end of the SPI frame.
-  std::string json_str = TrimJsonString(std::string(
-      reinterpret_cast<const char *>(frame->payload), frame->cursor));
+  std::string json_str = TrimJsonString(
+      std::string(reinterpret_cast<const char *>(frame->payload), frame->size));
 
   ot::dut_commands::DeviceIdJSON device_id_cmd;
   google::protobuf::util::JsonParseOptions options;
@@ -224,8 +224,8 @@ DLLEXPORT int DeviceIdFromJson(const dut_spi_frame_t *frame,
   return 0;
 }
 
-DLLEXPORT int RmaTokenToJson(const token_t *rma_token, dut_spi_frame_t *result,
-                             bool skip_crc) {
+DLLEXPORT int RmaTokenToJson(const token_t *rma_token,
+                             dut_tx_spi_frame_t *result, bool skip_crc) {
   if (result == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
@@ -264,7 +264,7 @@ DLLEXPORT int RmaTokenToJson(const token_t *rma_token, dut_spi_frame_t *result,
   return SpiFrameSet(result, command);
 }
 
-DLLEXPORT int RmaTokenFromJson(const dut_spi_frame_t *frame,
+DLLEXPORT int RmaTokenFromJson(const dut_tx_spi_frame_t *frame,
                                token_t *rma_token) {
   if (frame == nullptr || rma_token == nullptr) {
     LOG(ERROR) << "Invalid input buffer";
@@ -272,8 +272,8 @@ DLLEXPORT int RmaTokenFromJson(const dut_spi_frame_t *frame,
   }
 
   // Trim non-JSON characters from the start / end of the SPI frame.
-  std::string json_str = TrimJsonString(std::string(
-      reinterpret_cast<const char *>(frame->payload), frame->cursor));
+  std::string json_str = TrimJsonString(
+      std::string(reinterpret_cast<const char *>(frame->payload), frame->size));
 
   // Additionally, the RMA token JSON string contains a CRC in some cases.
   size_t crc_start_idx = json_str.find("{\"crc\":");
@@ -309,7 +309,7 @@ DLLEXPORT int RmaTokenFromJson(const dut_spi_frame_t *frame,
 
 DLLEXPORT int CaSubjectKeysToJson(const ca_subject_key_t *dice_ca_sn,
                                   const ca_subject_key_t *aux_ca_sn,
-                                  dut_spi_frame_t *result) {
+                                  dut_tx_spi_frame_t *result) {
   if (result == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
@@ -346,8 +346,8 @@ DLLEXPORT int CaSubjectKeysToJson(const ca_subject_key_t *dice_ca_sn,
   return SpiFrameSet(result, command);
 }
 
-DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob, dut_spi_frame_t *result,
-                              size_t *num_frames) {
+DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob,
+                              dut_tx_spi_frame_t *result, size_t *num_frames) {
   if (result == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
@@ -386,8 +386,9 @@ DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob, dut_spi_frame_t *result,
   }
 
   const size_t kNumFramesExpected =
-      (command.size() + kDutSpiFrameSizeInBytes - 1) / kDutSpiFrameSizeInBytes;
-  const size_t kDutSpiFrameSizeInBytes = sizeof(result[0].payload);
+      (command.size() + kDutTxMaxSpiFrameSizeInBytes - 1) /
+      kDutTxMaxSpiFrameSizeInBytes;
+  const size_t kDutTxMaxSpiFrameSizeInBytes = sizeof(result[0].payload);
 
   if (*num_frames < kNumFramesExpected) {
     LOG(ERROR) << "Output buffer size is too small"
@@ -397,12 +398,13 @@ DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob, dut_spi_frame_t *result,
   }
 
   for (size_t i = 0; i < kNumFramesExpected; ++i) {
-    size_t offset = i * kDutSpiFrameSizeInBytes;
-    size_t size = std::min(kDutSpiFrameSizeInBytes, command.size() - offset);
+    size_t offset = i * kDutTxMaxSpiFrameSizeInBytes;
+    size_t size =
+        std::min(kDutTxMaxSpiFrameSizeInBytes, command.size() - offset);
     if (size == 0) {
       break;
     }
-    result[i].cursor = size;
+    result[i].size = size;
     memcpy(result[i].payload, command.data() + offset, size);
   }
 
@@ -410,7 +412,7 @@ DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob, dut_spi_frame_t *result,
   return 0;
 }
 
-DLLEXPORT int PersoBlobFromJson(const dut_spi_frame_t *frames,
+DLLEXPORT int PersoBlobFromJson(const dut_tx_spi_frame_t *frames,
                                 size_t num_frames, perso_blob_t *blob) {
   if (frames == nullptr || num_frames == 0 || blob == nullptr) {
     LOG(ERROR) << "Invalid input buffer";
@@ -424,7 +426,7 @@ DLLEXPORT int PersoBlobFromJson(const dut_spi_frame_t *frames,
   std::string json_str;
   for (size_t i = 0; i < num_frames; ++i) {
     json_str.append(std::string(
-        reinterpret_cast<const char *>(frames[i].payload), frames[i].cursor));
+        reinterpret_cast<const char *>(frames[i].payload), frames[i].size));
   }
   std::string cleaned_json_str = TrimJsonString(json_str);
 

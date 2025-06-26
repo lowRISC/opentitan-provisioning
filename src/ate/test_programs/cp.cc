@@ -217,7 +217,7 @@ int main(int argc, char **argv) {
   }
 
   // Convert the tokens to a JSON payload to inject during CP.
-  dut_spi_frame_t spi_frame;
+  dut_tx_spi_frame_t spi_frame;
   if (TokensToJson(&tokens[0], &tokens[1], &tokens[2], &spi_frame) != 0) {
     LOG(ERROR) << "TokensToJson failed.";
     return -1;
@@ -229,9 +229,9 @@ int main(int argc, char **argv) {
   dut->DutLoadSramElf(openocd_path, sram_elf_path, /*wait_for_done=*/false,
                       /*timeout_ms=*/1000);
   dut->DutConsoleTx("Waiting for CP provisioning data ...", spi_frame.payload,
-                    spi_frame.cursor,
+                    spi_frame.size,
                     /*timeout_ms=*/1000);
-  dut_spi_frame_t devid_spi_frame = {0};
+  dut_tx_spi_frame_t devid_spi_frame = {0};
   size_t num_spi_frames = 1;
   dut->DutConsoleRx("Exporting CP device ID ...", &devid_spi_frame,
                     &num_spi_frames,

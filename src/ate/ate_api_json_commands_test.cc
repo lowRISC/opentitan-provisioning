@@ -23,7 +23,7 @@ using testing::EqualsProto;
 class AteJsonTest : public ::testing::Test {};
 
 TEST_F(AteJsonTest, TokensToJson) {
-  dut_spi_frame_t frame;
+  dut_tx_spi_frame_t frame;
   token_t wafer_auth_secret = {0};
   token_t test_unlock_token = {0};
   token_t test_exit_token = {0};
@@ -41,7 +41,7 @@ TEST_F(AteJsonTest, TokensToJson) {
             0);
 
   std::string json_string =
-      std::string(reinterpret_cast<char*>(frame.payload), frame.cursor);
+      std::string(reinterpret_cast<char*>(frame.payload), frame.size);
 
   ot::dut_commands::TokensJSON tokens_cmd;
   google::protobuf::util::JsonParseOptions options;
@@ -83,9 +83,9 @@ TEST_F(AteJsonTest, DeviceIdFromJson) {
                                                   options);
   EXPECT_EQ(status.ok(), true);
 
-  dut_spi_frame_t frame = {0};
+  dut_tx_spi_frame_t frame = {0};
   memcpy(frame.payload, command.data(), command.size());
-  frame.cursor = command.size();
+  frame.size = command.size();
 
   device_id_bytes_t device_id = {0};
   EXPECT_EQ(DeviceIdFromJson(&frame, &device_id), 0);
@@ -103,11 +103,11 @@ TEST_F(AteJsonTest, RmaTokenWithoutCrc) {
   rma_token.data[0] = 0x11;
   rma_token.data[1] = 0x22;
 
-  dut_spi_frame_t frame;
+  dut_tx_spi_frame_t frame;
   EXPECT_EQ(RmaTokenToJson(&rma_token, &frame, /*skip_crc=*/true), 0);
 
   std::string json_string =
-      std::string(reinterpret_cast<char*>(frame.payload), frame.cursor);
+      std::string(reinterpret_cast<char*>(frame.payload), frame.size);
 
   // Use the proto representation of RmaTokenJSON to verify the JSON string.
   ot::dut_commands::RmaTokenJSON rma_hash_cmd;
@@ -134,17 +134,17 @@ TEST_F(AteJsonTest, RmaTokenWithCrc) {
   rma_token.data[0] = 0x11;
   rma_token.data[1] = 0x22;
 
-  dut_spi_frame_t frame_with_crc;
+  dut_tx_spi_frame_t frame_with_crc;
   EXPECT_EQ(RmaTokenToJson(&rma_token, &frame_with_crc, /*skip_crc=*/false), 0);
-  dut_spi_frame_t frame_without_crc;
+  dut_tx_spi_frame_t frame_without_crc;
   EXPECT_EQ(RmaTokenToJson(&rma_token, &frame_without_crc, /*skip_crc=*/true),
             0);
 
   std::string json_string_without_crc =
       std::string(reinterpret_cast<char*>(frame_without_crc.payload),
-                  frame_without_crc.cursor);
+                  frame_without_crc.size);
   std::string json_string_with_crc = std::string(
-      reinterpret_cast<char*>(frame_with_crc.payload), frame_with_crc.cursor);
+      reinterpret_cast<char*>(frame_with_crc.payload), frame_with_crc.size);
 
   // Use the proto representation of RmaTokenJSON to verify the JSON string.
   ot::dut_commands::RmaTokenJSON rma_hash_cmd;
@@ -173,11 +173,11 @@ TEST_F(AteJsonTest, CaSubjectKeys) {
   aux_ca_key_id.data[0] = 123;
   aux_ca_key_id.data[19] = 255;
 
-  dut_spi_frame_t frame;
+  dut_tx_spi_frame_t frame;
   EXPECT_EQ(CaSubjectKeysToJson(&dice_ca_key_id, &aux_ca_key_id, &frame), 0);
 
   std::string json_string =
-      std::string(reinterpret_cast<char*>(frame.payload), frame.cursor);
+      std::string(reinterpret_cast<char*>(frame.payload), frame.size);
 
   // Use the proto representation of CaSubjectKeysJSON to verify the JSON
   // string.
@@ -242,7 +242,7 @@ TEST_F(AteJsonTest, PersoBlob) {
   }
   blob.next_free = sizeof(blob.body);
 
-  dut_spi_frame_t frames[20] = {0};
+  dut_tx_spi_frame_t frames[20] = {0};
   size_t num_frames = sizeof(frames) / sizeof(frames[0]);
   EXPECT_EQ(PersoBlobToJson(&blob, frames, &num_frames), 0);
   EXPECT_EQ(num_frames, 17);
