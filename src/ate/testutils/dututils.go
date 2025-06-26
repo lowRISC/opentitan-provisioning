@@ -49,6 +49,7 @@ type Dut struct {
 	DeviceID      *ate.DeviceIDBytes
 	persoBlob     *ate.PersoBlob
 	endorsedCerts []ate.EndorseCertResponse
+	tbsCerts      map[string][]byte
 
 	// Cached tokens
 	waferAuthSecret     []byte
@@ -84,6 +85,14 @@ func NewDut(opts skumgr.Options, skuName string) (*Dut, error) {
 	var deviceID ate.DeviceIDBytes
 	copy(deviceID.Raw[:], dBytes)
 
+	// Generate TBS certificates for the DUT. This requires accessing the
+	// HSM.
+	certLabels := []string{"UDS"}
+	tbsCerts, _, err := tbsgen.BuildTestTBSCerts(opts, skuName, certLabels)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate TBS certificates for SKU %q: %v", skuName, err)
+	}
+
 	return &Dut{
 		skuMgr:              skumgr.NewManager(opts),
 		opts:                opts,
@@ -96,6 +105,7 @@ func NewDut(opts skumgr.Options, skuName string) (*Dut, error) {
 		rmaTokenHash:        []byte{},
 		wrappedRmaTokenSeed: []byte{},
 		caSubjectKeyIds:     [][]byte{},
+		tbsCerts:            tbsCerts,
 	}, nil
 }
 
@@ -255,15 +265,10 @@ func (d *Dut) SetWrappedRmaTokenSeed(seed []byte) {
 // GeneratePersoBlob builds a personalization blob containing TBS certificates.
 func (d *Dut) GeneratePersoBlob() ([]byte, error) {
 	time.Sleep(GeneratePersoBlobDelay)
-	certLabels := []string{"UDS"}
-	tbsCerts, _, err := tbsgen.BuildTestTBSCerts(d.opts, d.skuName, certLabels)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate TBS certificates for SKU %q: %v", d.skuName, err)
-	}
 
 	var tbsBytesToSign bytes.Buffer
 	var x509TbsCerts []ate.EndorseCertRequest
-	for label, tbs := range tbsCerts {
+	for label, tbs := range d.tbsCerts {
 		x509TbsCerts = append(x509TbsCerts, ate.EndorseCertRequest{
 			KeyLabel: label,
 			Tbs:      tbs,

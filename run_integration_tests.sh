@@ -17,17 +17,17 @@ SKU_NAMES="sival,cr01,pi01,ti01"
 # Run the PA loadtest.
 echo "Running PA loadtest ..."
 bazelisk run //src/pa:loadtest -- \
-   --enable_tls=true \
+   --ca_root_certs=${DEPLOYMENT_DIR}/certs/out/ca-cert.pem \
    --client_cert="${DEPLOYMENT_DIR}/certs/out/ate-client-cert.pem" \
    --client_key="${DEPLOYMENT_DIR}/certs/out/ate-client-key.pem" \
-   --ca_root_certs=${DEPLOYMENT_DIR}/certs/out/ca-cert.pem \
-   --pa_address="${OTPROV_DNS_PA}:${OTPROV_PORT_PA}" \
-   --sku_auth="test_password" \
-   --parallel_clients=2 \
-   --total_calls_per_method=4 \
-   --spm_config_dir="${DEPLOYMENT_DIR}/spm" \
+   --enable_tls=true \
    --hsm_so="${HSMTOOL_MODULE}" \
-   --sku_names="${SKU_NAMES}"
+   --pa_address="${OTPROV_DNS_PA}:${OTPROV_PORT_PA}" \
+   --parallel_clients=5 \
+   --sku_auth="test_password" \
+   --sku_names="${SKU_NAMES}" \
+   --spm_config_dir="${DEPLOYMENT_DIR}/spm" \
+   --total_duts=10
 echo "Done."
 
 # Run the CP and FT flows (default to hyper340 since that is installed in CI).

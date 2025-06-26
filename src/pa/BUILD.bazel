@@ -44,6 +44,9 @@ go_binary(
         "//src/spm/services:testdata",
     ],
     deps = [
+        "//src/ate:ate_go_lib",
+        "//src/ate/proto:dut_commands_go_proto",
+        "//src/ate/testutils:dututils",
         "//src/pa/proto:pa_go_pb",
         "//src/pa/services:pa",
         "//src/proto:device_id_go_pb",

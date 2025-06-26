@@ -7,13 +7,11 @@ package main
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
+	"encoding/binary"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
 	"strconv"
 	"strings"
 	"time"
@@ -22,14 +20,16 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/lowRISC/opentitan-provisioning/src/ate"
+	"github.com/lowRISC/opentitan-provisioning/src/ate/dututils"
+	pbd "github.com/lowRISC/opentitan-provisioning/src/ate/proto/dut_commands_go_pb"
+
 	pbp "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
 	pbc "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/cert_go_pb"
 	pbcommon "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/common_go_pb"
 	pbe "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/ecdsa_go_pb"
 	dpb "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_go_pb"
-	dtd "github.com/lowRISC/opentitan-provisioning/src/proto/device_testdata"
 	"github.com/lowRISC/opentitan-provisioning/src/spm/services/skumgr"
-	"github.com/lowRISC/opentitan-provisioning/src/spm/services/testutils/tbsgen"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/grpconn"
 	"github.com/lowRISC/opentitan-provisioning/src/utils/devid"
 )
@@ -41,18 +41,17 @@ const (
 )
 
 var (
-	paAddress           = flag.String("pa_address", "", "the PA server address to connect to; required")
-	enableTLS           = flag.Bool("enable_tls", false, "Enable mTLS secure channel; optional")
-	clientKey           = flag.String("client_key", "", "File path to the PEM encoding of the client's private key")
-	clientCert          = flag.String("client_cert", "", "File path to the PEM encoding of the client's certificate chain")
-	caRootCerts         = flag.String("ca_root_certs", "", "File path to the PEM encoding of the CA root certificates")
-	testSKUAuth         = flag.String("sku_auth", "test_password", "The SKU authorization password to use.")
-	skuNames            = flag.String("sku_names", "", "Comma-separated list of SKUs to test (e.g., sival,cr01,pi01,ti01). Required.")
-	parallelClients     = flag.Int("parallel_clients", 0, "The total number of clients to run concurrently")
-	totalCallsPerMethod = flag.Int("total_calls_per_method", 0, "The total number of calls to execute during the load test")
-	delayPerCall        = flag.Duration("delay_per_call", 10*time.Millisecond, "Delay between client calls used to emulate tester timeing. Default 100ms")
-	configDir           = flag.String("spm_config_dir", "", "Path to the SKU configuration directory.")
-	hsmSOLibPath        = flag.String("hsm_so", "", "File path to the HSM's PKCS#11 shared library.")
+	caRootCerts     = flag.String("ca_root_certs", "", "File path to the PEM encoding of the CA root certificates")
+	clientCert      = flag.String("client_cert", "", "File path to the PEM encoding of the client's certificate chain")
+	clientKey       = flag.String("client_key", "", "File path to the PEM encoding of the client's private key")
+	configDir       = flag.String("spm_config_dir", "", "Path to the SKU configuration directory.")
+	enableTLS       = flag.Bool("enable_tls", false, "Enable mTLS secure channel; optional")
+	hsmSOLibPath    = flag.String("hsm_so", "", "File path to the HSM's PKCS#11 shared library.")
+	paAddress       = flag.String("pa_address", "", "the PA server address to connect to; required")
+	parallelClients = flag.Int("parallel_clients", 1, "The total number of clients to run concurrently")
+	skuNames        = flag.String("sku_names", "", "Comma-separated list of SKUs to test (e.g., sival,cr01,pi01,ti01). Required.")
+	testSKUAuth     = flag.String("sku_auth", "test_password", "The SKU authorization password to use.")
+	totalDuts       = flag.Int("total_duts", 1, "The total number of DUTs to process during the load test")
 )
 
 // clientTask encapsulates a client connection.
@@ -62,9 +61,6 @@ type clientTask struct {
 
 	// results is a channel used to aggregate the results.
 	results chan *callResult
-
-	// delayPerCall is the delay applied between.
-	delayPerCall time.Duration
 
 	// client is the ProvisioningAppliance service client.
 	client pbp.ProvisioningApplianceServiceClient
@@ -91,16 +87,18 @@ type clientGroup struct {
 // authentication token provided by the ProvisioningAppliance. The connection
 // supports the `enableTLS` flag and associated certificates.
 func (c *clientTask) setup(ctx context.Context, skuName string) error {
-	opts := grpc.WithInsecure()
+	opts := []grpc.DialOption{grpc.WithBlock()}
 	if *enableTLS {
 		credentials, err := grpconn.LoadClientCredentials(*caRootCerts, *clientCert, *clientKey)
 		if err != nil {
 			return err
 		}
-		opts = grpc.WithTransportCredentials(credentials)
+		opts = append(opts, grpc.WithTransportCredentials(credentials))
+	} else {
+		opts = append(opts, grpc.WithInsecure())
 	}
 
-	conn, err := grpc.Dial(*paAddress, opts, grpc.WithBlock())
+	conn, err := grpc.Dial(*paAddress, opts...)
 	if err != nil {
 		return err
 	}
@@ -122,32 +120,107 @@ func (c *clientTask) setup(ctx context.Context, skuName string) error {
 
 // callFunc is a function that executes a call to the ProvisioningAppliance
 // service.
-type callFunc func(context.Context, int, string, *clientTask)
+type callFunc func(context.Context, int, string, *clientTask, []*dututils.Dut)
 
-// Executes the DeriveTokens call for a `numCalls` total and
-// produces a `callResult` which is sent to the `clientTask.results` channel.
-func testOTDeriveTokens(ctx context.Context, numCalls int, skuName string, c *clientTask) {
-	// Prepare request and auth token.
+// buildTokensJSON builds a Tokens JSON object from the given tokens.
+func buildTokensJSON(was, testUnlock, testExit *pbp.Token) ([]byte, error) {
+	tokens := &pbd.TokensJSON{
+		WaferAuthSecret:     make([]uint32, 8),
+		TestUnlockTokenHash: make([]uint64, 2),
+		TestExitTokenHash:   make([]uint64, 2),
+	}
+	for i := 0; i < 8; i++ {
+		tokens.WaferAuthSecret[i] = binary.LittleEndian.Uint32(was.Token[i*4:])
+	}
+	for i := 0; i < 2; i++ {
+		tokens.TestUnlockTokenHash[i] = binary.LittleEndian.Uint64(testUnlock.Token[i*8:])
+		tokens.TestExitTokenHash[i] = binary.LittleEndian.Uint64(testExit.Token[i*8:])
+	}
+	return json.Marshal(tokens)
+}
+
+// buildRmaTokenJSON builds a RMA token JSON object from the given token.
+func buildRmaTokenJSON(rmaToken *pbp.Token) ([]byte, error) {
+	token := &pbd.RmaTokenJSON{
+		Hash: make([]uint64, 2),
+	}
+	for i := 0; i < 2; i++ {
+		token.Hash[i] = binary.LittleEndian.Uint64(rmaToken.Token[i*8:])
+	}
+	return json.Marshal(token)
+}
+
+// buildCaSubjectKeysJSON builds a CA subject keys JSON object from the given
+// keys.
+func buildCaSubjectKeysJSON(keys [][]byte) ([]byte, error) {
+	if len(keys) != 2 {
+		return nil, fmt.Errorf("expected 2 CA subject keys, got %d", len(keys))
+	}
+	caKeys := &pbd.CaSubjectKeysJSON{
+		DiceAuthKeyKeyId: make([]uint32, 20),
+		ExtAuthKeyKeyId:  make([]uint32, 20),
+	}
+	for i, b := range keys[0] {
+		caKeys.DiceAuthKeyKeyId[i] = uint32(b)
+	}
+	for i, b := range keys[1] {
+		caKeys.ExtAuthKeyKeyId[i] = uint32(b)
+	}
+	return json.Marshal(caKeys)
+}
+
+func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututils.Dut) error {
 	md := metadata.Pairs("user_id", strconv.Itoa(c.id), "authorization", c.auth_token)
 	client_ctx := metadata.NewOutgoingContext(ctx, md)
 
-	request := &pbp.DeriveTokensRequest{
+	wasDiversifier, err := dut.WasDiversifier()
+	if err != nil {
+		return fmt.Errorf("failed to get WAS diversifier: %w", err)
+	}
+
+	// CP Stage
+	cpTokensReq := &pbp.DeriveTokensRequest{
 		Sku: skuName,
 		Params: []*pbp.TokenParams{
 			{
-				Seed:        pbp.TokenSeed_TOKEN_SEED_LOW_SECURITY,
+				Seed:        pbp.TokenSeed_TOKEN_SEED_HIGH_SECURITY,
 				Type:        pbp.TokenType_TOKEN_TYPE_RAW,
-				Size:        pbp.TokenSize_TOKEN_SIZE_128_BITS,
-				Diversifier: []byte("test_unlock"),
-				WrapSeed:    false,
+				Size:        pbp.TokenSize_TOKEN_SIZE_256_BITS,
+				Diversifier: wasDiversifier,
 			},
 			{
 				Seed:        pbp.TokenSeed_TOKEN_SEED_LOW_SECURITY,
-				Type:        pbp.TokenType_TOKEN_TYPE_RAW,
+				Type:        pbp.TokenType_TOKEN_TYPE_HASHED_OT_LC_TOKEN,
+				Size:        pbp.TokenSize_TOKEN_SIZE_128_BITS,
+				Diversifier: []byte("test_unlock"),
+			},
+			{
+				Seed:        pbp.TokenSeed_TOKEN_SEED_LOW_SECURITY,
+				Type:        pbp.TokenType_TOKEN_TYPE_HASHED_OT_LC_TOKEN,
 				Size:        pbp.TokenSize_TOKEN_SIZE_128_BITS,
 				Diversifier: []byte("test_exit"),
-				WrapSeed:    false,
 			},
+		},
+	}
+	cpTokens, err := c.client.DeriveTokens(client_ctx, cpTokensReq)
+	if err != nil {
+		return fmt.Errorf("failed to derive CP tokens: %w", err)
+	}
+	tokensJSON, err := buildTokensJSON(cpTokens.Tokens[0], cpTokens.Tokens[1], cpTokens.Tokens[2])
+	if err != nil {
+		return fmt.Errorf("failed to build tokens JSON: %w", err)
+	}
+	if err := dut.ProcessTokensJSON(tokensJSON); err != nil {
+		return fmt.Errorf("DUT failed to process tokens JSON: %w", err)
+	}
+	if _, err := dut.GenerateCpDeviceIDJson(); err != nil {
+		return fmt.Errorf("DUT failed to generate device ID JSON: %w", err)
+	}
+
+	// FT Stage
+	rmaTokenReq := &pbp.DeriveTokensRequest{
+		Sku: skuName,
+		Params: []*pbp.TokenParams{
 			{
 				Seed:        pbp.TokenSeed_TOKEN_SEED_KEYGEN,
 				Type:        pbp.TokenType_TOKEN_TYPE_HASHED_OT_LC_TOKEN,
@@ -155,189 +228,137 @@ func testOTDeriveTokens(ctx context.Context, numCalls int, skuName string, c *cl
 				Diversifier: []byte("rma,device_id"),
 				WrapSeed:    true,
 			},
-			{
-				Seed:        pbp.TokenSeed_TOKEN_SEED_HIGH_SECURITY,
-				Type:        pbp.TokenType_TOKEN_TYPE_RAW,
-				Size:        pbp.TokenSize_TOKEN_SIZE_256_BITS,
-				Diversifier: []byte("was,device_id"),
-				WrapSeed:    false,
-			},
 		},
 	}
-
-	// Send request to PA.
-	for i := 0; i < numCalls; i++ {
-		_, err := c.client.DeriveTokens(client_ctx, request)
-		if err != nil {
-			log.Printf("error: client id: %d, error: %v", c.id, err)
-		}
-		c.results <- &callResult{id: c.id, err: err}
-		time.Sleep(c.delayPerCall)
+	rmaTokenResp, err := c.client.DeriveTokens(client_ctx, rmaTokenReq)
+	if err != nil {
+		return fmt.Errorf("failed to derive RMA token: %w", err)
 	}
-}
+	rmaTokenJSON, err := buildRmaTokenJSON(rmaTokenResp.Tokens[0])
+	if err != nil {
+		return fmt.Errorf("failed to build RMA token JSON: %w", err)
+	}
+	if err := dut.ProcessRmaTokenJSON(rmaTokenJSON); err != nil {
+		return fmt.Errorf("DUT failed to process RMA token JSON: %w", err)
+	}
+	dut.SetWrappedRmaTokenSeed(rmaTokenResp.Tokens[0].WrappedSeed)
 
-// Executes the GetCaSubjectKeys call for a `numCalls` total and
-// produces a `callResult` which is sent to the `clientTask.results` channel.
-func testOTGetCaSubjectKeys(ctx context.Context, numCalls int, skuName string, c *clientTask) {
-	// Prepare request and auth token.
-	md := metadata.Pairs("user_id", strconv.Itoa(c.id), "authorization", c.auth_token)
-	client_ctx := metadata.NewOutgoingContext(ctx, md)
-
-	request := &pbp.GetCaSubjectKeysRequest{
+	caKeysReq := &pbp.GetCaSubjectKeysRequest{
 		Sku:        skuName,
-		CertLabels: []string{"UDS"},
+		CertLabels: []string{"UDS", "EXT"},
+	}
+	caKeysResp, err := c.client.GetCaSubjectKeys(client_ctx, caKeysReq)
+	if err != nil {
+		return fmt.Errorf("failed to get CA subject keys: %w", err)
+	}
+	caKeysJSON, err := buildCaSubjectKeysJSON(caKeysResp.KeyIds)
+	if err != nil {
+		return fmt.Errorf("failed to build CA subject keys JSON: %w", err)
+	}
+	if err := dut.ProcessCaSubjectKeysJSON(caKeysJSON); err != nil {
+		return fmt.Errorf("DUT failed to process CA subject keys JSON: %w", err)
 	}
 
-	// Send request to PA.
-	for i := 0; i < numCalls; i++ {
-		r, err := c.client.GetCaSubjectKeys(client_ctx, request)
-		if err != nil {
-			log.Printf("error: client id: %d, error: %v", c.id, err)
-		}
-		for j, label := range request.CertLabels {
-			log.Printf("CA %q subject key: 0x%s", label, hex.EncodeToString(r.KeyIds[j]))
-		}
-		c.results <- &callResult{id: c.id, err: err}
-		time.Sleep(c.delayPerCall)
+	persoBlobJSON, err := dut.GeneratePersoBlob()
+	if err != nil {
+		return fmt.Errorf("DUT failed to generate perso blob: %w", err)
 	}
-}
+	var persoBlobFromDUT pbd.PersoBlobJSON
+	if err := json.Unmarshal(persoBlobJSON, &persoBlobFromDUT); err != nil {
+		return fmt.Errorf("failed to unmarshal perso blob from DUT: %w", err)
+	}
+	blobBytes := make([]byte, persoBlobFromDUT.NextFree)
+	for i := 0; i < int(persoBlobFromDUT.NextFree); i++ {
+		blobBytes[i] = byte(persoBlobFromDUT.Body[i])
+	}
+	persoBlob, err := ate.UnpackPersoBlob(blobBytes)
+	if err != nil {
+		return fmt.Errorf("failed to unpack perso blob from DUT: %w", err)
+	}
 
-func testOTEndorseCerts(ctx context.Context, numCalls int, skuName string, c *clientTask, tbs, dID, signature []byte) {
-	// Prepare request and auth token.
-	md := metadata.Pairs("user_id", strconv.Itoa(c.id), "authorization", c.auth_token)
-	client_ctx := metadata.NewOutgoingContext(ctx, md)
-
-	request := &pbp.EndorseCertsRequest{
+	endorseReq := &pbp.EndorseCertsRequest{
 		Sku:         skuName,
-		Diversifier: dID,
-		Signature:   signature,
-		Bundles: []*pbp.EndorseCertBundle{
-			{
-				KeyParams: &pbc.SigningKeyParams{
-					KeyLabel: "UDS",
-					Key: &pbc.SigningKeyParams_EcdsaParams{
-						EcdsaParams: &pbe.EcdsaParams{
-							HashType: pbcommon.HashType_HASH_TYPE_SHA256,
-							Curve:    pbcommon.EllipticCurveType_ELLIPTIC_CURVE_TYPE_NIST_P256,
-							Encoding: pbe.EcdsaSignatureEncoding_ECDSA_SIGNATURE_ENCODING_DER,
-						},
+		Diversifier: wasDiversifier,
+		Signature:   persoBlob.Signature.Raw[:],
+		Bundles:     []*pbp.EndorseCertBundle{},
+	}
+	for _, tbsCert := range persoBlob.X509TbsCerts {
+		endorseReq.Bundles = append(endorseReq.Bundles, &pbp.EndorseCertBundle{
+			KeyParams: &pbc.SigningKeyParams{
+				KeyLabel: tbsCert.KeyLabel,
+				Key: &pbc.SigningKeyParams_EcdsaParams{
+					EcdsaParams: &pbe.EcdsaParams{
+						HashType: pbcommon.HashType_HASH_TYPE_SHA256,
+						Curve:    pbcommon.EllipticCurveType_ELLIPTIC_CURVE_TYPE_NIST_P256,
+						Encoding: pbe.EcdsaSignatureEncoding_ECDSA_SIGNATURE_ENCODING_DER,
 					},
 				},
-				Tbs: tbs,
 			},
-		},
-	}
-	for i := 0; i < numCalls; i++ {
-		_, err := c.client.EndorseCerts(client_ctx, request)
-		if err != nil {
-			log.Printf("error: client id: %d, error: %v", c.id, err)
-		}
-		c.results <- &callResult{id: c.id, err: err}
-		time.Sleep(c.delayPerCall)
-	}
-}
-
-func NewEndorseCertTest(tbs []byte) callFunc {
-	d := &dpb.DeviceId{
-		HardwareOrigin: &dpb.HardwareOrigin{
-			SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
-			ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_A1,
-			DeviceIdentificationNumber: rand.Uint64(), // Each device ID must be unique.
-		},
-		SkuSpecific: make([]byte, dtd.DeviceIdSkuSpecificLenInBytes),
-	}
-	dBytes, err := devid.HardwareOriginToRawBytes(d.HardwareOrigin)
-	if err != nil {
-		log.Fatalf("unable to convert device ID to raw bytes: %v", err)
-	}
-
-	// The ATE DLL API requires a diversifier of 48 bytes. We emulate this by creating
-	// a 48 byte slice and appending the hardware ID to it. The first 3 bytes are
-	// "was" and the rest are the hardware ID.
-	dID := make([]byte, 48)
-	copy(dID, []byte("was"))
-	copy(dID[3:], dBytes)
-
-	return callFunc(func(ctx context.Context, numCalls int, skuName string, c *clientTask) {
-		// Prepare request and auth token.
-		md := metadata.Pairs("user_id", strconv.Itoa(c.id), "authorization", c.auth_token)
-		client_ctx := metadata.NewOutgoingContext(ctx, md)
-
-		// Obtain the WAS token and calculate the signature over the TBS,
-		// emulating the behavior of the device.
-		result, err := c.client.DeriveTokens(client_ctx, &pbp.DeriveTokensRequest{
-			Sku: skuName,
-			Params: []*pbp.TokenParams{
-				{
-					Seed:        pbp.TokenSeed_TOKEN_SEED_HIGH_SECURITY,
-					Type:        pbp.TokenType_TOKEN_TYPE_RAW,
-					Size:        pbp.TokenSize_TOKEN_SIZE_256_BITS,
-					Diversifier: dID,
-					WrapSeed:    false,
-				},
-			},
+			Tbs: tbsCert.Tbs,
 		})
-		if err != nil {
-			log.Fatalf("failed to get WAS token: %v", err)
-		}
-		if len(result.Tokens) != 1 {
-			log.Fatalf("expected 1 token, got %d", len(result.Tokens))
-		}
-		was := result.Tokens[0].Token
-		// The WAS key is loaded into the HMAC peripheral on the device as an array
-		// of 32-bit words. On a little-endian system, this causes the bytes within
-		// each word to be swapped. We must perform the same transformation on the
-		// key before using it in Go's HMAC implementation.
-		for i := 0; i < len(was); i += 4 {
-			was[i], was[i+1], was[i+2], was[i+3] = was[i+3], was[i+2], was[i+1], was[i]
-		}
-		mac := hmac.New(sha256.New, was)
-		mac.Write(tbs)
-		sig := mac.Sum(nil)
+	}
+	endorsedCerts, err := c.client.EndorseCerts(client_ctx, endorseReq)
+	if err != nil {
+		return fmt.Errorf("failed to endorse certs: %w", err)
+	}
 
-		testOTEndorseCerts(ctx, numCalls, skuName, c, tbs, dID, sig)
-	})
-}
+	var endorsedCertsForDut []ate.EndorseCertResponse
+	for _, cert := range endorsedCerts.Certs {
+		endorsedCertsForDut = append(endorsedCertsForDut, ate.EndorseCertResponse{
+			KeyLabel: cert.KeyLabel,
+			Cert:     cert.Cert.Blob,
+		})
+	}
+	persoBlobToDut, err := ate.BuildPersoBlob(&ate.PersoBlob{X509Certs: endorsedCertsForDut})
+	if err != nil {
+		return fmt.Errorf("failed to build perso blob for DUT: %w", err)
+	}
 
-// Executes the RegisterDevice call for a `numCalls` total and
-// produces a `callResult` which is sent to the `clientTask.results` channel.
-func testOTRegisterDevice(ctx context.Context, numCalls int, skuName string, c *clientTask) {
-	// Prepare request and auth token.
-	md := metadata.Pairs("user_id", strconv.Itoa(c.id), "authorization", c.auth_token)
-	client_ctx := metadata.NewOutgoingContext(ctx, md)
+	persoBlobToDutForJSON := &pbd.PersoBlobJSON{
+		NumObjs:  uint32(len(endorsedCertsForDut)),
+		NextFree: uint32(len(persoBlobToDut)),
+		Body:     make([]uint32, dututils.KPersoBlobMaxSize),
+	}
+	for i, b := range persoBlobToDut {
+		persoBlobToDutForJSON.Body[i] = uint32(b)
+	}
+	persoBlobToDutJSON, err := json.Marshal(persoBlobToDutForJSON)
+	if err != nil {
+		return fmt.Errorf("failed to marshal perso blob for DUT: %w", err)
+	}
 
-	request := &pbp.RegistrationRequest{
+	if err := dut.StoreEndorsedCerts(persoBlobToDutJSON); err != nil {
+		return fmt.Errorf("DUT failed to store endorsed certs: %w", err)
+	}
+
+	deviceData, err := devid.FromRawBytes(dut.DeviceID.Raw[:])
+	if err != nil {
+		return fmt.Errorf("failed to convert device ID from raw bytes: %w", err)
+	}
+	regReq := &pbp.RegistrationRequest{
 		DeviceData: &dpb.DeviceData{
-			Sku: skuName,
-			DeviceId: &dpb.DeviceId{
-				HardwareOrigin: &dpb.HardwareOrigin{
-					SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
-					ProductId:                  dpb.ProductId_PRODUCT_ID_EARLGREY_Z1,
-					DeviceIdentificationNumber: rand.Uint64(), // Each device ID must be unique.
-				},
-				SkuSpecific: make([]byte, dtd.DeviceIdSkuSpecificLenInBytes),
-			},
-			DeviceLifeCycle:       dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
-			WrappedRmaUnlockToken: make([]byte, dtd.WrappedRmaTokenLenInBytes),
-			PersoTlvData:          make([]byte, dtd.MaxPersoTlvDataLenInBytes),
+			Sku:             skuName,
+			DeviceId:        deviceData,
+			DeviceLifeCycle: dpb.DeviceLifeCycle_DEVICE_LIFE_CYCLE_PROD,
 		},
 	}
+	if _, err := c.client.RegisterDevice(client_ctx, regReq); err != nil {
+		return fmt.Errorf("failed to register device: %w", err)
+	}
 
-	// Send request to PA.
-	for i := 0; i < numCalls; i++ {
-		_, err := c.client.RegisterDevice(client_ctx, request)
-		if err != nil {
-			log.Printf("error: client id: %d, error: %v", c.id, err)
-		}
+	return nil
+}
+
+func testManufacturingFlow(ctx context.Context, numDuts int, skuName string, c *clientTask, duts []*dututils.Dut) {
+	for i := 0; i < numDuts; i++ {
+		dut := duts[i]
+		log.Printf("client %d processing DUT %x", c.id, dut.DeviceID.Raw[:])
+		err := processDut(ctx, c, skuName, dut)
 		c.results <- &callResult{id: c.id, err: err}
-		// Since the device IDs need to be unique, subsequent calls with the same ID will
-		// result in an already exists error.
-		request.DeviceData.DeviceId.HardwareOrigin.DeviceIdentificationNumber = rand.Uint64()
-		time.Sleep(c.delayPerCall)
 	}
 }
 
-func newClientGroup(ctx context.Context, numClients, numCalls int, delayPerCall time.Duration, skuName string) (*clientGroup, error) {
+func newClientGroup(ctx context.Context, numClients int, skuName string) (*clientGroup, error) {
 	if numClients <= 0 {
 		return nil, fmt.Errorf("number of clients must be at least 1, got %d", numClients)
 	}
@@ -351,9 +372,8 @@ func newClientGroup(ctx context.Context, numClients, numCalls int, delayPerCall 
 		i := i
 		eg.Go(func() error {
 			clients[i] = &clientTask{
-				id:           i,
-				results:      results,
-				delayPerCall: delayPerCall,
+				id:      i,
+				results: results,
 			}
 			return clients[i].setup(ctx_start, skuName)
 		})
@@ -367,39 +387,58 @@ func newClientGroup(ctx context.Context, numClients, numCalls int, delayPerCall 
 	}, nil
 }
 
-// run executes the load test launching `numClients` clients and executing
-// `numCalls` gRPC calls. Each client waits a duration of `delayPerCall`
-// between calls.
-func run(ctx context.Context, cg *clientGroup, numCalls int, skuName string, test callFunc) error {
-	if numCalls <= 0 {
-		return fmt.Errorf("number of calls must be at least 1, got: %d", numCalls)
+func run(ctx context.Context, cg *clientGroup, numDutsPerClient int, skuName string, test callFunc, allDuts []*dututils.Dut) (int, error) {
+	if numDutsPerClient <= 0 && len(allDuts) > 0 {
+		return 0, fmt.Errorf("number of DUTs must be at least 1, got: %d", len(allDuts))
 	}
 
 	eg, ctx_test := errgroup.WithContext(ctx)
-	for _, c := range cg.clients {
-		c := c
+	for i, c := range cg.clients {
+		client := c
+		start := i * numDutsPerClient
+		end := start + numDutsPerClient
+		if end > len(allDuts) {
+			end = len(allDuts)
+		}
+		if start >= end {
+			continue
+		}
+		clientDuts := allDuts[start:end]
+
 		eg.Go(func() error {
-			test(ctx_test, numCalls, skuName, c)
+			test(ctx_test, len(clientDuts), skuName, client, clientDuts)
 			return nil
 		})
 	}
 
-	expectedNumCalls := len(cg.clients) * numCalls
-	errCount := 0
-	eg.Go(func() error {
-		for i := 0; i < expectedNumCalls; i++ {
-			r := <-cg.results
-			if r.err != nil {
-				errCount++
-			}
-		}
-		if errCount > 0 {
-			return fmt.Errorf("detected %d call errors", errCount)
-		}
-		return nil
-	})
+	// Wait for all clients to finish in a separate goroutine.
+	clientErrChan := make(chan error)
+	go func() {
+		clientErrChan <- eg.Wait()
+	}()
 
-	return eg.Wait()
+	// Collect results.
+	errCount := 0
+	errorMsgs := []string{}
+	expectedNumCalls := len(allDuts)
+	for i := 0; i < expectedNumCalls; i++ {
+		r := <-cg.results
+		if r.err != nil {
+			errorMsgs = append(errorMsgs, fmt.Sprintf("client %d: %v", r.id, r.err))
+			errCount++
+		}
+	}
+
+	// Check for errors from clients.
+	if err := <-clientErrChan; err != nil {
+		return errCount, err
+	}
+
+	if errCount > 0 {
+		return errCount, fmt.Errorf("detected %d call errors. errors: \n%s", errCount, strings.Join(errorMsgs, "\n"))
+	}
+
+	return 0, nil
 }
 
 func main() {
@@ -408,49 +447,47 @@ func main() {
 	if *skuNames == "" {
 		log.Fatalf("sku_names is required")
 	}
+	if *totalDuts == 0 {
+		log.Fatalf("total_duts must be greater than 0")
+	}
 
 	type result struct {
 		skuName  string
 		testName string
 		pass     bool
 		msg      string
+		rate     float64
+		duration time.Duration
+		numDuts  int
 	}
 	results := []result{}
 	parsedSkuNames := strings.Split(*skuNames, ",")
 
+	opts := skumgr.Options{
+		ConfigDir:    *configDir,
+		HSMSOLibPath: *hsmSOLibPath,
+	}
+
 	for _, skuName := range parsedSkuNames {
 		log.Printf("Processing SKU: %q", skuName)
 
-		opts := skumgr.Options{
-			ConfigDir:    *configDir,
-			HSMSOLibPath: *hsmSOLibPath,
+		duts := make([]*dututils.Dut, *totalDuts)
+		for i := 0; i < *totalDuts; i++ {
+			dut, err := dututils.NewDut(opts, skuName)
+			if err != nil {
+				log.Fatalf("failed to create DUT %d for SKU %q: %v", i, skuName, err)
+			}
+			duts[i] = dut
 		}
-		certLabels := []string{"UDS"}
-		tbsCerts, _, err := tbsgen.BuildTestTBSCerts(opts, skuName, certLabels)
-		if err != nil {
-			log.Fatalf("failed to generate TBS certificates for SKU %q: %v", skuName, err)
-		}
-		log.Printf("Generated TBS certs for SKU %q", skuName)
+		log.Printf("Created %d DUTs for SKU %q", len(duts), skuName)
 
 		tests := []struct {
 			testName string
 			testFunc callFunc
 		}{
 			{
-				testName: "OT:DeriveTokens",
-				testFunc: testOTDeriveTokens,
-			},
-			{
-				testName: "OT:GetCaSubjectKeys",
-				testFunc: testOTGetCaSubjectKeys,
-			},
-			{
-				testName: "OT:EndorseCerts",
-				testFunc: NewEndorseCertTest(tbsCerts["UDS"]),
-			},
-			{
-				testName: "OT:RegisterDevice",
-				testFunc: testOTRegisterDevice,
+				testName: "ManufacturingFlow",
+				testFunc: testManufacturingFlow,
 			},
 		}
 
@@ -458,22 +495,37 @@ func main() {
 			log.Printf("sku: %q, test: %q", skuName, t.testName)
 			currentResult := result{skuName: skuName, testName: t.testName}
 			ctx := context.Background()
-			cg, err := newClientGroup(ctx, *parallelClients, *totalCallsPerMethod, *delayPerCall, skuName)
+			cg, err := newClientGroup(ctx, *parallelClients, skuName)
 			if err != nil {
 				currentResult.pass = false
 				currentResult.msg = fmt.Sprintf("failed to initialize client tasks: %v", err)
 				results = append(results, currentResult)
 				continue
 			}
+
+			dutsPerClient := *totalDuts / *parallelClients
+			if *totalDuts%*parallelClients != 0 {
+				dutsPerClient++
+			}
+
 			log.Printf("Running test %q for SKU %q", t.testName, skuName)
-			if err := run(ctx, cg, *totalCallsPerMethod, skuName, t.testFunc); err != nil {
+			startTime := time.Now()
+			errCount, err := run(ctx, cg, dutsPerClient, skuName, t.testFunc, duts)
+			elapsedTime := time.Since(startTime)
+			if err != nil {
 				currentResult.pass = false
-				currentResult.msg = fmt.Sprintf("failed to execute test: %v", err)
+				currentResult.msg = fmt.Sprintf("failed to execute test (failure count: %d): %v", errCount, err)
 				results = append(results, currentResult)
 				continue
 			}
+
+			rate := float64(*totalDuts) / elapsedTime.Hours()
+
 			currentResult.pass = true
 			currentResult.msg = "PASS"
+			currentResult.rate = rate
+			currentResult.duration = elapsedTime
+			currentResult.numDuts = *totalDuts
 			results = append(results, currentResult)
 		}
 	}
@@ -481,13 +533,14 @@ func main() {
 	failed := 0
 	for _, r := range results {
 		if !r.pass {
-			failed = failed + 1
+			failed++
 		}
-		log.Printf("sku: %q, test: %q, result: %v, msg: %q", r.skuName, r.testName, r.pass, r.msg)
+		log.Printf("sku: %q", r.skuName)
+		log.Printf("   test: %q, result: %t, msg: %q", r.testName, r.pass, r.msg)
+		log.Printf("   rate: %.2f chips/hour, duration: %.2fs, numDuts: %d", r.rate, r.duration.Seconds(), r.numDuts)
 	}
 	if failed > 0 {
 		log.Fatalf("Test FAIL!. %d tests failed", failed)
-		return
 	}
 	log.Print("Test PASS!")
 }
