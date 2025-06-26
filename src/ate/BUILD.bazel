@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@crt//rules:pkg_win.bzl", "pkg_win")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -120,4 +121,18 @@ pkg_win(
         ":ate",
     ],
     platform = "@crt//platforms/x86_32:win32",
+)
+
+go_library(
+    name = "ate_go_lib",
+    srcs = ["perso_blob.go"],
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/ate",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "perso_blob_test",
+    srcs = ["perso_blob_test.go"],
+    embed = [":ate_go_lib"],
+    deps = ["@com_github_google_go_cmp//cmp:go_default_library"],
 )
