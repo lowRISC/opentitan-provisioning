@@ -599,6 +599,39 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
   return 0;
 }
 
+DLLEXPORT int GetOwnerFwBootMessage(ate_client_ptr client, const char *sku,
+                                    char *boot_msg, size_t boot_msg_size) {
+  DLOG(INFO) << "GetOwnerFwBootMessage";
+
+  if (sku == nullptr || boot_msg == nullptr) {
+    return static_cast<int>(absl::StatusCode::kInvalidArgument);
+  }
+
+  pa::GetOwnerFwBootMessageRequest req;
+  req.set_sku(sku);
+
+  AteClient *ate = reinterpret_cast<AteClient *>(client);
+  pa::GetOwnerFwBootMessageResponse resp;
+  auto status = ate->GetOwnerFwBootMessage(req, &resp);
+
+  if (!status.ok()) {
+    LOG(ERROR) << "GetOwnerFwBootMessage failed with " << status.error_code()
+               << ": " << status.error_message();
+    return static_cast<int>(status.error_code());
+  }
+
+  if (resp.boot_message().size() + 1 > boot_msg_size) {
+    LOG(ERROR) << "GetOwnerFwBootMessage failed due to insufficient output "
+                  "string size";
+    return static_cast<int>(absl::StatusCode::kInvalidArgument);
+  }
+
+  memcpy(boot_msg, resp.boot_message().c_str(), resp.boot_message().size());
+  boot_msg[resp.boot_message().size()] = '\0';
+
+  return 0;
+}
+
 // Get the current time in milliseconds.
 uint64_t getMilliseconds(void) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(

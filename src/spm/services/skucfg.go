@@ -13,13 +13,14 @@ import (
 type AttrName string
 
 const (
-	AttrNameSeedSecHi         AttrName = "SeedSecHi"
-	AttrNameSeedSecLo                  = "SeedSecLo"
-	AttrNameWrappingKeyLabel           = "WrappingKeyLabel"
-	AttrNameWrappingMechanism          = "WrappingMechanism"
-	AttrNameWASKeyLabel                = "WASKeyLabel"
-	AttrNameWASDisable                 = "WASDisable"
-	AttrNameCertChainDiceLeaf          = "CertChainDiceLeaf"
+	AttrNameSeedSecHi                AttrName = "SeedSecHi"
+	AttrNameSeedSecLo                         = "SeedSecLo"
+	AttrNameWrappingKeyLabel                  = "WrappingKeyLabel"
+	AttrNameWrappingMechanism                 = "WrappingMechanism"
+	AttrNameWASKeyLabel                       = "WASKeyLabel"
+	AttrNameWASDisable                        = "WASDisable"
+	AttrNameCertChainDiceLeaf                 = "CertChainDiceLeaf"
+	AttrNameOwnerFirmwareBootMessage          = "OwnerFirmwareBootMessage"
 )
 
 // WrappingMechanism provides the wrapping method for symmetric keys.

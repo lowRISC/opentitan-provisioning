@@ -614,6 +614,21 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char* sku,
                            endorse_cert_response_t* certs);
 
 /**
+ * Gets the owner firmware boot success message for a given SKU.
+ *
+ * This function retrieves the owner firmware boot success message from the
+ * PA/SPM. The caller should allocate enough memory to store the string.
+ *
+ * @param client A client instance.
+ * @param sku The SKU of the product to generate the keys for.
+ * @param[out] boot_msg The boot message string.
+ * @param boot_msg_size The maximum size of the boot message.
+ * @return The result of the operation.
+ */
+DLLEXPORT int GetOwnerFwBootMessage(ate_client_ptr client, const char* sku,
+                                    char* boot_msg, size_t boot_msg_size);
+
+/**
  * Register a device.
  *
  * The function registers a provisioned device in the device registry.

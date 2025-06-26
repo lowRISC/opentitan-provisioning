@@ -63,6 +63,13 @@ class DutLib {
    */
   void DutLcTransition(const std::string& openocd, const uint8_t* token,
                        size_t token_size, uint32_t target_lc_state);
+  /**
+   * Calls opentitanlib test utils to reset the DUT and wait for a ROM_EXT and
+   * owner firmware boot message to appear over the console to indicate the DUT
+   * has been provisioned successfully.
+   */
+  void DutCheckTransportImgBoot(const char* owner_fw_boot_msg,
+                                uint64_t timeout_ms);
 
  private:
   // Must be 2x the opentitanlib UartConsole buffer size defined here:

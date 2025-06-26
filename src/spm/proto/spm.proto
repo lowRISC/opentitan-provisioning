@@ -51,6 +51,10 @@ service SpmService {
   // VerifyDeviceData verifies the device data for a given SKU.
   rpc VerifyDeviceData(VerifyDeviceDataRequest)
       returns (VerifyDeviceDataResponse) {}
+
+  // GetOwnerFwBootMessage retrieves the owner firmware boot message for a SKU.
+  rpc GetOwnerFwBootMessage(pa.GetOwnerFwBootMessageRequest)
+      returns (pa.GetOwnerFwBootMessageResponse) {}
 }
 
 // Endorse data request.

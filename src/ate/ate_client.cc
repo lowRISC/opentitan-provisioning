@@ -31,6 +31,8 @@ using pa::EndorseCertsRequest;
 using pa::EndorseCertsResponse;
 using pa::GetCaSubjectKeysRequest;
 using pa::GetCaSubjectKeysResponse;
+using pa::GetOwnerFwBootMessageRequest;
+using pa::GetOwnerFwBootMessageResponse;
 using pa::InitSessionRequest;
 using pa::InitSessionResponse;
 using pa::ProvisioningApplianceService;
@@ -175,6 +177,14 @@ Status AteClient::GetCaSubjectKeys(GetCaSubjectKeysRequest& request,
 
   // The actual RPC - call the server's DeriveTokens method.
   return stub_->GetCaSubjectKeys(&context, request, reply);
+}
+
+Status AteClient::GetOwnerFwBootMessage(GetOwnerFwBootMessageRequest& request,
+                                        GetOwnerFwBootMessageResponse* reply) {
+  LOG(INFO) << "AteClient::GetOwnerFwBootMessage";
+  ClientContext context;
+  context.AddMetadata("authorization", sku_session_token_);
+  return stub_->GetOwnerFwBootMessage(&context, request, reply);
 }
 
 Status AteClient::RegisterDevice(RegistrationRequest& request,

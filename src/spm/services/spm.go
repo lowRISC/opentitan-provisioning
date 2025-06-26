@@ -605,3 +605,20 @@ func (s *server) VerifyDeviceData(ctx context.Context, request *pbs.VerifyDevice
 
 	return &pbs.VerifyDeviceDataResponse{}, nil
 }
+
+// GetOwnerFwBootMessage retrieves the owner firmware boot message for a SKU.
+func (s *server) GetOwnerFwBootMessage(ctx context.Context, request *pbp.GetOwnerFwBootMessageRequest) (*pbp.GetOwnerFwBootMessageResponse, error) {
+	sku, ok := s.skuManager.GetSku(request.Sku)
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.Sku)
+	}
+
+	msg, err := sku.Config.GetAttribute(skucfg.AttrNameOwnerFirmwareBootMessage)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "could not fetch owner firmware boot message: %v", err)
+	}
+
+	return &pbp.GetOwnerFwBootMessageResponse{
+		BootMessage: msg,
+	}, nil
+}

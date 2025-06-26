@@ -411,6 +411,20 @@ int main(int argc, char **argv) {
     return -1;
   }
 
+  // TODO(timothytrippel): check the hash of all certificates written to flash.
+
+  // Wait for the DUT to boot the transport image successfully (i.e., the
+  // ROM_EXT + Owner FW payload).
+  dut->DutConsoleWaitForRx("Personalization done.\n", /*timeout_ms=*/1000);
+  constexpr size_t kMaxBootMessageStringSize = 50;
+  char boot_msg_cstr[kMaxBootMessageStringSize] = {0};
+  if (GetOwnerFwBootMessage(ate_client, absl::GetFlag(FLAGS_sku).c_str(),
+                            boot_msg_cstr, kMaxBootMessageStringSize) != 0) {
+    LOG(ERROR) << "GetOwnerFwBootMessage failed.";
+    return -1;
+  }
+  dut->DutCheckTransportImgBoot(boot_msg_cstr, /*timeout_ms=*/5000);
+
   // Close session with PA.
   if (CloseSession(ate_client) != 0) {
     LOG(ERROR) << "CloseSession with PA failed.";

@@ -150,6 +150,16 @@ func (s *server) GetCaSubjectKeys(ctx context.Context, request *pap.GetCaSubject
 	return r, nil
 }
 
+// GetOwnerFwBootMessage retrieves the owner firmware boot message for a given SKU.
+func (s *server) GetOwnerFwBootMessage(ctx context.Context, request *pap.GetOwnerFwBootMessageRequest) (*pap.GetOwnerFwBootMessageResponse, error) {
+	log.Printf("In PA - Received GetOwnerFwBootMessage request")
+	r, err := s.spmClient.GetOwnerFwBootMessage(ctx, request)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "SPM returned error: %v", err)
+	}
+	return r, nil
+}
+
 // RegisterDevice registers a new device record in the registry database.
 //
 // The registry database is accessed through the ProxyBuffer or any downstream

@@ -26,6 +26,8 @@ service ProvisioningApplianceService {
     returns (GetStoredTokensResponse) {}
   rpc GetCaSubjectKeys(GetCaSubjectKeysRequest)
     returns (GetCaSubjectKeysResponse) {}
+  rpc GetOwnerFwBootMessage(GetOwnerFwBootMessageRequest)
+    returns (GetOwnerFwBootMessageResponse) {}
   rpc RegisterDevice(RegistrationRequest)
     returns (RegistrationResponse) {}
 }
@@ -198,6 +200,17 @@ message GetCaSubjectKeysResponse{
   repeated bytes key_ids = 1;
 }
 
+// Get owner firmware boot message request.
+message GetOwnerFwBootMessageRequest{
+  // SKU identifier. Required.
+  string sku = 1;
+}
+
+// Get owner firmware boot message response.
+message GetOwnerFwBootMessageResponse{
+  // Boot message string.
+  string boot_message = 1;
+}
 
 // Close SKU session request.
 message CloseSessionRequest {

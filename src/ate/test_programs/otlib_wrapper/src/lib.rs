@@ -538,3 +538,69 @@ pub extern "C" fn OtLibLcTransition(
         .remove()
         .expect("Could not remove bootstrap straps.");
 }
+
+#[no_mangle]
+pub extern "C" fn OtLibCheckTransportImgBoot(
+    transport: *const TransportWrapper,
+    owner_fw_boot_msg: *mut c_char,
+    timeout_ms: u64,
+) {
+    // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
+    // the call to `OtLibFpgaTransportInit(...)` above.
+    let transport: &TransportWrapper = unsafe { &*transport };
+
+    // Unpack boot message string.
+    // SAFETY: The boot message string must be set by the caller and be valid.
+    let owner_fw_boot_msg_cstr = unsafe { CStr::from_ptr(owner_fw_boot_msg) };
+    let owner_fw_boot_msg_in = owner_fw_boot_msg_cstr.to_str().unwrap();
+
+    let timeout = Duration::from_millis(timeout_ms);
+
+    // Reset the DUT and get the UART console handle.
+    transport
+        .reset_target(timeout, true)
+        .expect("Failed to reset the DUT.");
+    let uart_console = transport
+        .uart("console")
+        .expect("Unable to instantiate the UART console.");
+
+    // Wait for a successful ROM_EXT boot message.
+    println!("Waiting for ROM_EXT to boot ...");
+    let _ = UartConsole::wait_for(&*uart_console, r"(?:\n| )ROM_EXT[: ](.*)\r\n", timeout)
+        .expect("Failed to boot the ROM_EXT.");
+    println!("ROM_EXT has booted.");
+
+    // CAUTION: This error message should match the one in
+    //   @lowrisc_opentitan//sw/device/silicon_creator/lib/cert/dice_chain.c.
+    let rom_ext_cert_failure_msg = r"UDS certificate not valid";
+    let boot_failure_msg = r"BFV:.*\r\n";
+    let boot_errors_text = format!(r"{}|{}", rom_ext_cert_failure_msg, boot_failure_msg);
+    let boot_text = match owner_fw_boot_msg_in {
+        "" => format!(r"(?s)({boot_errors_text})"),
+        x => format!(r"(?s)({boot_errors_text}|{x})"),
+    };
+    println!("Boot Text: {}", boot_text);
+    println!("Waiting for Owner Firmware to boot ...");
+    let result = UartConsole::wait_for(&*uart_console, boot_text.as_str(), timeout);
+    match result {
+        Ok(captures) => {
+            if captures[0] == *rom_ext_cert_failure_msg {
+                println!("ROM_EXT detected invalid UDS certificate!");
+                panic!("ROM_EXT detected invalid UDS certificate!");
+            }
+            if captures[0].starts_with("BFV:") {
+                println!("Boot fault detected!");
+                panic!("Boot fault detected!");
+            }
+        }
+        Err(e) => {
+            if owner_fw_boot_msg_in == "" && e.to_string().contains("Timed Out") {
+                // Error message not found after timeout. This is the expected behavior.
+            } else {
+                // An unexpected error occurred while waiting for the console output.
+                panic!("{}", e);
+            }
+        }
+    }
+    println!("Owner Firmware has booted.");
+}

@@ -35,6 +35,8 @@ void OtLibResetAndLock(void* transport, const char* openocd);
 void OtLibLcTransition(void* transport, const char* openocd,
                        const uint8_t* token, size_t token_size,
                        uint32_t target_lc_state);
+void OtLibCheckTransportImgBoot(void* transport, const char* owner_fw_boot_msg,
+                                uint64_t timeout_ms);
 }
 
 std::unique_ptr<DutLib> DutLib::Create(const std::string& fpga) {
@@ -90,6 +92,12 @@ void DutLib::DutLcTransition(const std::string& openocd, const uint8_t* token,
   LOG(INFO) << "in DutLib::DutLcTransition";
   OtLibLcTransition(transport_, openocd.c_str(), token, token_size,
                     target_lc_state);
+}
+
+void DutLib::DutCheckTransportImgBoot(const char* owner_fw_boot_msg,
+                                      uint64_t timeout_ms) {
+  LOG(INFO) << "in DutLib::DutCheckTransportImgBoot";
+  OtLibCheckTransportImgBoot(transport_, owner_fw_boot_msg, timeout_ms);
 }
 
 }  // namespace test_programs
