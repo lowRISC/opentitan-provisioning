@@ -217,7 +217,7 @@ int main(int argc, char **argv) {
   }
 
   // Convert the tokens to a JSON payload to inject during CP.
-  dut_tx_spi_frame_t spi_frame;
+  dut_rx_spi_frame_t spi_frame;
   if (TokensToJson(&tokens[0], &tokens[1], &tokens[2], &spi_frame) != 0) {
     LOG(ERROR) << "TokensToJson failed.";
     return -1;

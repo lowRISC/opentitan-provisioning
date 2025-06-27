@@ -243,7 +243,7 @@ int main(int argc, char **argv) {
     LOG(ERROR) << "GenerateTokens failed.";
     return -1;
   }
-  dut_tx_spi_frame_t rma_token_spi_frame;
+  dut_rx_spi_frame_t rma_token_spi_frame;
   if (RmaTokenToJson(&rma_token, &rma_token_spi_frame, /*skip_crc=*/false) !=
       0) {
     LOG(ERROR) << "RmaTokenToJson failed.";
@@ -264,7 +264,7 @@ int main(int argc, char **argv) {
   }
   const ca_subject_key_t *kDiceCaSk = &key_ids[0];
   const ca_subject_key_t *kExtCaSk = &key_ids[1];
-  dut_tx_spi_frame_t ca_key_ids_spi_frame;
+  dut_rx_spi_frame_t ca_key_ids_spi_frame;
   if (CaSubjectKeysToJson(kDiceCaSk, kExtCaSk, &ca_key_ids_spi_frame) != 0) {
     LOG(ERROR) << "CaSubjectKeysToJson failed.";
     return -1;
@@ -355,8 +355,8 @@ int main(int argc, char **argv) {
 
   // Send the endorsed certs back to the device.
   perso_blob_t perso_blob_from_ate = {0};
-  constexpr size_t kNumPersoBlobMaxNumSpiFrames = 10;
-  dut_tx_spi_frame_t
+  constexpr size_t kNumPersoBlobMaxNumSpiFrames = 50;
+  dut_rx_spi_frame_t
       perso_blob_from_ate_spi_frames[kNumPersoBlobMaxNumSpiFrames];
   size_t num_perso_blob_spi_frames = kNumPersoBlobMaxNumSpiFrames;
   if (PackPersoBlob(num_tbs_certs, pa_endorsed_certs, &perso_blob_from_ate) !=

@@ -12,7 +12,7 @@
 #include "src/ate/proto/dut_commands.pb.h"
 
 namespace {
-int SpiFrameSet(dut_tx_spi_frame_t *frame, const std::string &payload) {
+int RxSpiFrameSet(dut_rx_spi_frame_t *frame, const std::string &payload) {
   if (frame == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
@@ -137,7 +137,7 @@ std::string TrimJsonString(const std::string &json_str) {
 DLLEXPORT int TokensToJson(const token_t *wafer_auth_secret,
                            const token_t *test_unlock_token,
                            const token_t *test_exit_token,
-                           dut_tx_spi_frame_t *result) {
+                           dut_rx_spi_frame_t *result) {
   if (result == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
@@ -191,7 +191,7 @@ DLLEXPORT int TokensToJson(const token_t *wafer_auth_secret,
     return -1;
   }
 
-  return SpiFrameSet(result, command);
+  return RxSpiFrameSet(result, command);
 }
 
 DLLEXPORT int DeviceIdFromJson(const dut_tx_spi_frame_t *frame,
@@ -225,7 +225,7 @@ DLLEXPORT int DeviceIdFromJson(const dut_tx_spi_frame_t *frame,
 }
 
 DLLEXPORT int RmaTokenToJson(const token_t *rma_token,
-                             dut_tx_spi_frame_t *result, bool skip_crc) {
+                             dut_rx_spi_frame_t *result, bool skip_crc) {
   if (result == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
@@ -261,7 +261,7 @@ DLLEXPORT int RmaTokenToJson(const token_t *rma_token,
     return -1;
   }
 
-  return SpiFrameSet(result, command);
+  return RxSpiFrameSet(result, command);
 }
 
 DLLEXPORT int RmaTokenFromJson(const dut_tx_spi_frame_t *frame,
@@ -309,7 +309,7 @@ DLLEXPORT int RmaTokenFromJson(const dut_tx_spi_frame_t *frame,
 
 DLLEXPORT int CaSubjectKeysToJson(const ca_subject_key_t *dice_ca_sn,
                                   const ca_subject_key_t *aux_ca_sn,
-                                  dut_tx_spi_frame_t *result) {
+                                  dut_rx_spi_frame_t *result) {
   if (result == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
@@ -343,11 +343,11 @@ DLLEXPORT int CaSubjectKeysToJson(const ca_subject_key_t *dice_ca_sn,
     return -1;
   }
 
-  return SpiFrameSet(result, command);
+  return RxSpiFrameSet(result, command);
 }
 
 DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob,
-                              dut_tx_spi_frame_t *result, size_t *num_frames) {
+                              dut_rx_spi_frame_t *result, size_t *num_frames) {
   if (result == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
@@ -386,9 +386,8 @@ DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob,
   }
 
   const size_t kNumFramesExpected =
-      (command.size() + kDutTxMaxSpiFrameSizeInBytes - 1) /
-      kDutTxMaxSpiFrameSizeInBytes;
-  const size_t kDutTxMaxSpiFrameSizeInBytes = sizeof(result[0].payload);
+      (command.size() + kDutRxMaxSpiFrameSizeInBytes - 1) /
+      kDutRxMaxSpiFrameSizeInBytes;
 
   if (*num_frames < kNumFramesExpected) {
     LOG(ERROR) << "Output buffer size is too small"
@@ -398,9 +397,9 @@ DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob,
   }
 
   for (size_t i = 0; i < kNumFramesExpected; ++i) {
-    size_t offset = i * kDutTxMaxSpiFrameSizeInBytes;
+    size_t offset = i * kDutRxMaxSpiFrameSizeInBytes;
     size_t size =
-        std::min(kDutTxMaxSpiFrameSizeInBytes, command.size() - offset);
+        std::min((size_t)kDutRxMaxSpiFrameSizeInBytes, command.size() - offset);
     if (size == 0) {
       break;
     }
