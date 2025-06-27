@@ -184,7 +184,7 @@ func TestDeriveSymmetricKey(t *testing.T) {
 		{
 			// SPM errors are converted to code.Internal.
 			name:        "spm_error",
-			expCode:     codes.Internal,
+			expCode:     codes.InvalidArgument,
 			request:     &pbp.DeriveTokensRequest{},
 			spmResponse: &pbp.DeriveTokensResponse{},
 			spmError:    status.Errorf(codes.InvalidArgument, "invalid argument"),
@@ -244,7 +244,7 @@ func TestEndorseCerts(t *testing.T) {
 		{
 			// SPM errors are converted to code.Internal.
 			name:        "spm_error",
-			expCode:     codes.Internal,
+			expCode:     codes.InvalidArgument,
 			request:     &pbp.EndorseCertsRequest{},
 			spmResponse: &pbp.EndorseCertsResponse{},
 			spmError:    status.Errorf(codes.InvalidArgument, "invalid argument"),
