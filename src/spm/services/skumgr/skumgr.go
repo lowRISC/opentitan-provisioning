@@ -8,7 +8,6 @@ package skumgr
 import (
 	"crypto/x509"
 	"fmt"
-	"log"
 	"os"
 	"sync"
 
@@ -66,6 +65,18 @@ func NewManager(opts Options) *Manager {
 	}
 }
 
+// GetSkuConfig loads the configuration for a given SKU.
+func (m *Manager) GetSkuConfig(skuName string) (*skucfg.Config, error) {
+	configFilename := "sku_" + skuName + ".yml"
+
+	var cfg skucfg.Config
+	err := utils.LoadConfig(m.configDir, configFilename, &cfg)
+	if err != nil {
+		return nil, fmt.Errorf("could not load config: %v", err)
+	}
+	return &cfg, nil
+}
+
 // LoadSku initializes a SKU and returns its configuration.
 // If the SKU is already loaded, it returns the existing instance.
 func (m *Manager) LoadSku(skuName string) (*Sku, error) {
@@ -75,12 +86,9 @@ func (m *Manager) LoadSku(skuName string) (*Sku, error) {
 		return sku, nil
 	}
 
-	configFilename := "sku_" + skuName + ".yml"
-
-	var cfg skucfg.Config
-	err := utils.LoadConfig(m.configDir, configFilename, &cfg)
+	cfg, err := m.GetSkuConfig(skuName)
 	if err != nil {
-		return nil, fmt.Errorf("could not load config: %v", err)
+		return nil, fmt.Errorf("could not load config for SKU %s: %v", skuName, err)
 	}
 
 	var hsmPassword string
@@ -105,25 +113,21 @@ func (m *Manager) LoadSku(skuName string) (*Sku, error) {
 		}
 	}
 
-	log.Printf("Initializing symmetric keys: %v", cfg.SymmetricKeys)
 	akeys := make([]string, len(cfg.SymmetricKeys))
 	for i, key := range cfg.SymmetricKeys {
 		akeys[i] = key.Name
 	}
 
-	log.Printf("Initializing private keys: %v", cfg.PrivateKeys)
 	pkeys := make([]string, len(cfg.PrivateKeys))
 	for i, key := range cfg.PrivateKeys {
 		pkeys[i] = key.Name
 	}
 
-	log.Printf("Initializing public keys: %v", cfg.PublicKeys)
 	pubKeys := make([]string, len(cfg.PublicKeys))
 	for i, key := range cfg.PublicKeys {
 		pubKeys[i] = key.Name
 	}
 
-	log.Printf("Initializing HSM: %v", cfg)
 	// Create new instance of HSM.
 	seHandle, err := se.NewHSM(se.HSMConfig{
 		SOPath:        m.hsmSOLibPath,
@@ -139,7 +143,6 @@ func (m *Manager) LoadSku(skuName string) (*Sku, error) {
 	}
 
 	// Load all certificates referenced in the SKU configuration.
-	log.Printf("Initializing certificates: %v", cfg.Certs)
 	certs := make(map[string]*x509.Certificate)
 	for _, cert := range cfg.Certs {
 		c, err := utils.LoadCertFromFile(m.configDir, cert.Path)
@@ -150,7 +153,7 @@ func (m *Manager) LoadSku(skuName string) (*Sku, error) {
 	}
 
 	sku := &Sku{
-		Config:   &cfg,
+		Config:   cfg,
 		Certs:    certs,
 		SeHandle: seHandle,
 	}

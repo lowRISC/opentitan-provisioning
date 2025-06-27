@@ -486,6 +486,9 @@ func main() {
 			if err != nil {
 				log.Fatalf("failed to create DUT %d for SKU %q: %v", i, skuName, err)
 			}
+			if err := dut.BuildTbsCerts(); err != nil {
+				log.Fatalf("failed to build TBS certificates for DUT %d for SKU %q: %v", i, skuName, err)
+			}
 			duts[i] = dut
 		}
 		log.Printf("Created %d DUTs for SKU %q", len(duts), skuName)

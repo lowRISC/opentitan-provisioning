@@ -17,6 +17,7 @@ go_library(
         "//src/ate/proto:dut_commands_go_proto",
         "//src/proto:device_id_go_pb",
         "//src/proto:device_testdata",
+        "//src/spm/services:skucfg",
         "//src/spm/services/skumgr",
         "//src/spm/services/testutils:tbsgen",
         "//src/utils:devid",

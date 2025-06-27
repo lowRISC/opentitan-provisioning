@@ -535,6 +535,21 @@ func (s *server) VerifyDeviceData(ctx context.Context, request *pbs.VerifyDevice
 		return nil, status.Errorf(codes.Internal, "unable to get cert chain dice leaf: %v", err)
 	}
 
+	if len(persoBlob.X509Certs) != sku.Config.CertCountX509 {
+		x509CertLabels := []string{}
+		for _, cert := range persoBlob.X509Certs {
+			x509CertLabels = append(x509CertLabels, cert.KeyLabel)
+		}
+		return nil, status.Errorf(codes.Internal, "expected %d X509 certificates, got %d: %v", sku.Config.CertCountX509, len(persoBlob.X509Certs), x509CertLabels)
+	}
+	if len(persoBlob.CwtCerts) != sku.Config.CertCountCWT {
+		cwtCertLabels := []string{}
+		for _, cert := range persoBlob.CwtCerts {
+			cwtCertLabels = append(cwtCertLabels, cert.KeyLabel)
+		}
+		return nil, status.Errorf(codes.Internal, "expected %d CWT certificates, got %d: %v", sku.Config.CertCountCWT, len(persoBlob.CwtCerts), cwtCertLabels)
+	}
+
 	diceCerts := []*x509.Certificate{}
 	extCerts := []*x509.Certificate{}
 	extNames := []string{}

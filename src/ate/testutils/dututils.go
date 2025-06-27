@@ -20,10 +20,12 @@ import (
 	"fmt"
 	"math/big"
 	mrand "math/rand"
+	"log"
 	"time"
 
 	"github.com/lowRISC/opentitan-provisioning/src/ate"
 	pbd "github.com/lowRISC/opentitan-provisioning/src/ate/proto/dut_commands_go_pb"
+	"github.com/lowRISC/opentitan-provisioning/src/spm/services/skucfg"
 	"github.com/lowRISC/opentitan-provisioning/src/spm/services/skumgr"
 	"github.com/lowRISC/opentitan-provisioning/src/spm/services/testutils/tbsgen"
 	"github.com/lowRISC/opentitan-provisioning/src/utils/devid"
@@ -45,13 +47,29 @@ const (
 	ProcessCaSubjectKeysJSONDelay = 5 * time.Millisecond
 )
 
+// Constants for various data structures.
+const (
+	// From src/proto/device_id.proto
+	cpDeviceIDLenInBytes = 16
+	// The ATE DLL API requires a diversifier of 48 bytes.
+	wasDiversifierLen = 48
+	// Wafer authentication secret is 32 bytes (8 words).
+	waferAuthSecretLenInWords = 8
+	waferAuthSecretLenInBytes = 32
+	// Test/RMA tokens are 16 bytes (2 uint64s).
+	tokenHashLenInWords = 2
+	tokenHashLenInBytes = 16
+	// Authority Key IDs are 20 bytes (SHA1 hash).
+	authKeyIDLen = 20
+)
+
 // Dut emulates an OpenTitan device during provisioning.
 type Dut struct {
 	skuMgr        *skumgr.Manager
-	opts          skumgr.Options
+	skuConfig     *skucfg.Config
 	skuName       string
-	privKeys      map[string]*ecdsa.PrivateKey
 	DeviceID      *ate.DeviceIDBytes
+	privKeys      map[string]*ecdsa.PrivateKey
 	persoBlob     *ate.PersoBlob
 	endorsedCerts []ate.EndorseCertResponse
 	tbsCerts      map[string][]byte
@@ -66,6 +84,58 @@ type Dut struct {
 	caSubjectKeyIds     [][]byte
 }
 
+// parseWaferAuthSecret converts a slice of uint32 words to a byte slice.
+func parseWaferAuthSecret(words []uint32, name string) ([]byte, error) {
+	if len(words) != waferAuthSecretLenInWords {
+		return nil, fmt.Errorf("expected %d uint32 values for %s, got %d", waferAuthSecretLenInWords, name, len(words))
+	}
+	b := make([]byte, waferAuthSecretLenInBytes)
+	for i, v := range words {
+		binary.BigEndian.PutUint32(b[i*4:], v)
+	}
+	return b, nil
+}
+
+// parseTokenHash converts a slice of uint64s to a byte slice.
+func parseTokenHash(u64s []uint64, name string) ([]byte, error) {
+	if len(u64s) != tokenHashLenInWords {
+		return nil, fmt.Errorf("expected %d uint64 values for %s, got %d", tokenHashLenInWords, name, len(u64s))
+	}
+	b := make([]byte, tokenHashLenInBytes)
+	for i, v := range u64s {
+		binary.BigEndian.PutUint64(b[i*8:], v)
+	}
+	return b, nil
+}
+
+// parseAuthKeyID converts a slice of ints to a byte slice.
+func parseAuthKeyID(ints []uint32, name string) ([]byte, error) {
+	if len(ints) != authKeyIDLen {
+		return nil, fmt.Errorf("expected %d bytes for %s, got %d", authKeyIDLen, name, len(ints))
+	}
+	b := make([]byte, authKeyIDLen)
+	for i, v := range ints {
+		if v > 255 {
+			return nil, fmt.Errorf("invalid byte value in %s: %d", name, v)
+		}
+		b[i] = byte(v)
+	}
+	return b, nil
+}
+
+// createTestCertificate creates a test certificate.
+func createTestCertificate(template *x509.Certificate, signer *x509.Certificate, pubKey crypto.PublicKey, privKey crypto.PrivateKey) ([]byte, *x509.Certificate, error) {
+	certBytes, err := x509.CreateCertificate(rand.Reader, template, signer, pubKey, privKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	cert, err := x509.ParseCertificate(certBytes)
+	if err != nil {
+		return nil, nil, err
+	}
+	return certBytes, cert, nil
+}
+
 // computeSKI calculates the Subject Key Identifier for a public key.
 func computeSKI(pubKey crypto.PublicKey) ([]byte, error) {
 	spki, err := x509.MarshalPKIXPublicKey(pubKey)
@@ -76,8 +146,8 @@ func computeSKI(pubKey crypto.PublicKey) ([]byte, error) {
 	return hash[:], nil
 }
 
-// NewDut creates and initializes a new emulated DUT.
-func NewDut(opts skumgr.Options, skuName string) (*Dut, error) {
+// generateDeviceID creates a new random device ID.
+func generateDeviceID() (*dpb.DeviceId, *ate.DeviceIDBytes, error) {
 	devIdProto := &dpb.DeviceId{
 		HardwareOrigin: &dpb.HardwareOrigin{
 			SiliconCreatorId:           dpb.SiliconCreatorId_SILICON_CREATOR_ID_OPENSOURCE,
@@ -87,69 +157,113 @@ func NewDut(opts skumgr.Options, skuName string) (*Dut, error) {
 		SkuSpecific: make([]byte, dtd.DeviceIdSkuSpecificLenInBytes),
 	}
 	if _, err := rand.Read(devIdProto.SkuSpecific); err != nil {
-		return nil, fmt.Errorf("failed to generate SKU specific data: %w", err)
+		return nil, nil, fmt.Errorf("failed to generate SKU specific data: %w", err)
 	}
 	dBytes, err := devid.DeviceIDToRawBytes(devIdProto)
 	if err != nil {
-		return nil, fmt.Errorf("unable to convert device ID to raw bytes: %v", err)
+		return nil, nil, fmt.Errorf("unable to convert device ID to raw bytes: %v", err)
 	}
 	var deviceID ate.DeviceIDBytes
 	copy(deviceID.Raw[:], dBytes)
+	return devIdProto, &deviceID, nil
+}
 
-	// Generate TBS certificates for the DUT. This requires accessing the
-	// HSM.
-	certLabels := []string{"UDS"}
-	tbsCerts, privKeys, err := tbsgen.BuildTestTBSCerts(opts, skuName, certLabels)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate TBS certificates for SKU %q: %v", skuName, err)
-	}
-
-	// TODO(moidx): Update the following code to read the following value from
-	// the SKU attribute: AttrNameCertChainDiceLeaf.
-	var certChainDiceLeaf string
-	switch skuName {
-	case "cr01":
-		certChainDiceLeaf = "CDI_1"
-	case "pi01":
-		certChainDiceLeaf = "UDS"
-	case "sival":
-		certChainDiceLeaf = "CDI_1"
-	case "ti01":
-		certChainDiceLeaf = "CDI_1"
-	default:
-		return nil, fmt.Errorf("unsupported SKU: %q", skuName)
-	}
-
+// generateDeviceKeys generates the device keys based on the certificate chain leaf.
+func generateDeviceKeys(privKeys map[string]*ecdsa.PrivateKey, certChainDiceLeaf string) error {
 	var devKeys []string
 	if certChainDiceLeaf == "CDI_0" {
 		devKeys = []string{"CDI_0"}
 	} else if certChainDiceLeaf == "CDI_1" {
 		devKeys = []string{"CDI_0", "CDI_1"}
 	}
-	
+
 	for _, label := range devKeys {
 		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate private key %q: %w", label, err)
+			return fmt.Errorf("failed to generate private key %q: %w", label, err)
 		}
 		privKeys[label] = key
 	}
+	return nil
+}
+
+// NewDut creates and initializes a new emulated DUT.
+func NewDut(opts skumgr.Options, skuName string) (*Dut, error) {
+	_, deviceID, err := generateDeviceID()
+	if err != nil {
+		return nil, err
+	}
+
+	skuMgr := skumgr.NewManager(opts)
+	skuConfig, err := skuMgr.GetSkuConfig(skuName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get SKU config for SKU %q: %v", skuName, err)
+	}
+
+	certChainDiceLeaf, err := skuConfig.GetUnsafeAttribute(skucfg.AttrNameCertChainDiceLeaf)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get cert chain dice leaf: %v", err)
+	}
 
 	return &Dut{
-		skuMgr:              skumgr.NewManager(opts),
-		opts:                opts,
+		skuMgr:              skuMgr,
 		skuName:             skuName,
-		privKeys:            privKeys,
-		DeviceID:            &deviceID,
+		skuConfig:           skuConfig,
+		DeviceID:            deviceID,
 		waferAuthSecret:     []byte{},
 		testUnlockToken:     []byte{},
 		testExitToken:       []byte{},
 		rmaTokenHash:        []byte{},
 		wrappedRmaTokenSeed: []byte{},
 		caSubjectKeyIds:     [][]byte{},
-		tbsCerts:            tbsCerts,
 		certChainDiceLeaf:   certChainDiceLeaf,
 	}, nil
+}
+
+func (d *Dut) ExpectedExtCerts() (int, error) {
+	if _, err := d.skuConfig.GetUnsafeAttribute("SigningKey/Ext/v0"); err == nil {
+		var numDiceCerts int
+		switch d.certChainDiceLeaf {
+		case "UDS":
+			numDiceCerts = 1
+		case "CDI_0":
+			numDiceCerts = 2
+		case "CDI_1":
+			numDiceCerts = 3
+		}
+		if d.skuConfig.CertCountX509 < numDiceCerts {
+			return 0, fmt.Errorf("expected at least %d X.509 certificates, got %d", numDiceCerts, d.skuConfig.CertCountX509)
+		}
+		return d.skuConfig.CertCountX509 - numDiceCerts, nil
+	}
+	return 0, nil
+}
+
+func (d *Dut) BuildTbsCerts() error {
+	// Generate TBS certificates for the DUT. This requires accessing the HSM.
+	certLabels := []string{"UDS"}
+
+	numExtCerts, err := d.ExpectedExtCerts()
+	if err != nil {
+		return fmt.Errorf("failed to get expected number of EXT certificates: %v", err)
+	}
+
+	for i := 0; i < numExtCerts; i++ {
+		certLabels = append(certLabels, fmt.Sprintf("EXT_%d", i))
+	}
+
+	tbsCerts, privKeys, err := tbsgen.BuildTestTBSCerts(d.skuMgr, d.skuName, certLabels)
+	if err != nil {
+		return fmt.Errorf("failed to generate TBS certificates for SKU %q: %v", d.skuName, err)
+	}
+
+	if err := generateDeviceKeys(privKeys, d.certChainDiceLeaf); err != nil {
+		return fmt.Errorf("failed to generate device keys: %v", err)
+	}
+
+	d.tbsCerts = tbsCerts
+	d.privKeys = privKeys
+	return nil
 }
 
 // GenerateCpDeviceIDJson generates a device ID and returns it as a JSON payload.
@@ -157,7 +271,7 @@ func (d *Dut) GenerateCpDeviceIDJson() ([]byte, error) {
 	time.Sleep(GenerateCpDeviceIDJsonDelay)
 	// The CP device ID is the hardware origin part of the full device ID,
 	// which is the first 16 bytes.
-	hwOriginBytes := d.DeviceID.Raw[0:16]
+	hwOriginBytes := d.DeviceID.Raw[0:cpDeviceIDLenInBytes]
 	deviceID := &pbd.DeviceIdJSON{
 		CpDeviceId: make([]uint32, 4),
 	}
@@ -169,11 +283,11 @@ func (d *Dut) GenerateCpDeviceIDJson() ([]byte, error) {
 
 // WasDiversifier returns a 48 byte diversifier for the DUT.
 func (d *Dut) WasDiversifier() ([]byte, error) {
-	hwOrigin := d.DeviceID.Raw[0:16]
+	hwOrigin := d.DeviceID.Raw[0:cpDeviceIDLenInBytes]
 	// The ATE DLL API requires a diversifier of 48 bytes. We emulate this by creating
 	// a 48 byte slice and appending the hardware ID to it. The first 3 bytes are
 	// "was" and the rest are the hardware ID.
-	dID := make([]byte, 48)
+	dID := make([]byte, wasDiversifierLen)
 	copy(dID, []byte("was"))
 	copy(dID[3:], hwOrigin)
 	return dID, nil
@@ -214,33 +328,19 @@ func (d *Dut) ProcessTokensJSON(tokensJSON []byte) error {
 		return fmt.Errorf("failed to unmarshal tokens JSON: %w", err)
 	}
 
-	// wafer_auth_secret must contain 8 uint32 values.
-	if len(tokens.WaferAuthSecret) != 8 {
-		return fmt.Errorf("expected 8 uint32 values for wafer_auth_secret, got %d", len(tokens.WaferAuthSecret))
+	var err error
+	d.waferAuthSecret, err = parseWaferAuthSecret(tokens.WaferAuthSecret, "wafer_auth_secret")
+	if err != nil {
+		return err
 	}
-	d.waferAuthSecret = make([]byte, 32)
-	for i, v := range tokens.WaferAuthSecret {
-		binary.BigEndian.PutUint32(d.waferAuthSecret[i*4:], v)
+	d.testUnlockToken, err = parseTokenHash(tokens.TestUnlockTokenHash, "test_unlock_token_hash")
+	if err != nil {
+		return err
 	}
-
-	// test_unlock_token_hash must contain 2 uint64 values.
-	if len(tokens.TestUnlockTokenHash) != 2 {
-		return fmt.Errorf("expected 2 uint64 values for test_unlock_token_hash, got %d", len(tokens.TestUnlockTokenHash))
+	d.testExitToken, err = parseTokenHash(tokens.TestExitTokenHash, "test_exit_token_hash")
+	if err != nil {
+		return err
 	}
-	d.testUnlockToken = make([]byte, 16)
-	for i, v := range tokens.TestUnlockTokenHash {
-		binary.BigEndian.PutUint64(d.testUnlockToken[i*8:], v)
-	}
-
-	// test_exit_token_hash must contain 2 uint64 values.
-	if len(tokens.TestExitTokenHash) != 2 {
-		return fmt.Errorf("expected 2 uint64 values for test_exit_token_hash, got %d", len(tokens.TestExitTokenHash))
-	}
-	d.testExitToken = make([]byte, 16)
-	for i, v := range tokens.TestExitTokenHash {
-		binary.BigEndian.PutUint64(d.testExitToken[i*8:], v)
-	}
-
 	return nil
 }
 
@@ -252,15 +352,11 @@ func (d *Dut) ProcessRmaTokenJSON(rmaTokenJSON []byte) error {
 		return fmt.Errorf("failed to unmarshal RMA token JSON: %w", err)
 	}
 
-	// hash must contain 2 uint64 values.
-	if len(token.Hash) != 2 {
-		return fmt.Errorf("expected 2 uint64 values for rma_token_hash, got %d", len(token.Hash))
+	var err error
+	d.rmaTokenHash, err = parseTokenHash(token.Hash, "rma_token_hash")
+	if err != nil {
+		return err
 	}
-	d.rmaTokenHash = make([]byte, 16)
-	for i, v := range token.Hash {
-		binary.BigEndian.PutUint64(d.rmaTokenHash[i*8:], v)
-	}
-
 	return nil
 }
 
@@ -272,30 +368,14 @@ func (d *Dut) ProcessCaSubjectKeysJSON(caKeysJSON []byte) error {
 		return fmt.Errorf("failed to unmarshal CA keys JSON: %w", err)
 	}
 
-	// dice_auth_key_key_id must contain 20 bytes.
-	if len(keys.DiceAuthKeyKeyId) != 20 {
-		return fmt.Errorf("expected 20 bytes for dice_auth_key_key_id, got %d", len(keys.DiceAuthKeyKeyId))
+	diceKey, err := parseAuthKeyID(keys.DiceAuthKeyKeyId, "dice_auth_key_key_id")
+	if err != nil {
+		return err
 	}
-	diceKey := make([]byte, 20)
-	for i, v := range keys.DiceAuthKeyKeyId {
-		if v > 255 {
-			return fmt.Errorf("invalid byte value in dice_auth_key_key_id: %d", v)
-		}
-		diceKey[i] = byte(v)
+	extKey, err := parseAuthKeyID(keys.ExtAuthKeyKeyId, "ext_auth_key_key_id")
+	if err != nil {
+		return err
 	}
-
-	// ext_auth_key_key_id must contain 20 bytes.
-	if len(keys.ExtAuthKeyKeyId) != 20 {
-		return fmt.Errorf("expected 20 bytes for ext_auth_key_key_id, got %d", len(keys.ExtAuthKeyKeyId))
-	}
-	extKey := make([]byte, 20)
-	for i, v := range keys.ExtAuthKeyKeyId {
-		if v > 255 {
-			return fmt.Errorf("invalid byte value in ext_auth_key_key_id: %d", v)
-		}
-		extKey[i] = byte(v)
-	}
-
 	d.caSubjectKeyIds = [][]byte{diceKey, extKey}
 	return nil
 }
@@ -321,7 +401,7 @@ func (d *Dut) GeneratePersoBlob() ([]byte, error) {
 
 	// Create a signature over the TBS certs.
 	var signature ate.EndorseCertSignature
-	if len(d.waferAuthSecret) != 32 {
+	if len(d.waferAuthSecret) != waferAuthSecretLenInBytes {
 		return nil, fmt.Errorf("wafer authentication secret not available to sign TBS certificates")
 	}
 
@@ -360,33 +440,54 @@ func (d *Dut) GeneratePersoBlob() ([]byte, error) {
 	return json.Marshal(persoBlobJSON)
 }
 
+
+// GenerateDummyCwtCerts generates dummy CWT certificates.
+// The Cert payload is a random 256 bytes.
+func (d * Dut) GenerateDummyCwtCerts() ([]ate.EndorseCertResponse, error) {
+	certs := make([]ate.EndorseCertResponse, d.skuConfig.CertCountCWT)
+	for i := 0; i < d.skuConfig.CertCountCWT; i++ {
+		randBytes := make([]byte, 256)
+		if _, err := rand.Read(randBytes); err != nil {
+			return nil, fmt.Errorf("failed to generate random bytes: %w", err)
+		}
+		log.Printf("Generated dummy CWT certificate %d", i)
+		certs[i] = ate.EndorseCertResponse{
+			KeyLabel: fmt.Sprintf("CWT_%d", i),
+			Cert:     randBytes,
+		}
+	}
+	return certs, nil
+}
+
 // GeneratePersoTlv builds a personalization TLV blob containing endorsed 
 // certificates.
 func (d *Dut) GeneratePersoTlv() ([]byte, uint32, error) {
 	time.Sleep(GeneratePersoBlobDelay)
 
+	cwtCerts, err := d.GenerateDummyCwtCerts()
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to generate dummy CWT certificates: %w", err)
+	}
+
+	persoBlob := &ate.PersoBlob{
+		X509Certs: []ate.EndorseCertResponse{},
+		CwtCerts:  cwtCerts,
+	}
+
 	// Find endorsed UDS certificate.
 	var udsCert *x509.Certificate
-	var endorsedUdsCert ate.EndorseCertResponse
 	for _, cert := range d.endorsedCerts {
 		if cert.KeyLabel == "UDS" {
-			endorsedUdsCert = cert
 			var err error
 			udsCert, err = x509.ParseCertificate(cert.Cert)
 			if err != nil {
 				return nil, 0, fmt.Errorf("failed to parse UDS certificate: %w", err)
 			}
-			break
 		}
+		persoBlob.X509Certs = append(persoBlob.X509Certs, cert)
 	}
 	if udsCert == nil {
 		return nil, 0, fmt.Errorf("UDS certificate not found in endorsed certs")
-	}
-
-	persoBlob := &ate.PersoBlob{
-		X509Certs: []ate.EndorseCertResponse{
-			endorsedUdsCert,
-		},
 	}
 
 	if d.certChainDiceLeaf == "UDS" {
@@ -418,13 +519,9 @@ func (d *Dut) GeneratePersoTlv() ([]byte, uint32, error) {
 		return nil, 0, fmt.Errorf("failed to compute CDI_0 SKI: %w", err)
 	}
 	cdi0Template.SubjectKeyId = cdi0Ski
-	cdi0CertBytes, err := x509.CreateCertificate(rand.Reader, cdi0Template, udsCert, &d.privKeys["CDI_0"].PublicKey, d.privKeys["UDS"])
+	cdi0CertBytes, cdi0Cert, err := createTestCertificate(cdi0Template, udsCert, &d.privKeys["CDI_0"].PublicKey, d.privKeys["UDS"])
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to create CDI_0 certificate: %w", err)
-	}
-	cdi0Cert, err := x509.ParseCertificate(cdi0CertBytes)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to parse CDI_0 certificate: %w", err)
 	}
 
 	persoBlob.X509Certs = append(persoBlob.X509Certs, ate.EndorseCertResponse{
@@ -462,7 +559,7 @@ func (d *Dut) GeneratePersoTlv() ([]byte, uint32, error) {
 		return nil, 0, fmt.Errorf("failed to compute CDI_1 SKI: %w", err)
 	}
 	cdi1Template.SubjectKeyId = cdi1Ski
-	cdi1CertBytes, err := x509.CreateCertificate(rand.Reader, cdi1Template, cdi0Cert, &d.privKeys["CDI_1"].PublicKey, d.privKeys["CDI_0"])
+	cdi1CertBytes, _, err := createTestCertificate(cdi1Template, cdi0Cert, &d.privKeys["CDI_1"].PublicKey, d.privKeys["CDI_0"])
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to create CDI_1 certificate: %w", err)
 	}
@@ -477,5 +574,6 @@ func (d *Dut) GeneratePersoTlv() ([]byte, uint32, error) {
 		return nil, 0, err
 	}
 
-	return blobBytes, uint32(len(persoBlob.X509Certs)), nil
+	numObjs := len(persoBlob.X509Certs) + len(persoBlob.CwtCerts)
+	return blobBytes, uint32(numObjs), nil
 }

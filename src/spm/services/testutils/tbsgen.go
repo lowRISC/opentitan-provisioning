@@ -102,8 +102,7 @@ func buildTestTbsCert(session *pk11.Session, label string, intermediateCACert *x
 
 // BuildTestTBSCerts generates a set of TBS certificates for a given SKU.
 // It returns a map of TBS certificates and a map of the corresponding private keys.
-func BuildTestTBSCerts(opts skumgr.Options, skuName string, certLabels []string) (map[string][]byte, map[string]*ecdsa.PrivateKey, error) {
-	mgr := skumgr.NewManager(opts)
+func BuildTestTBSCerts(mgr *skumgr.Manager, skuName string, certLabels []string) (map[string][]byte, map[string]*ecdsa.PrivateKey, error) {
 	sku, err := mgr.LoadSku(skuName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to load SKU %q: %w", skuName, err)

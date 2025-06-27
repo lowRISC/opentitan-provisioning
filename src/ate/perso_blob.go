@@ -91,6 +91,7 @@ type PersoBlob struct {
 	X509TbsCerts []EndorseCertRequest
 	X509Certs    []EndorseCertResponse
 	Seeds        []Seed
+	CwtCerts     []EndorseCertResponse
 }
 
 // persoTLVCertObj corresponds to perso_tlv_cert_obj_t
@@ -131,8 +132,8 @@ func extractCertObject(buf []byte) (*persoTLVCertObj, error) {
 	if objSize == 0 || int(objSize) > len(buf) {
 		return nil, fmt.Errorf("invalid object size: %d, buffer size: %d", objSize, len(buf))
 	}
-	if objType != PersoObjectTypeX509Tbs && objType != PersoObjectTypeX509Cert {
-		return nil, fmt.Errorf("invalid object type: %d, expected X509 TBS or cert", objType)
+	if objType != PersoObjectTypeX509Tbs && objType != PersoObjectTypeX509Cert && objType != PersoObjectTypeCwtCert {
+		return nil, fmt.Errorf("invalid object type: %d, expected X509 TBS, cert, or CWT cert", objType)
 	}
 
 	buf = buf[sizeOfObjectHeader:]
@@ -227,7 +228,15 @@ func UnpackPersoBlob(blobBytes []byte) (*PersoBlob, error) {
 				KeyLabel: certObj.Name,
 				Cert:     certObj.CertBody,
 			})
-
+		case PersoObjectTypeCwtCert:
+			certObj, err := extractCertObject(objBytes)
+			if err != nil {
+				return nil, fmt.Errorf("failed to extract CWT cert: %w", err)
+			}
+			persoBlob.CwtCerts = append(persoBlob.CwtCerts, EndorseCertResponse{
+				KeyLabel: certObj.Name,
+				Cert:     certObj.CertBody,
+			})
 		case PersoObjectTypeWasTbsHmac:
 			if len(objBytes) != kWasHmacSignatureSize+sizeOfObjectHeader {
 				return nil, fmt.Errorf("invalid WAS TBS HMAC object size: %d", len(objBytes))
@@ -324,7 +333,29 @@ func BuildPersoBlob(persoBlob *PersoBlob) ([]byte, error) {
 		}
 	}
 
-	// 5. Seed objects
+	// 5. CWT certificate objects
+	for _, cwtCert := range persoBlob.CwtCerts {
+		keyLabelBytes := []byte(cwtCert.KeyLabel)
+		certEntrySize := uint16(sizeOfCertHeader + len(keyLabelBytes) + len(cwtCert.Cert))
+		objSize := uint16(sizeOfObjectHeader) + certEntrySize
+		header := setObjectHeaderFields(objSize, PersoObjectTypeCwtCert)
+		if err := binary.Write(&buf, binary.BigEndian, header); err != nil {
+			return nil, err
+		}
+
+		certHeader := setCertHeaderFields(certEntrySize, uint16(len(keyLabelBytes)))
+		if err := binary.Write(&buf, binary.BigEndian, certHeader); err != nil {
+			return nil, err
+		}
+		if _, err := buf.Write(keyLabelBytes); err != nil {
+			return nil, err
+		}
+		if _, err := buf.Write(cwtCert.Cert); err != nil {
+			return nil, err
+		}
+	}
+
+	// 6. Seed objects
 	for _, seed := range persoBlob.Seeds {
 		objSize := uint16(sizeOfObjectHeader + len(seed.Raw))
 		header := setObjectHeaderFields(objSize, seed.Type)
