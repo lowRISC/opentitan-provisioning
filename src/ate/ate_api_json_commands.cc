@@ -26,10 +26,12 @@ int RxSpiFrameSet(dut_rx_spi_frame_t *frame, const std::string &payload) {
     return -1;
   }
 
+  // Add the JSON data to the frame.
   memcpy(frame->payload, payload.data(), payload.size());
+  // Pad the remaining portion of the frame with whitespace.
   std::fill(frame->payload + payload.size(),
             frame->payload + sizeof(frame->payload), ' ');
-  frame->size = payload.size();
+
   return 0;
 }
 
@@ -386,8 +388,8 @@ DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob,
   }
 
   const size_t kNumFramesExpected =
-      (command.size() + kDutRxMaxSpiFrameSizeInBytes - 1) /
-      kDutRxMaxSpiFrameSizeInBytes;
+      (command.size() + kDutRxSpiFrameSizeInBytes - 1) /
+      kDutRxSpiFrameSizeInBytes;
 
   if (*num_frames < kNumFramesExpected) {
     LOG(ERROR) << "Output buffer size is too small"
@@ -397,14 +399,18 @@ DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob,
   }
 
   for (size_t i = 0; i < kNumFramesExpected; ++i) {
-    size_t offset = i * kDutRxMaxSpiFrameSizeInBytes;
+    size_t offset = i * kDutRxSpiFrameSizeInBytes;
     size_t size =
-        std::min((size_t)kDutRxMaxSpiFrameSizeInBytes, command.size() - offset);
+        std::min((size_t)kDutRxSpiFrameSizeInBytes, command.size() - offset);
     if (size == 0) {
       break;
     }
-    result[i].size = size;
     memcpy(result[i].payload, command.data() + offset, size);
+    // Pad frame with whitespace to ensure each frame is constant size.
+    if (size != kDutRxSpiFrameSizeInBytes) {
+      std::fill(result[i].payload + size,
+                result[i].payload + sizeof(result[i].payload), ' ');
+    }
   }
 
   *num_frames = kNumFramesExpected;

@@ -229,7 +229,7 @@ int main(int argc, char **argv) {
   dut->DutLoadSramElf(openocd_path, sram_elf_path, /*wait_for_done=*/false,
                       /*timeout_ms=*/1000);
   dut->DutConsoleTx("Waiting for CP provisioning data ...", spi_frame.payload,
-                    spi_frame.size,
+                    kDutRxSpiFrameSizeInBytes,
                     /*timeout_ms=*/1000);
   dut_tx_spi_frame_t devid_spi_frame = {0};
   size_t num_spi_frames = 1;

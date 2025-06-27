@@ -64,7 +64,7 @@ enum {
    *
    * The max size is defined as the page program size in the SPI flash mode.
    */
-  kDutRxMaxSpiFrameSizeInBytes = 256,
+  kDutRxSpiFrameSizeInBytes = 256,
 
   /**
    * Dev seed size in bytes; Must be equal to the value defined in
@@ -166,13 +166,9 @@ typedef struct dut_rx_spi_frame {
   /**
    * The data payload to be sent out from the DUT to the ATE.
    *
-   * The maximum size of a payload is kDutRxMaxSpiFrameSizeInBytes.
+   * Each payload is padded to a fixed size of kDutRxSpiFrameSizeInBytes .
    */
-  uint8_t payload[kDutRxMaxSpiFrameSizeInBytes];
-  /**
-   * The number bytes contained in the payload above.
-   */
-  size_t size;
+  uint8_t payload[kDutRxSpiFrameSizeInBytes];
 } dut_rx_spi_frame_t;
 
 /**

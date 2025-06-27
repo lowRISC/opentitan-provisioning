@@ -284,10 +284,10 @@ int main(int argc, char **argv) {
   dut->DutConsoleWaitForRx("Bootstrap requested.", /*timeout_ms=*/1000);
   dut->DutBootstrap(ft_fw_bundle_path);
   dut->DutConsoleTx("Waiting For RMA Unlock Token Hash ...",
-                    rma_token_spi_frame.payload, rma_token_spi_frame.size,
+                    rma_token_spi_frame.payload, kDutRxSpiFrameSizeInBytes,
                     /*timeout_ms=*/1000);
   dut->DutConsoleTx("Waiting for certificate inputs ...",
-                    ca_key_ids_spi_frame.payload, ca_key_ids_spi_frame.size,
+                    ca_key_ids_spi_frame.payload, kDutRxSpiFrameSizeInBytes,
                     /*timeout_ms=*/1000);
 
   // Receive the TBS certs and other provisioning data from the DUT.
@@ -375,12 +375,12 @@ int main(int argc, char **argv) {
     if (i == 0) {
       dut->DutConsoleTx(perso_blob_sync_msg,
                         perso_blob_from_ate_spi_frames[i].payload,
-                        perso_blob_from_ate_spi_frames[i].size,
+                        kDutRxSpiFrameSizeInBytes,
                         /*timeout_ms=*/1000);
     } else {
       dut->DutConsoleTx(empty_sync_msg,
                         perso_blob_from_ate_spi_frames[i].payload,
-                        perso_blob_from_ate_spi_frames[i].size,
+                        kDutRxSpiFrameSizeInBytes,
                         /*timeout_ms=*/1000);
     }
   }
