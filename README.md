@@ -17,8 +17,23 @@ instructions available for other OS distributions.
 This repo uses Git LFS to track larger files, such as FPGA bitstreams and DUT
 provisioning firmware binaries. To properly clone this repo, ensure you have
 Git LFS installed by:
-1. [adding the package cloud repository](curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash): `curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash`
+
+1. adding the package cloud repository:
+
+   ```shell
+   curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+   ```
 2. following the "Install Dependencies" instructions below.
+
+   ```shell
+   # Run the following command if this is the first time you are using lfs
+   # in your target workstation.
+   git lfs install
+
+   # The following command can be used to pull  LFS files.
+   # This may be required if you installed LFS after cloning the repo.
+   git lfs pull
+   ```
 
 See the Git LFS [collaboration](https://docs.github.com/en/repositories/working-with-files/managing-large-files/collaboration-with-git-large-file-storage)
 details on why this is necessary.
