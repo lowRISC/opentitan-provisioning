@@ -140,36 +140,31 @@ typedef struct {
 } client_options_t;
 
 /**
- * A SPI console frame TXed from the DUT to the host (ATE).
+ * A SPI console frame sent/received to/from the DUT.
  *
- * In practice, each SPI frame is prepended with a 12-byte header that indicates
- * how big the data frame is. This headed is ommitted in this struct. The ATE
- * test framework is expected to handle the header and the payload separately.
+ * For frames sent to the DUT (from the ATE), each must prepended with a 12-byte
+ * header that indicates how big the data frame is. This header is ommitted in
+ * this struct. The ATE test framework is expected to handle the header and the
+ * payload separately.
+ *
+ * Note: the header does NOT apply to frames received from the DUT.
  */
-typedef struct dut_tx_spi_frame {
+typedef struct dut_spi_frame {
   /**
    * The data payload to be sent out from the DUT to the ATE.
    *
-   * The maximum size of a payload is kDutTxMaxSpiFrameSizeInBytes.
+   * The maximum size of a payload is kDutTxMaxSpiFrameSizeInBytes (which is
+   * larger than kDutRxSpiFrameSizeInBytes).
    */
   uint8_t payload[kDutTxMaxSpiFrameSizeInBytes];
   /**
    * The number bytes contained in the payload above.
+   *
+   * This value is fixed to kDutRxSpiFrameSizeInBytes for SPI frames sent from
+   * the ATE to the DUT.
    */
   size_t size;
-} dut_tx_spi_frame_t;
-
-/**
- * A SPI console frame RXed by the DUT from the host (ATE).
- */
-typedef struct dut_rx_spi_frame {
-  /**
-   * The data payload to be sent out from the DUT to the ATE.
-   *
-   * Each payload is padded to a fixed size of kDutRxSpiFrameSizeInBytes .
-   */
-  uint8_t payload[kDutRxSpiFrameSizeInBytes];
-} dut_rx_spi_frame_t;
+} dut_spi_frame_t;
 
 /**
  * The perso blob is a structure used to store the personalization data.
@@ -677,7 +672,7 @@ DLLEXPORT int RegisterDevice(
 DLLEXPORT int TokensToJson(const token_t* wafer_auth_secret,
                            const token_t* test_unlock_token,
                            const token_t* test_exit_token,
-                           dut_rx_spi_frame_t* result);
+                           dut_spi_frame_t* result);
 
 /**
  * Parse JSON command to extract device ID from the SPI frame.
@@ -686,7 +681,7 @@ DLLEXPORT int TokensToJson(const token_t* wafer_auth_secret,
  * @param[out] device_id The extracted device ID.
  * @return The result of the operation.
  */
-DLLEXPORT int DeviceIdFromJson(const dut_tx_spi_frame_t* frame,
+DLLEXPORT int DeviceIdFromJson(const dut_spi_frame_t* frame,
                                device_id_bytes_t* device_id);
 
 /**
@@ -697,8 +692,8 @@ DLLEXPORT int DeviceIdFromJson(const dut_tx_spi_frame_t* frame,
  * @param skip_crc Whether or not to skip attaching of the CRC.
  * @return The result of the operation.
  */
-DLLEXPORT int RmaTokenToJson(const token_t* rma_token,
-                             dut_rx_spi_frame_t* result, bool skip_crc);
+DLLEXPORT int RmaTokenToJson(const token_t* rma_token, dut_spi_frame_t* result,
+                             bool skip_crc);
 
 /**
  * Parse JSON command to extract the RMA token from the SPI frame.
@@ -707,7 +702,7 @@ DLLEXPORT int RmaTokenToJson(const token_t* rma_token,
  * @param[out] rma_token The extracted RMA token.
  * @return The result of the operation.
  */
-DLLEXPORT int RmaTokenFromJson(const dut_tx_spi_frame_t* frame,
+DLLEXPORT int RmaTokenFromJson(const dut_spi_frame_t* frame,
                                token_t* rma_token);
 
 /**
@@ -720,7 +715,7 @@ DLLEXPORT int RmaTokenFromJson(const dut_tx_spi_frame_t* frame,
  */
 DLLEXPORT int CaSubjectKeysToJson(const ca_subject_key_t* dice_ca_sn,
                                   const ca_subject_key_t* aux_ca_sn,
-                                  dut_rx_spi_frame_t* result);
+                                  dut_spi_frame_t* result);
 
 /**
  * Generate JSON command to inject personalization blob.
@@ -730,8 +725,8 @@ DLLEXPORT int CaSubjectKeysToJson(const ca_subject_key_t* dice_ca_sn,
  * @param[out] num_frames The number of SPI frames generated.
  * @return The result of the operation.
  */
-DLLEXPORT int PersoBlobToJson(const perso_blob_t* blob,
-                              dut_rx_spi_frame_t* result, size_t* num_frames);
+DLLEXPORT int PersoBlobToJson(const perso_blob_t* blob, dut_spi_frame_t* result,
+                              size_t* num_frames);
 
 /**
  * Parse JSON command to extract personalization blob from the SPI frame.
@@ -741,7 +736,7 @@ DLLEXPORT int PersoBlobToJson(const perso_blob_t* blob,
  * @param[out] blob The extracted personalization blob.
  * @return The result of the operation.
  */
-DLLEXPORT int PersoBlobFromJson(const dut_tx_spi_frame_t* frames,
+DLLEXPORT int PersoBlobFromJson(const dut_spi_frame_t* frames,
                                 size_t num_frames, perso_blob_t* blob);
 
 /**

@@ -44,7 +44,7 @@ class DutLib {
   /**
    * Calls opentitanlib test util to receive a message over the SPI console.
    */
-  void DutConsoleRx(const std::string& sync_msg, dut_tx_spi_frame_t* spi_frames,
+  void DutConsoleRx(const std::string& sync_msg, dut_spi_frame_t* spi_frames,
                     size_t* num_frames, bool skip_crc_check, bool quiet,
                     uint64_t timeout_ms);
   /**

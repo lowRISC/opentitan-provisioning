@@ -23,7 +23,7 @@ using testing::EqualsProto;
 class AteJsonTest : public ::testing::Test {};
 
 TEST_F(AteJsonTest, TokensToJson) {
-  dut_rx_spi_frame_t frame;
+  dut_spi_frame_t frame;
   token_t wafer_auth_secret = {0};
   token_t test_unlock_token = {0};
   token_t test_exit_token = {0};
@@ -83,7 +83,7 @@ TEST_F(AteJsonTest, DeviceIdFromJson) {
                                                   options);
   EXPECT_EQ(status.ok(), true);
 
-  dut_tx_spi_frame_t frame = {0};
+  dut_spi_frame_t frame = {0};
   memcpy(frame.payload, command.data(), command.size());
   frame.size = command.size();
 
@@ -103,18 +103,13 @@ TEST_F(AteJsonTest, RmaTokenWithoutCrc) {
   rma_token.data[0] = 0x11;
   rma_token.data[1] = 0x22;
 
-  dut_rx_spi_frame_t ate_to_dut_frame;
+  dut_spi_frame_t ate_to_dut_frame;
   EXPECT_EQ(RmaTokenToJson(&rma_token, &ate_to_dut_frame, /*skip_crc=*/true),
             0);
 
   std::string json_string =
       std::string(reinterpret_cast<char*>(ate_to_dut_frame.payload),
                   kDutRxSpiFrameSizeInBytes);
-  // const std::string kWhitespace = " ";
-  // size_t last_non_whitespace = json_string.find_last_not_of(kWhitespace);
-  // if (std::string::npos != last_non_whitespace) {
-  // json_string.erase(last_non_whitespace + 1);
-  //}
 
   // Use the proto representation of RmaTokenJSON to verify the JSON string.
   ot::dut_commands::RmaTokenJSON rma_hash_cmd;
@@ -128,8 +123,8 @@ TEST_F(AteJsonTest, RmaTokenWithoutCrc) {
                 hash: 8721 hash: 0
               )pb"));
 
-  dut_tx_spi_frame_t dut_to_ate_frame = {.payload = {0},
-                                         .size = kDutTxMaxSpiFrameSizeInBytes};
+  dut_spi_frame_t dut_to_ate_frame = {.payload = {0},
+                                      .size = kDutTxMaxSpiFrameSizeInBytes};
   memcpy(dut_to_ate_frame.payload, ate_to_dut_frame.payload,
          kDutRxSpiFrameSizeInBytes);
   token_t rma_token_got = {0};
@@ -145,9 +140,9 @@ TEST_F(AteJsonTest, RmaTokenWithCrc) {
   rma_token.data[0] = 0x11;
   rma_token.data[1] = 0x22;
 
-  dut_rx_spi_frame_t frame_with_crc;
+  dut_spi_frame_t frame_with_crc;
   EXPECT_EQ(RmaTokenToJson(&rma_token, &frame_with_crc, /*skip_crc=*/false), 0);
-  dut_rx_spi_frame_t frame_without_crc;
+  dut_spi_frame_t frame_without_crc;
   EXPECT_EQ(RmaTokenToJson(&rma_token, &frame_without_crc, /*skip_crc=*/true),
             0);
 
@@ -170,7 +165,7 @@ TEST_F(AteJsonTest, RmaTokenWithCrc) {
                 hash: 8721 hash: 0
               )pb"));
 
-  dut_tx_spi_frame_t dut_to_ate_frame_with_crc = {
+  dut_spi_frame_t dut_to_ate_frame_with_crc = {
       .payload = {0}, .size = kDutTxMaxSpiFrameSizeInBytes};
   memcpy(dut_to_ate_frame_with_crc.payload, frame_with_crc.payload,
          kDutRxSpiFrameSizeInBytes);
@@ -189,7 +184,7 @@ TEST_F(AteJsonTest, CaSubjectKeys) {
   aux_ca_key_id.data[0] = 123;
   aux_ca_key_id.data[19] = 255;
 
-  dut_rx_spi_frame_t frame;
+  dut_spi_frame_t frame;
   EXPECT_EQ(CaSubjectKeysToJson(&dice_ca_key_id, &aux_ca_key_id, &frame), 0);
 
   std::string json_string = std::string(reinterpret_cast<char*>(frame.payload),
@@ -259,7 +254,7 @@ TEST_F(AteJsonTest, PersoBlob) {
   blob.next_free = sizeof(blob.body);
 
   constexpr size_t kNum256ByteFrames = 150;
-  dut_rx_spi_frame_t ate_to_dut_frames[kNum256ByteFrames] = {0};
+  dut_spi_frame_t ate_to_dut_frames[kNum256ByteFrames] = {0};
   size_t num_frames = kNum256ByteFrames;
   EXPECT_EQ(PersoBlobToJson(&blob, ate_to_dut_frames, &num_frames), 0);
   EXPECT_EQ(num_frames, 129);
@@ -267,12 +262,13 @@ TEST_F(AteJsonTest, PersoBlob) {
   // Translate the RX buffer into a TX buffer.
   const size_t kNum2020ByteFrames =
       ((kNum256ByteFrames * kDutRxSpiFrameSizeInBytes) + 2020 - 1) / 2020;
-  dut_tx_spi_frame_t dut_to_ate_frames[kNum2020ByteFrames] = {0};
+  dut_spi_frame_t dut_to_ate_frames[kNum2020ByteFrames] = {0};
   uint8_t tmp[kNum2020ByteFrames * 2020] = {0};
   memset(tmp, sizeof(tmp), ' ');
   for (size_t i = 0; i < kNum256ByteFrames; ++i) {
     memcpy(&tmp[i * kDutRxSpiFrameSizeInBytes], ate_to_dut_frames[i].payload,
            kDutRxSpiFrameSizeInBytes);
+    ate_to_dut_frames[i].size = kDutRxSpiFrameSizeInBytes;
   }
   for (size_t i = 0; i < kNum2020ByteFrames; ++i) {
     memcpy(dut_to_ate_frames[i].payload, &tmp[i * 2020], 2020);

@@ -12,7 +12,7 @@
 #include "src/ate/proto/dut_commands.pb.h"
 
 namespace {
-int RxSpiFrameSet(dut_rx_spi_frame_t *frame, const std::string &payload) {
+int RxSpiFrameSet(dut_spi_frame_t *frame, const std::string &payload) {
   if (frame == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
@@ -30,7 +30,8 @@ int RxSpiFrameSet(dut_rx_spi_frame_t *frame, const std::string &payload) {
   memcpy(frame->payload, payload.data(), payload.size());
   // Pad the remaining portion of the frame with whitespace.
   std::fill(frame->payload + payload.size(),
-            frame->payload + sizeof(frame->payload), ' ');
+            frame->payload + kDutRxSpiFrameSizeInBytes, ' ');
+  frame->size = kDutRxSpiFrameSizeInBytes;
 
   return 0;
 }
@@ -139,7 +140,7 @@ std::string TrimJsonString(const std::string &json_str) {
 DLLEXPORT int TokensToJson(const token_t *wafer_auth_secret,
                            const token_t *test_unlock_token,
                            const token_t *test_exit_token,
-                           dut_rx_spi_frame_t *result) {
+                           dut_spi_frame_t *result) {
   if (result == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
@@ -196,7 +197,7 @@ DLLEXPORT int TokensToJson(const token_t *wafer_auth_secret,
   return RxSpiFrameSet(result, command);
 }
 
-DLLEXPORT int DeviceIdFromJson(const dut_tx_spi_frame_t *frame,
+DLLEXPORT int DeviceIdFromJson(const dut_spi_frame_t *frame,
                                device_id_bytes_t *device_id) {
   if (frame == nullptr || device_id == nullptr) {
     LOG(ERROR) << "Invalid input buffer";
@@ -226,8 +227,8 @@ DLLEXPORT int DeviceIdFromJson(const dut_tx_spi_frame_t *frame,
   return 0;
 }
 
-DLLEXPORT int RmaTokenToJson(const token_t *rma_token,
-                             dut_rx_spi_frame_t *result, bool skip_crc) {
+DLLEXPORT int RmaTokenToJson(const token_t *rma_token, dut_spi_frame_t *result,
+                             bool skip_crc) {
   if (result == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
@@ -266,7 +267,7 @@ DLLEXPORT int RmaTokenToJson(const token_t *rma_token,
   return RxSpiFrameSet(result, command);
 }
 
-DLLEXPORT int RmaTokenFromJson(const dut_tx_spi_frame_t *frame,
+DLLEXPORT int RmaTokenFromJson(const dut_spi_frame_t *frame,
                                token_t *rma_token) {
   if (frame == nullptr || rma_token == nullptr) {
     LOG(ERROR) << "Invalid input buffer";
@@ -311,7 +312,7 @@ DLLEXPORT int RmaTokenFromJson(const dut_tx_spi_frame_t *frame,
 
 DLLEXPORT int CaSubjectKeysToJson(const ca_subject_key_t *dice_ca_sn,
                                   const ca_subject_key_t *aux_ca_sn,
-                                  dut_rx_spi_frame_t *result) {
+                                  dut_spi_frame_t *result) {
   if (result == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
@@ -348,8 +349,8 @@ DLLEXPORT int CaSubjectKeysToJson(const ca_subject_key_t *dice_ca_sn,
   return RxSpiFrameSet(result, command);
 }
 
-DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob,
-                              dut_rx_spi_frame_t *result, size_t *num_frames) {
+DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob, dut_spi_frame_t *result,
+                              size_t *num_frames) {
   if (result == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
@@ -409,15 +410,16 @@ DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob,
     // Pad frame with whitespace to ensure each frame is constant size.
     if (size != kDutRxSpiFrameSizeInBytes) {
       std::fill(result[i].payload + size,
-                result[i].payload + sizeof(result[i].payload), ' ');
+                result[i].payload + kDutRxSpiFrameSizeInBytes, ' ');
     }
+    result[i].size = kDutRxSpiFrameSizeInBytes;
   }
 
   *num_frames = kNumFramesExpected;
   return 0;
 }
 
-DLLEXPORT int PersoBlobFromJson(const dut_tx_spi_frame_t *frames,
+DLLEXPORT int PersoBlobFromJson(const dut_spi_frame_t *frames,
                                 size_t num_frames, perso_blob_t *blob) {
   if (frames == nullptr || num_frames == 0 || blob == nullptr) {
     LOG(ERROR) << "Invalid input buffer";
