@@ -14,6 +14,7 @@ proto_library(
         "//src/pa/proto:pa_proto",
         "//src/proto:device_id_proto",
         "//src/proto/crypto:cert_proto",
+        "//src/proto/crypto:common_proto",
     ],
 )
 
@@ -26,5 +27,6 @@ go_proto_library(
         "//src/pa/proto:pa_go_pb",
         "//src/proto:device_id_go_pb",
         "//src/proto/crypto:cert_go_pb",
+        "//src/proto/crypto:common_go_pb",
     ],
 )

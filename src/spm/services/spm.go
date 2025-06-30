@@ -6,6 +6,7 @@
 package spm
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
@@ -616,6 +617,51 @@ func (s *server) VerifyDeviceData(ctx context.Context, request *pbs.VerifyDevice
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "%q certificate chain is invalid: %v", cert.Subject.CommonName, err)
 		}
+	}
+
+	// Verify the hash of all certificates written to flash on the DUT.
+	// Note: we skip the hash check, and print a warning, if the expected hash is all zeros.
+	if request.HashType != pbcommon.HashType_HASH_TYPE_SHA256 {
+		return nil, status.Errorf(codes.InvalidArgument, "only support SHA256 certificates hash type")
+	}
+	zeroSlice := make([]byte, 32)
+	if !bytes.Equal(request.CertsHash, zeroSlice) {
+		certHasher := sha256.New()
+		// Push CWT certs into the hash.
+		for _, label := range sku.Config.DutCwtCertHashOrder {
+			for _, cert := range persoBlob.CwtCerts {
+				if label == cert.KeyLabel {
+					certHasher.Write(cert.Cert)
+					break
+				}
+			}
+		}
+		// Push X.509 certs into the hash.
+		for _, label := range sku.Config.DutX509CertHashOrder {
+			for _, cert := range persoBlob.X509Certs {
+				if label == cert.KeyLabel {
+					certHasher.Write(cert.Cert)
+					break
+				}
+			}
+		}
+		for _, seed := range persoBlob.Seeds {
+			// Currently only DevSeed seed objects are pushed to the hash.
+			// Generic seeds are not currently hashed.
+			if seed.Type == ate.PersoObjectTypeDevSeed {
+				certHasher.Write(seed.Raw)
+			}
+		}
+		certsHash := certHasher.Sum(nil)
+		utils.Reverse(certsHash) // The DUT produces the hash in little endian order.
+
+		if !bytes.Equal(certsHash, request.CertsHash) {
+			log.Printf("Expected hash: %x\n", request.CertsHash)
+			log.Printf("Actual   hash: %x\n", certsHash)
+			return nil, status.Errorf(codes.InvalidArgument, "certificates hash is invalid")
+		}
+	} else {
+		log.Printf("SPM.VerifyDeviceData - Sku: %q - skipped certificates hash check", request.DeviceData.Sku)
 	}
 
 	return &pbs.VerifyDeviceDataResponse{}, nil

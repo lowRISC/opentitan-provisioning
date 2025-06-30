@@ -349,6 +349,8 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 			PersoTlvData:       persoTlv,
 			NumPersoTlvObjects: numObjs,
 		},
+		HashType:  pbcommon.HashType_HASH_TYPE_SHA256,
+		CertsHash: make([]byte, 32),
 	}
 	if _, err := c.client.RegisterDevice(client_ctx, regReq); err != nil {
 		return fmt.Errorf("failed to register device: %w", err)

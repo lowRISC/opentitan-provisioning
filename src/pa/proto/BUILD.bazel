@@ -15,6 +15,7 @@ proto_library(
     deps = [
         "//src/proto:device_id_proto",
         "//src/proto/crypto:cert_proto",
+        "//src/proto/crypto:common_proto",
         "//src/proto/crypto:wrap_proto",
     ],
 )
@@ -27,6 +28,7 @@ go_proto_library(
     deps = [
         "//src/proto:device_id_go_pb",
         "//src/proto/crypto:cert_go_pb",
+        "//src/proto/crypto:common_go_pb",
         "//src/proto/crypto:wrap_go_pb",
     ],
 )

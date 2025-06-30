@@ -35,16 +35,18 @@ const (
 )
 
 type Config struct {
-	Sku           string            `yaml:"sku"`
-	SlotID        int               `yaml:"slotId"`
-	NumSessions   int               `yaml:"numSessions"`
-	CertCountX509 int               `yaml:"certCountX509"`
-	CertCountCWT  int               `yaml:"certCountCWT"`
-	SymmetricKeys []SymmetricKey    `yaml:"symmetricKeys"`
-	PrivateKeys   []PrivateKey      `yaml:"privateKeys"`
-	PublicKeys    []PublicKey       `yaml:"publicKeys"`
-	Certs         []Certificate     `yaml:"certs"`
-	Attributes    map[string]string `yaml:"attributes"`
+	Sku                  string            `yaml:"sku"`
+	SlotID               int               `yaml:"slotId"`
+	NumSessions          int               `yaml:"numSessions"`
+	CertCountX509        int               `yaml:"certCountX509"`
+	CertCountCWT         int               `yaml:"certCountCWT"`
+	SymmetricKeys        []SymmetricKey    `yaml:"symmetricKeys"`
+	PrivateKeys          []PrivateKey      `yaml:"privateKeys"`
+	PublicKeys           []PublicKey       `yaml:"publicKeys"`
+	Certs                []Certificate     `yaml:"certs"`
+	Attributes           map[string]string `yaml:"attributes"`
+	DutCwtCertHashOrder  []string          `yaml:"cwtCertHashOrder"`
+	DutX509CertHashOrder []string          `yaml:"x509CertHashOrder"`
 }
 
 type SymmetricKey struct {

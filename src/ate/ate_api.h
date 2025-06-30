@@ -437,9 +437,9 @@ typedef struct ca_subject_key {
 /**
  * Type used to wrap the personalization firmware hash raw bytes.
  */
-typedef struct perso_fw_sha256_hash {
+typedef struct sha256_hash {
   uint8_t raw[kSha256HashSize];
-} perso_fw_sha256_hash_t;
+} sha256_hash_t;
 
 /**
  * DeviceLifeCycle encodes the state of the device as it is being manufactured
@@ -651,6 +651,7 @@ DLLEXPORT int GetOwnerFwBootMessage(ate_client_ptr client, const char* sku,
  * @param wrapped_rma_unlock_token_seed The encrypted RMA unlock token seed.
  * @param perso_blob_for_registry The perso blob TLV data structure to store.
  * @param perso_fw_hash The hash of the perso firmware that was executed.
+ * @param hash_of_all_certs The hash of all certs installed on the DUT.
  * @return The result of the operation.
  */
 DLLEXPORT int RegisterDevice(
@@ -658,7 +659,7 @@ DLLEXPORT int RegisterDevice(
     device_life_cycle_t device_life_cycle, const metadata_t* metadata,
     const wrapped_seed_t* wrapped_rma_unlock_token_seed,
     const perso_blob_t* perso_blob_for_registry,
-    const perso_fw_sha256_hash_t* perso_fw_hash);
+    const sha256_hash_t* perso_fw_hash, const sha256_hash_t* hash_of_all_certs);
 
 /**
  * Generate JSON command to inject tokens.
@@ -740,6 +741,16 @@ DLLEXPORT int PersoBlobFromJson(const dut_spi_frame_t* frames,
                                 size_t num_frames, perso_blob_t* blob);
 
 /**
+ * Parse JSON command to extract SHA256 hash from a SPI frame.
+ *
+ * @param frame The SPI frame containing the JSON command.
+ * @param[out] hash The extracted SHA256 hash.
+ * @return The result of the operation.
+ */
+DLLEXPORT int Sha256HashFromJson(const dut_spi_frame_t* frame,
+                                 sha256_hash_t* hash);
+
+/**
  * Unpack a personalization blob into its components.
  *
  * @param blob The personalization blob to unpack.
@@ -759,7 +770,7 @@ DLLEXPORT int PersoBlobFromJson(const dut_spi_frame_t* frames,
  */
 DLLEXPORT int UnpackPersoBlob(
     const perso_blob_t* blob, device_id_bytes_t* device_id,
-    endorse_cert_signature_t* signature, perso_fw_sha256_hash_t* perso_fw_hash,
+    endorse_cert_signature_t* signature, sha256_hash_t* perso_fw_hash,
     endorse_cert_request_t* tbs_certs, size_t* tbs_cert_count,
     endorse_cert_response_t* certs, size_t* cert_count, seed_t* seeds,
     size_t* seed_count);

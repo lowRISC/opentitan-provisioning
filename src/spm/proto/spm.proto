@@ -9,6 +9,7 @@ package spm;
 
 import "src/pa/proto/pa.proto";
 import "src/proto/crypto/cert.proto";
+import "src/proto/crypto/common.proto";
 import "src/proto/device_id.proto";
 
 option go_package = "spm_go_bp";
@@ -79,6 +80,10 @@ message EndorseDataResponse {
 message VerifyDeviceDataRequest {
   // Device data to verify. Required.
   ot.DeviceData device_data = 1;
+  // Hash type of certificates (for integrity check). Required.
+  crypto.common.HashType hash_type = 2;
+  // Hash of certificates written to non-volatile storage on the DUT. Required.
+  bytes certs_hash = 3;
 }
 
 // Verify device data response.

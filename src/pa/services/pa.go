@@ -180,6 +180,8 @@ func (s *server) RegisterDevice(ctx context.Context, request *pap.RegistrationRe
 	// Verify the device data.
 	if _, err := s.spmClient.VerifyDeviceData(ctx, &pbs.VerifyDeviceDataRequest{
 		DeviceData: request.DeviceData,
+		HashType:   request.HashType,
+		CertsHash:  request.CertsHash,
 	}); err != nil {
 		st := status.Convert(err)
 		return nil, status.Errorf(st.Code(), "SPM.VerifyDeviceData returned error: %s", st.Message())

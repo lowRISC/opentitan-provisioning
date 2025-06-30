@@ -35,3 +35,11 @@ attributes:
     SigningKey/Identity/v0: spm-hsm-id-v0.priv
     CertChainDiceLeaf: CDI_1
     OwnerFirmwareBootMessage: "Key ladder state: Prod"
+x509CertHashOrder:
+    - UDS
+    - CDI_0
+    - CDI_1
+    - TPM EK
+    - TPM CEK
+    - TPM CIK
+    - CROS UDS

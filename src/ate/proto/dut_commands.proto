@@ -81,3 +81,11 @@ message PersoBlobJSON {
   repeated uint32 body = 3;
 }
 
+// Provides the serdes_sha256_hash_t data structure used by provisioning
+// firmware.
+message Sha256JSON {
+  // SHA256 hash encoded as 8 uint32 values.
+  // Required.
+  // protolint:disable:next REPEATED_FIELD_NAMES_PLURALIZED
+  repeated uint32 data = 1;
+}

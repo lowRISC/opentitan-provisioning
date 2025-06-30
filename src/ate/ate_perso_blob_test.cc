@@ -114,7 +114,7 @@ TEST_F(AtePersoBlobTest, UnpackPersoBlobSuccess) {
 
   device_id_bytes_t device_id;
   endorse_cert_signature_t signature;
-  perso_fw_sha256_hash_t perso_fw_hash = {.raw = {0}};
+  sha256_hash_t perso_fw_hash = {.raw = {0}};
   size_t tbs_cert_count = 10;
   size_t cert_count = 10;
   endorse_cert_request_t x509_tbs_certs[10];
@@ -147,7 +147,7 @@ TEST_F(AtePersoBlobTest, UnpackPersoBlobNullInputs) {
 
   device_id_bytes_t device_id;
   endorse_cert_signature_t signature;
-  perso_fw_sha256_hash_t perso_fw_hash = {.raw = {0}};
+  sha256_hash_t perso_fw_hash = {.raw = {0}};
   size_t tbs_cert_count = 10;
   size_t cert_count = 10;
   endorse_cert_request_t x509_tbs_certs[10];

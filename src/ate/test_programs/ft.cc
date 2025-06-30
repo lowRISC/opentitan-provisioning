@@ -310,7 +310,7 @@ int main(int argc, char **argv) {
   // the perso blob.
   device_id_bytes_t device_id;
   endorse_cert_signature_t tbs_was_hmac = {.raw = {0}};
-  perso_fw_sha256_hash_t perso_fw_hash = {.raw = {0}};
+  sha256_hash_t perso_fw_hash = {.raw = {0}};
   constexpr size_t kMaxNumCerts = 10;
   size_t num_tbs_certs = kMaxNumCerts;
   endorse_cert_request_t tbs_certs[kMaxNumCerts];
@@ -384,7 +384,22 @@ int main(int argc, char **argv) {
     }
   }
 
+  // Capture the hash of all installed certificates.
+  dut_spi_frame_t cert_hash_spi_frame;
+  size_t num_cert_hash_spi_frames = 1;
+  dut->DutConsoleRx("Finished importing certificates.", &cert_hash_spi_frame,
+                    &num_cert_hash_spi_frames,
+                    /*skip_crc_check=*/true,
+                    /*quiet=*/false,
+                    /*timeout_ms=*/1000);
+  sha256_hash_t hash_of_all_certs = {0};
+  if (Sha256HashFromJson(&cert_hash_spi_frame, &hash_of_all_certs)) {
+    LOG(ERROR) << "Sha256HashFromJson failed.";
+    return -1;
+  }
+
   // Register the device.
+  // Arbitrary metadata for testing.
   metadata_t dut_metadata = {
       .year = 0,
       .week = 10,
@@ -406,7 +421,7 @@ int main(int argc, char **argv) {
                      reinterpret_cast<const device_id_t *>(&device_id),
                      kDeviceLifeCycleProd, &dut_metadata,
                      &wrapped_rma_token_seed, &perso_blob_for_registry,
-                     &perso_fw_hash) != 0) {
+                     &perso_fw_hash, &hash_of_all_certs) != 0) {
     LOG(ERROR) << "RegisterDevice failed.";
     return -1;
   }

@@ -17,7 +17,6 @@ int RxSpiFrameSet(dut_spi_frame_t *frame, const std::string &payload) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
   }
-
   // This is an unlikely error.
   if (payload.size() > sizeof(frame->payload)) {
     LOG(ERROR) << "Output buffer size is too small"
@@ -450,6 +449,42 @@ DLLEXPORT int PersoBlobFromJson(const dut_spi_frame_t *frames,
 
   for (size_t i = 0; i < blob->next_free; ++i) {
     blob->body[i] = blob_cmd.body(i);
+  }
+
+  return 0;
+}
+
+DLLEXPORT int Sha256HashFromJson(const dut_spi_frame_t *frame,
+                                 sha256_hash_t *hash) {
+  if (frame == nullptr || hash == nullptr) {
+    LOG(ERROR) << "Invalid input buffer";
+    return -1;
+  }
+
+  // Trim non-JSON characters from the start / end of the SPI frame.
+  std::string json_str = TrimJsonString(
+      std::string(reinterpret_cast<const char *>(frame->payload), frame->size));
+
+  ot::dut_commands::Sha256JSON sha256_hash_cmd;
+  google::protobuf::util::JsonParseOptions options;
+  options.ignore_unknown_fields = true;
+
+  google::protobuf::util::Status status =
+      google::protobuf::util::JsonStringToMessage(json_str, &sha256_hash_cmd,
+                                                  options);
+  if (!status.ok()) {
+    LOG(ERROR) << "Failed to parse JSON: " << status.ToString();
+    return -1;
+  }
+
+  if (sha256_hash_cmd.data_size() != 8) {
+    LOG(ERROR) << "Invalid SHA256 hash size: " << sha256_hash_cmd.data_size();
+    return -1;
+  }
+
+  for (size_t i = 0; i < sha256_hash_cmd.data_size(); ++i) {
+    uint32_t value = sha256_hash_cmd.data(i);
+    memcpy(hash->raw + i * sizeof(uint32_t), &value, sizeof(uint32_t));
   }
 
   return 0;

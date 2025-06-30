@@ -289,7 +289,7 @@ int PackSeedTlvObject(const seed_t* seed, perso_blob_t* blob) {
 
 DLLEXPORT int UnpackPersoBlob(
     const perso_blob_t* blob, device_id_bytes_t* device_id,
-    endorse_cert_signature_t* signature, perso_fw_sha256_hash_t* perso_fw_hash,
+    endorse_cert_signature_t* signature, sha256_hash_t* perso_fw_hash,
     endorse_cert_request_t* tbs_certs, size_t* tbs_cert_count,
     endorse_cert_response_t* certs, size_t* cert_count, seed_t* seeds,
     size_t* seed_count) {
@@ -308,7 +308,7 @@ DLLEXPORT int UnpackPersoBlob(
 
   memset(device_id->raw, 0, sizeof(device_id_bytes_t));
   memset(signature->raw, 0, sizeof(endorse_cert_signature_t));
-  memset(perso_fw_hash->raw, 0, sizeof(perso_fw_sha256_hash_t));
+  memset(perso_fw_hash->raw, 0, sizeof(sha256_hash_t));
 
   size_t max_tbs_cert_count = *tbs_cert_count;
   *tbs_cert_count = 0;
@@ -427,11 +427,11 @@ DLLEXPORT int UnpackPersoBlob(
       }
 
       case kPersoObjectTypePersoSha256Hash: {
-        if (obj_size != sizeof(perso_fw_sha256_hash_t) +
-                            sizeof(perso_tlv_object_header_t)) {
+        if (obj_size !=
+            sizeof(sha256_hash_t) + sizeof(perso_tlv_object_header_t)) {
           LOG(ERROR) << "Invalid size for perso firmware hash object: "
                      << obj_size << ", expected: "
-                     << (sizeof(perso_fw_sha256_hash_t) +
+                     << (sizeof(sha256_hash_t) +
                          sizeof(perso_tlv_object_header_t));
           return -1;
         }

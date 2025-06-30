@@ -644,7 +644,8 @@ DLLEXPORT int RegisterDevice(
     device_life_cycle_t device_life_cycle, const metadata_t *metadata,
     const wrapped_seed_t *wrapped_rma_unlock_token_seed,
     const perso_blob_t *perso_blob_for_registry,
-    const perso_fw_sha256_hash_t *perso_fw_hash) {
+    const sha256_hash_t *perso_fw_hash,
+    const sha256_hash_t *hash_of_all_certs) {
   DLOG(INFO) << "RegisterDevice";
 
   if (sku == nullptr || device_id == nullptr || metadata == nullptr ||
@@ -664,6 +665,11 @@ DLLEXPORT int RegisterDevice(
   // Build the RegisterDeviceRequest object.
   pa::RegistrationRequest req;
   auto device_data = req.mutable_device_data();
+
+  // Certs hash type and hash.
+  req.set_hash_type(crypto::common::HashType::HASH_TYPE_SHA256);
+  req.set_certs_hash(std::string(
+      reinterpret_cast<const char *>(hash_of_all_certs->raw), kSha256HashSize));
 
   // SKU.
   device_data->set_sku(sku);
