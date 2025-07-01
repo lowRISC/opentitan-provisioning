@@ -56,6 +56,8 @@ func ValidateProductId(pi dpb.ProductId) error {
 		fallthrough
 	case dpb.ProductId_PRODUCT_ID_EARLGREY_A1:
 		fallthrough
+	case dpb.ProductId_PRODUCT_ID_EARLGREY_A2:
+		fallthrough
 	case dpb.ProductId_PRODUCT_ID_FPGA:
 		return nil
 	}
