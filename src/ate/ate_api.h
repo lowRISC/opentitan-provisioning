@@ -6,9 +6,22 @@
 #define OPENTITAN_PROVISIONING_SRC_ATE_ATE_API_H_
 
 #include <stddef.h>
-#include <stdint.h>
 
 #include <string>
+
+#ifdef _WIN32
+#define COMPILE_TIME_ASSERT(condition, msg) \
+  typedef char COMPILE_TIME_ASSERT_##msg[(condition) ? 1 : -1]
+
+// types for TP
+typedef unsigned __int8 uint8_t;
+typedef unsigned __int16 uint16_t;
+typedef unsigned __int32 uint32_t;
+typedef unsigned __int64 uint64_t;
+typedef unsigned int size_t;
+#else  // not _WIN32
+#include <stdint.h>
+#endif  // _WIN32
 
 #ifdef __cplusplus
 extern "C" {
@@ -210,7 +223,11 @@ typedef struct DeviceId {
   uint8_t sku_specific[kSkuSpecificSize];
 } device_id_t;
 #pragma pack(pop)
+#ifdef _WIN32
+COMPILE_TIME_ASSERT(sizeof(device_id_t) == 32, device_id_t_size_check);
+#else   // not _WIN32
 static_assert(sizeof(device_id_t) == 32, "device_id_t must be 32 bytes long");
+#endif  // _WIN32
 
 typedef struct device_id_bytes {
   /**
@@ -652,6 +669,8 @@ DLLEXPORT int GetOwnerFwBootMessage(ate_client_ptr client, const char* sku,
  * @param perso_blob_for_registry The perso blob TLV data structure to store.
  * @param perso_fw_hash The hash of the perso firmware that was executed.
  * @param hash_of_all_certs The hash of all certs installed on the DUT.
+ * @param ate_raw ATE unstructured data associated with the device.
+ *
  * @return The result of the operation.
  */
 DLLEXPORT int RegisterDevice(
@@ -659,7 +678,8 @@ DLLEXPORT int RegisterDevice(
     device_life_cycle_t device_life_cycle, const metadata_t* metadata,
     const wrapped_seed_t* wrapped_rma_unlock_token_seed,
     const perso_blob_t* perso_blob_for_registry,
-    const sha256_hash_t* perso_fw_hash, const sha256_hash_t* hash_of_all_certs);
+    const sha256_hash_t* perso_fw_hash, const sha256_hash_t* hash_of_all_certs,
+    uint8_t* ate_raw, size_t ate_raw_size);
 
 /**
  * Generate JSON command to inject tokens.

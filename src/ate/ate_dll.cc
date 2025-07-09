@@ -639,13 +639,26 @@ uint64_t getMilliseconds(void) {
       .count();
 }
 
+#define ASCII(val) (((val) > 9) ? (((val)-0xA) + 'A') : ((val) + '0'))
+
+// Convert a byte to its ASCII representation in hex format.
+std::string bytesToHexStr(uint8_t *byteArray, size_t byteArraySize) {
+  std::string str;
+
+  for (size_t i = 0; i < byteArraySize; i++) {
+    str += ASCII(((byteArray[i]) >> 4) & 0x0F);
+    str += ASCII((byteArray[i]) & 0x0F);
+  }
+  return str;
+}
+
 DLLEXPORT int RegisterDevice(
     ate_client_ptr client, const char *sku, const device_id_t *device_id,
     device_life_cycle_t device_life_cycle, const metadata_t *metadata,
     const wrapped_seed_t *wrapped_rma_unlock_token_seed,
     const perso_blob_t *perso_blob_for_registry,
-    const sha256_hash_t *perso_fw_hash,
-    const sha256_hash_t *hash_of_all_certs) {
+    const sha256_hash_t *perso_fw_hash, const sha256_hash_t *hash_of_all_certs,
+    uint8_t *ate_raw, size_t ate_raw_size) {
   DLOG(INFO) << "RegisterDevice";
 
   if (sku == nullptr || device_id == nullptr || metadata == nullptr ||
@@ -698,7 +711,8 @@ DLLEXPORT int RegisterDevice(
   device_data->mutable_metadata()->set_create_time_ms(current_time_ms);
   device_data->mutable_metadata()->set_update_time_ms(current_time_ms);
   device_data->mutable_metadata()->set_ate_id(ate->ate_id);
-  device_data->mutable_metadata()->set_ate_raw("");
+  device_data->mutable_metadata()->set_ate_raw(
+      bytesToHexStr(ate_raw, ate_raw_size));
   device_data->mutable_metadata()->set_year(metadata->year);
   device_data->mutable_metadata()->set_week(metadata->week);
   device_data->mutable_metadata()->set_lot_num(metadata->lot_num);

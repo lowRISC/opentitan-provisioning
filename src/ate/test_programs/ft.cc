@@ -421,7 +421,7 @@ int main(int argc, char **argv) {
                      reinterpret_cast<const device_id_t *>(&device_id),
                      kDeviceLifeCycleProd, &dut_metadata,
                      &wrapped_rma_token_seed, &perso_blob_for_registry,
-                     &perso_fw_hash, &hash_of_all_certs) != 0) {
+                     &perso_fw_hash, &hash_of_all_certs, nullptr, 0) != 0) {
     LOG(ERROR) << "RegisterDevice failed.";
     return -1;
   }
