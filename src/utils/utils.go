@@ -18,11 +18,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/lowRISC/opentitan-provisioning/src/version/buildver"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v3"
+
+	"github.com/lowRISC/opentitan-provisioning/src/version/buildver"
 )
 
 func PrintVersion(exit bool) string {
@@ -258,7 +259,7 @@ func CalcHashPW(password_A, password_B []byte) (string, string, error) {
 	return Base64_password, string(hashedPassword), nil
 }
 
-func BlobToPEMString(blob []byte) string {
+func DERCertToPEMString(blob []byte) string {
 	block := &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: blob,
