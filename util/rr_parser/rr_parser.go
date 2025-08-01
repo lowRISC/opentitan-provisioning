@@ -5,8 +5,10 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -14,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
@@ -140,17 +143,31 @@ func parseRegistryRecord(rr *rrpb.RegistryRecord, diceLeaf string) (*certs, erro
 	return certs, nil
 }
 
-func parseFlags() (string, string, string, string, string) {
+type flags struct {
+	DiceLeaf   string
+	DiceICA    string
+	ExtICA     string
+	RootCA     string
+	RRJSONPath string
+	RRCSVPath  string
+	RowNumber  int
+}
+
+func parseFlags() flags {
 	diceCertLeaf := flag.String("dice-leaf", "", "DICE cert leaf: UDS, CDI_0 or CDI_1. Required.")
 	diceICA := flag.String("dice-ica", "", "Path to the DICE ICA certificate file. Required.")
 	extICA := flag.String("ext-ica", "", "Path to the external ICA certificate file. Optional.")
 	rootCA := flag.String("root-cert", "", "Path to a root certificate file. May be specified multiple times.")
-	rrJSONPath := flag.String("rr-json", "", "Path to the JSON registry record file. Required.")
-
+	rrJSONPath := flag.String("rr-json", "", "Path to the JSON registry record file. Mutually exclusive with `-rr-csv`.")
+	rrCSVPath := flag.String("rr-csv", "", "Path to the CSV file containing multiple registry records. Mutually exclusive with `-rr-json`.")
+	rowNumber := flag.Int("row-number", 0, "Row to check on the CSV (index 0). Defaults to 0")
 	flag.Parse()
 
-	if *rrJSONPath == "" {
-		log.Fatal("Usage: go run rr_parser.go -rr-json <JSON registry record> [-root-cert <path/to/cert.pem> ...]")
+	if *rrJSONPath == "" && *rrCSVPath == "" {
+		log.Fatal("Usage: go run rr_parser.go (-rr-json <JSON registry record> |-rr-csv <CSV records>) [-root-cert <path/to/cert.pem> ...]")
+	}
+	if *rrJSONPath != "" && *rrCSVPath != "" {
+		log.Fatal("Error: only one of -rr-json or -rr-csv should be specified.")
 	}
 
 	if *diceCertLeaf == "" || *diceICA == "" || *rootCA == "" {
@@ -163,10 +180,18 @@ func parseFlags() (string, string, string, string, string) {
 		log.Fatalf("Error: Invalid DICE cert leaf '%s'. Must be one of: UDS, CDI_0, or CDI_1.", *diceCertLeaf)
 	}
 
-	return *diceCertLeaf, *diceICA, *extICA, *rootCA, *rrJSONPath
+	return flags{
+		DiceLeaf:   *diceCertLeaf,
+		DiceICA:    *diceICA,
+		ExtICA:     *extICA,
+		RootCA:     *rootCA,
+		RRJSONPath: *rrJSONPath,
+		RRCSVPath:  *rrCSVPath,
+		RowNumber:  *rowNumber,
+	}
 }
 
-func parseRR(rrJSONPath string) (*rrpb.RegistryRecord, error) {
+func parseJSON(rrJSONPath string) (*rrpb.RegistryRecord, error) {
 	rrBytes, err := utils.ReadFile(rrJSONPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read registry record file: %v", err)
@@ -178,6 +203,53 @@ func parseRR(rrJSONPath string) (*rrpb.RegistryRecord, error) {
 	}
 
 	return rr.Record, nil
+}
+
+// CSV expected format:
+// DeviceId(string),Version(uint32),Record(hex-string),Sku(string)
+// First row contains headers and is ignored.
+func parseCSV(csvRecordPath string, rowNumber int) (*rrpb.RegistryRecord, error) {
+	const csvFieldNumber = 4
+
+	f, err := os.Open(csvRecordPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read csv record file: %v", err)
+	}
+	defer f.Close()
+
+	reader := csv.NewReader(f)
+	rows, err := reader.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read records: %v", err)
+	}
+	// Dropping the first row (headers)
+	rows = rows[1:]
+	if len(rows) < 1 {
+		return nil, errors.New("csv contains no records")
+	}
+	if rowNumber >= len(rows) {
+		return nil, fmt.Errorf("-row-number is %d but CSV contains %d rows", rowNumber, len(rows))
+	}
+	row := rows[rowNumber]
+	if len(row) != csvFieldNumber {
+		return nil, fmt.Errorf("row %d has %d fields, expected %d", rowNumber, len(row), csvFieldNumber)
+	}
+	deviceID := row[0]
+	version, err := strconv.Atoi(row[1])
+	if err != nil {
+		return nil, fmt.Errorf("invalid version %q in row %d: %v", row[1], rowNumber, err)
+	}
+	recordData, err := hex.DecodeString(row[2])
+	if err != nil {
+		return nil, fmt.Errorf("invalid row data %q in row %d: %v", row[2], rowNumber, err)
+	}
+	sku := row[3]
+	return &rrpb.RegistryRecord{
+		DeviceId: deviceID,
+		Sku:      sku,
+		Version:  uint32(version),
+		Data:     recordData,
+	}, nil
 }
 
 func writeFile(path string, data []byte) error {
@@ -207,10 +279,21 @@ func verifyCertificate(rootCA, intermediateCAs, leafCert string, ignore_critical
 }
 
 func main() {
-	diceCertLeaf, diceICA, extICA, rootCA, rrJSONPath := parseFlags()
+	flags := parseFlags()
 
-	baseDir := filepath.Dir(rrJSONPath)
-	filename := strings.TrimSuffix(filepath.Base(rrJSONPath), filepath.Ext(rrJSONPath))
+	isCSV := false
+	// One and only one of RRJSONPath or RRCSVPath is non-empty
+	if flags.RRCSVPath != "" {
+		isCSV = true
+	}
+
+	file := flags.RRJSONPath
+	if isCSV {
+		file = flags.RRCSVPath
+	}
+
+	baseDir := filepath.Dir(file)
+	filename := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
 
 	logFilename := filepath.Join(baseDir, filename+"-rr_parser.log")
 	logFile, err := os.OpenFile(logFilename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
@@ -222,30 +305,39 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.SetOutput(multiWriter)
 
-	log.Printf("Parsing registry record from %s", rrJSONPath)
+	var record *rrpb.RegistryRecord
 
-	rr, err := parseRR(rrJSONPath)
-	if err != nil {
-		log.Fatalf("Failed to parse registry record: %v", err)
+	if isCSV {
+		log.Printf("Parsing CSV records from %s", file)
+		record, err = parseCSV(file, flags.RowNumber)
+		if err != nil {
+			log.Fatalf("Failed to parse CSV records: %v", err)
+		}
+	} else {
+		log.Printf("Parsing JSON registry record from %s", file)
+		record, err = parseJSON(file)
+		if err != nil {
+			log.Fatalf("Failed to parse JSON registry record: %v", err)
+		}
 	}
 
-	certs, err := parseRegistryRecord(rr, diceCertLeaf)
+	certs, err := parseRegistryRecord(record, flags.DiceLeaf)
 	if err != nil {
 		log.Fatalf("Error parsing registry record: %v", err)
 	}
 
-	diceICABytes, err := utils.ReadFile(diceICA)
+	diceICABytes, err := utils.ReadFile(flags.DiceICA)
 	if err != nil {
 		log.Fatalf("Failed to read DICE ICA certificate file: %v", err)
 	}
-	certs.diceICA = append(certs.diceICA, cert{id: diceICA, data: string(diceICABytes)})
+	certs.diceICA = append(certs.diceICA, cert{id: flags.DiceICA, data: string(diceICABytes)})
 
-	if extICA != "" {
-		extICABytes, err := utils.ReadFile(extICA)
+	if flags.ExtICA != "" {
+		extICABytes, err := utils.ReadFile(flags.ExtICA)
 		if err != nil {
 			log.Fatalf("Failed to read external ICA certificate file: %v", err)
 		}
-		certs.extICA = append(certs.extICA, cert{id: extICA, data: string(extICABytes)})
+		certs.extICA = append(certs.extICA, cert{id: flags.ExtICA, data: string(extICABytes)})
 	}
 
 	var diceICACerts strings.Builder
@@ -277,7 +369,7 @@ func main() {
 		if err := writeFile(diceLeafFilename, []byte(cert.data)); err != nil {
 			log.Fatalf("failed to write DICE leaf certificate: %v", err)
 		}
-		if err := verifyCertificate(rootCA, diceICAFilename, diceLeafFilename, true); err != nil {
+		if err := verifyCertificate(flags.RootCA, diceICAFilename, diceLeafFilename, true); err != nil {
 			log.Fatalf("failed to verify DICE leaf certificate: %v", err)
 		}
 	}
@@ -288,7 +380,7 @@ func main() {
 		if err := writeFile(extLeafFilename, []byte(cert.data)); err != nil {
 			log.Fatalf("failed to write external leaf certificate: %v", err)
 		}
-		if err := verifyCertificate(rootCA, extICAFilename, extLeafFilename, false); err != nil {
+		if err := verifyCertificate(flags.RootCA, extICAFilename, extLeafFilename, false); err != nil {
 			log.Fatalf("failed to verify external leaf certificate: %v", err)
 		}
 	}
