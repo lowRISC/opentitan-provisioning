@@ -281,6 +281,12 @@ func (h *HSM) GenerateTokens(params []*TokenParams) ([]TokenResult, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to generate random key: %v", err)
 			}
+			cleanup_seed := func() {
+				if err := seed.Destroy(); err != nil {
+					log.Printf("failed to destroy generated key: %v", err)
+				}
+			}
+			defer cleanup_seed()
 		default:
 			return nil, fmt.Errorf("unsupported key type: %v", p.Type)
 		}
