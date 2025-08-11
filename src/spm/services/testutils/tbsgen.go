@@ -77,7 +77,7 @@ func buildTestTbsCert(session *pk11.Session, label string, intermediateCACert *x
 			CommonName:   label,
 		},
 		NotBefore:             time.Now(),
-		NotAfter:              time.Now().Add(time.Hour),
+		NotAfter:              time.Now().Add(7 * 24 * time.Hour),
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
