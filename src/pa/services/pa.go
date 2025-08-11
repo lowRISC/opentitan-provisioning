@@ -151,6 +151,17 @@ func (s *server) GetCaSubjectKeys(ctx context.Context, request *pap.GetCaSubject
 	return r, nil
 }
 
+// GetCaCerts retrieves the CA certificates for a given SKU.
+func (s *server) GetCaCerts(ctx context.Context, request *pap.GetCaCertsRequest) (*pap.GetCaCertsResponse, error) {
+	log.Printf("PA.GetCaCerts Sku: %q", request.Sku)
+	r, err := s.spmClient.GetCaCerts(ctx, request)
+	if err != nil {
+		st := status.Convert(err)
+		return nil, status.Errorf(st.Code(), "SPM.GetCaCerts returned error: %s", st.Message())
+	}
+	return r, nil
+}
+
 // GetOwnerFwBootMessage retrieves the owner firmware boot message for a given SKU.
 func (s *server) GetOwnerFwBootMessage(ctx context.Context, request *pap.GetOwnerFwBootMessageRequest) (*pap.GetOwnerFwBootMessageResponse, error) {
 	log.Printf("PA.GetOwnerFwBootMessage Sku: %q", request.Sku)
@@ -171,7 +182,7 @@ func (s *server) GetOwnerFwBootMessage(ctx context.Context, request *pap.GetOwne
 func (s *server) RegisterDevice(ctx context.Context, request *pap.RegistrationRequest) (*pap.RegistrationResponse, error) {
 	log.Printf("PA.RegisterDevice Sku: %q", request.DeviceData.Sku)
 
-	// Extract ot.DeviceData to a raw byte buffer. 
+	// Extract ot.DeviceData to a raw byte buffer.
 	deviceDataBytes, err := proto.Marshal(request.DeviceData)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "failed to marshal device data: %v err: %v", err, request.DeviceData)

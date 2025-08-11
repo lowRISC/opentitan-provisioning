@@ -328,6 +328,42 @@ func (s *server) GetCaSubjectKeys(ctx context.Context, request *pbp.GetCaSubject
 	}, nil
 }
 
+// GetCaCerts retrieves the CA certificate(s) subject keys for a SKU.
+func (s *server) GetCaCerts(ctx context.Context, request *pbp.GetCaCertsRequest) (*pbp.GetCaCertsResponse, error) {
+	sku, ok := s.skuManager.GetSku(request.Sku)
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.Sku)
+	}
+
+	// Retrieve the requested certificates.
+	var caCerts []*pbc.Certificate
+	for _, label := range request.CertLabels {
+		var kl string
+		if label == "dice" {
+			kl = "SigningKey/Dice/v0"
+		} else if label == "ext" {
+			kl = "SigningKey/Ext/v0"
+		} else if label == "root" {
+			kl = "RootCA"
+		} else {
+			return nil, status.Errorf(codes.NotFound, "unable to find certificate for key: %q. ", label)
+		}
+
+		cert, ok := sku.Certs[kl]
+		if !ok {
+			return nil, status.Errorf(codes.NotFound, "unable to find certificate %q in SKU configuration.", kl)
+		}
+
+		caCerts = append(caCerts, &pbc.Certificate{
+			Blob: cert.Raw,
+		})
+	}
+
+	return &pbp.GetCaCertsResponse{
+		Certs: caCerts,
+	}, nil
+}
+
 // GetStoredTokens retrieves a provisioned token from the SPM's HSM.
 func (s *server) GetStoredTokens(ctx context.Context, request *pbp.GetStoredTokensRequest) (*pbp.GetStoredTokensResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "SPM.GetStoredTokens - unimplemented")

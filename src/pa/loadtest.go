@@ -179,6 +179,7 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 	}
 
 	// CP Stage
+	// Derive WAS and test tokens.
 	cpTokensReq := &pbp.DeriveTokensRequest{
 		Sku: skuName,
 		Params: []*pbp.TokenParams{
@@ -213,11 +214,13 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 	if err := dut.ProcessTokensJSON(tokensJSON); err != nil {
 		return fmt.Errorf("DUT failed to process tokens JSON: %w", err)
 	}
+	// Retreive CP device ID.
 	if _, err := dut.GenerateCpDeviceIDJson(); err != nil {
 		return fmt.Errorf("DUT failed to generate device ID JSON: %w", err)
 	}
 
 	// FT Stage
+	// Compute RMA token.
 	rmaTokenReq := &pbp.DeriveTokensRequest{
 		Sku: skuName,
 		Params: []*pbp.TokenParams{
@@ -243,6 +246,7 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 	}
 	dut.SetWrappedRmaTokenSeed(rmaTokenResp.Tokens[0].WrappedSeed)
 
+	// Retrieve CA subject key IDs.
 	caKeysReq := &pbp.GetCaSubjectKeysRequest{
 		Sku:        skuName,
 		CertLabels: []string{"UDS", "EXT"},
@@ -259,6 +263,7 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 		return fmt.Errorf("DUT failed to process CA subject keys JSON: %w", err)
 	}
 
+	// Parse perso blob from DUT.
 	persoBlobJSON, err := dut.GeneratePersoBlob()
 	if err != nil {
 		return fmt.Errorf("DUT failed to generate perso blob: %w", err)
@@ -276,6 +281,7 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 		return fmt.Errorf("failed to unpack perso blob from DUT: %w", err)
 	}
 
+	// Endorse certs.
 	endorseReq := &pbp.EndorseCertsRequest{
 		Sku:         skuName,
 		Diversifier: wasDiversifier,
@@ -301,7 +307,6 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 	if err != nil {
 		return fmt.Errorf("failed to endorse certs: %w", err)
 	}
-
 	var endorsedCertsForDut []ate.EndorseCertResponse
 	for _, cert := range endorsedCerts.Certs {
 		endorsedCertsForDut = append(endorsedCertsForDut, ate.EndorseCertResponse{
@@ -309,11 +314,28 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 			Cert:     cert.Cert.Blob,
 		})
 	}
+
+	// Get CA certificates.
+	var caCertLabels []string
+	if skuName == "sival" || skuName == "ti01" {
+		caCertLabels = []string{"dice", "root"}
+	} else {
+		caCertLabels = []string{"dice", "ext", "root"}
+	}
+	caCertsReq := &pbp.GetCaCertsRequest{
+		Sku:        skuName,
+		CertLabels: caCertLabels,
+	}
+	_, err = c.client.GetCaCerts(client_ctx, caCertsReq)
+	if err != nil {
+		return fmt.Errorf("failed to get CA certificates: %w", err)
+	}
+
+	// Build and send the perso blob back to the DUT.
 	persoBlobToDut, err := ate.BuildPersoBlob(&ate.PersoBlob{X509Certs: endorsedCertsForDut})
 	if err != nil {
 		return fmt.Errorf("failed to build perso blob for DUT: %w", err)
 	}
-
 	persoBlobToDutForJSON := &pbd.PersoBlobJSON{
 		NumObjs:  uint32(len(endorsedCertsForDut)),
 		NextFree: uint32(len(persoBlobToDut)),
@@ -327,20 +349,18 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 		return fmt.Errorf("failed to marshal perso blob for DUT: %w", err)
 	}
 
+	// Register a DUT in the registry database.
 	if err := dut.StoreEndorsedCerts(persoBlobToDutJSON); err != nil {
 		return fmt.Errorf("DUT failed to store endorsed certs: %w", err)
 	}
-
 	deviceData, err := devid.FromRawBytes(dut.DeviceID.Raw[:])
 	if err != nil {
 		return fmt.Errorf("failed to convert device ID from raw bytes: %w", err)
 	}
-
 	persoTlv, numObjs, err := dut.GeneratePersoTlv()
 	if err != nil {
 		return fmt.Errorf("failed to generate perso TLV: %w", err)
 	}
-
 	regReq := &pbp.RegistrationRequest{
 		DeviceData: &dpb.DeviceData{
 			Sku:                skuName,

@@ -27,6 +27,8 @@ service ProvisioningApplianceService {
     returns (GetStoredTokensResponse) {}
   rpc GetCaSubjectKeys(GetCaSubjectKeysRequest)
     returns (GetCaSubjectKeysResponse) {}
+  rpc GetCaCerts(GetCaCertsRequest)
+    returns (GetCaCertsResponse) {}
   rpc GetOwnerFwBootMessage(GetOwnerFwBootMessageRequest)
     returns (GetOwnerFwBootMessageResponse) {}
   rpc RegisterDevice(RegistrationRequest)
@@ -199,6 +201,20 @@ message GetCaSubjectKeysResponse{
   // Subject keys. Size is fixed to 20 bytes (160-bits) per subject key as
   // this is the size of the CA key IDs used by the OpenTitan project.
   repeated bytes key_ids = 1;
+}
+
+// Get CA certs request.
+message GetCaCertsRequest{
+  // SKU identifier. Required.
+  string sku = 1;
+  // CA cert labels (to locate the key within the SPM). Required.
+  repeated string cert_labels = 2;
+}
+
+// Get CA certs response.
+message GetCaCertsResponse{
+  // Array of CA certificates.
+  repeated crypto.cert.Certificate certs = 1;
 }
 
 // Get owner firmware boot message request.

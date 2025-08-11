@@ -35,6 +35,10 @@ service SpmService {
   rpc GetCaSubjectKeys(pa.GetCaSubjectKeysRequest)
       returns (pa.GetCaSubjectKeysResponse) {}
 
+  // GetCaCerts retrieves the CA certificate(s) for a SKU.
+  rpc GetCaCerts(pa.GetCaCertsRequest)
+      returns (pa.GetCaCertsResponse) {}
+
   // GetStoredTokens retrieves a token preprovisioned on the SPM.
   rpc GetStoredTokens(pa.GetStoredTokensRequest)
       returns (pa.GetStoredTokensResponse) {}
