@@ -89,7 +89,7 @@ trap shutdown_callback EXIT
 
 
 DEPLOYMENT_BIN_DIR="${OPENTITAN_VAR_DIR}/bin"
-BUILD_BIN_DIR="bazel-bin/third_party/lowrisc/ot_fw/orchestrator/runfiles/lowrisc_opentitan"
+BUILD_BIN_DIR="bazel-bin/third_party/lowrisc/ot_fw/orchestrator/runfiles/_main"
 if [[ -z "${OT_PROV_ORCHESTRATOR_PATH}" ]]; then
   bazelisk build //third_party/lowrisc/ot_fw:orchestrator_unzip
 else
@@ -100,7 +100,7 @@ else
     exit 1
   fi
   ORCHESTRATOR_OUT="${OPENTITAN_VAR_DIR}/orchestrator"
-  BUILD_BIN_DIR="${ORCHESTRATOR_OUT}/runfiles/lowrisc_opentitan"
+  BUILD_BIN_DIR="${ORCHESTRATOR_OUT}/runfiles/_main"
   unzip -q "${OT_PROV_ORCHESTRATOR_PATH}" -d "${ORCHESTRATOR_OUT}"
 
   # If OT_PROV_ORCHESTRATOR_UNPACK is set, invoke it with the path to
