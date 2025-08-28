@@ -91,6 +91,10 @@ class AteClient {
   grpc::Status GetCaSubjectKeys(pa::GetCaSubjectKeysRequest& request,
                                 pa::GetCaSubjectKeysResponse* reply);
 
+  // Calls the server's GetCaCerts method and returns its reply.
+  grpc::Status GetCaCerts(pa::GetCaCertsRequest& request,
+                          pa::GetCaCertsResponse* reply);
+
   // Calls the server's GetOwnerFwBootMessage method and returns its reply.
   grpc::Status GetOwnerFwBootMessage(pa::GetOwnerFwBootMessageRequest& request,
                                      pa::GetOwnerFwBootMessageResponse* reply);

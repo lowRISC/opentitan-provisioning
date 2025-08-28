@@ -119,7 +119,7 @@ absl::StatusOr<std::string> ValidateFilePathInput(std::string path) {
       absl::StrCat("Unable to open file: \"", path, "\""));
 }
 
-bool SetDiversificationString(uint8_t *diversifier, const std::string &str) {
+bool SetDiversificationString(uint8_t* diversifier, const std::string& str) {
   if (str.size() > kDiversificationStringSize) {
     return false;
   }
@@ -129,7 +129,7 @@ bool SetDiversificationString(uint8_t *diversifier, const std::string &str) {
 }
 }  // namespace
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   // Parse cmd line args.
   absl::FlagsUsageConfig config;
   absl::SetFlagsUsageConfig(config);
@@ -252,7 +252,7 @@ int main(int argc, char **argv) {
 
   // Generate CA subject keys.
   constexpr size_t kNumIcas = 2;
-  const char *kIcaCertLabels[] = {
+  const char* kIcaCertLabels[] = {
       "UDS",
       "EXT",
   };
@@ -262,8 +262,8 @@ int main(int argc, char **argv) {
     LOG(ERROR) << "GetCaSubjectKeys failed.";
     return -1;
   }
-  const ca_subject_key_t *kDiceCaSk = &key_ids[0];
-  const ca_subject_key_t *kExtCaSk = &key_ids[1];
+  const ca_subject_key_t* kDiceCaSk = &key_ids[0];
+  const ca_subject_key_t* kExtCaSk = &key_ids[1];
   dut_spi_frame_t ca_key_ids_spi_frame;
   if (CaSubjectKeysToJson(kDiceCaSk, kExtCaSk, &ca_key_ids_spi_frame) != 0) {
     LOG(ERROR) << "CaSubjectKeysToJson failed.";
@@ -328,7 +328,7 @@ int main(int argc, char **argv) {
   }
 
   // Log the device ID and number of TBS certs to be endorsed.
-  uint32_t *device_id_words = reinterpret_cast<uint32_t *>(device_id.raw);
+  uint32_t* device_id_words = reinterpret_cast<uint32_t*>(device_id.raw);
   LOG(INFO) << absl::StrFormat("Device ID: 0x%08x%08x%08x%08x%08x%08x%08x%08x",
                                device_id_words[7], device_id_words[6],
                                device_id_words[5], device_id_words[4],
@@ -353,13 +353,41 @@ int main(int argc, char **argv) {
     return -1;
   }
 
+  // Retrieve CA root and ICA DICE certificates but only for pi01 SKU.
+  size_t num_ca_certs = 0;
+  endorse_cert_response_t* ca_certs = nullptr;
+  if (absl::GetFlag(FLAGS_sku) == "pi01") {
+    constexpr size_t kNumDiceCaCerts = 2;
+    endorse_cert_response_t dice_ca_certs[kNumDiceCaCerts];
+    const char* kDiceCaCertLabels[] = {
+        "root",
+        "dice",
+    };
+    if (GetCaCerts(ate_client, absl::GetFlag(FLAGS_sku).c_str(),
+                   /*count=*/kNumIcas, kDiceCaCertLabels, dice_ca_certs) != 0) {
+      LOG(ERROR) << "GetCaCerts failed.";
+      return -1;
+    }
+
+    const endorse_cert_response_t* kDiceRootCa = &dice_ca_certs[0];
+    LOG(INFO) << absl::StrFormat("Root Dice Cert (%d bytes): ",
+                                 kDiceRootCa->cert_size);
+    for (size_t i = 0; i < kDiceRootCa->cert_size; ++i) {
+      std::cout << absl::StrFormat("%02x", kDiceRootCa->cert[i]);
+    }
+    std::cout << std::endl;
+
+    num_ca_certs = kNumDiceCaCerts;
+    ca_certs = dice_ca_certs;
+  }
+
   // Send the endorsed certs back to the device.
   perso_blob_t perso_blob_from_ate = {0};
   constexpr size_t kNumPersoBlobMaxNumSpiFrames = 50;
   dut_spi_frame_t perso_blob_from_ate_spi_frames[kNumPersoBlobMaxNumSpiFrames];
   size_t num_perso_blob_spi_frames = kNumPersoBlobMaxNumSpiFrames;
-  if (PackPersoBlob(num_tbs_certs, pa_endorsed_certs, &perso_blob_from_ate) !=
-      0) {
+  if (PackPersoBlob(num_tbs_certs, pa_endorsed_certs, num_ca_certs, ca_certs,
+                    &perso_blob_from_ate) != 0) {
     LOG(ERROR) << "Failed to repack the perso blob.";
     return -1;
   }
@@ -368,8 +396,8 @@ int main(int argc, char **argv) {
     LOG(ERROR) << "PersoBlobToJson failed.";
     return -1;
   }
-  const char *perso_blob_sync_msg = "Importing endorsed certificates ...";
-  const char *empty_sync_msg = "";
+  const char* perso_blob_sync_msg = "Importing endorsed certificates ...";
+  const char* empty_sync_msg = "";
   for (size_t i = 0; i < num_perso_blob_spi_frames; ++i) {
     if (i == 0) {
       dut->DutConsoleTx(perso_blob_sync_msg,
@@ -418,7 +446,7 @@ int main(int argc, char **argv) {
   // TODO(timothytrippel): add helper function to translate kDifLcCtrlStateProd
   // to kDeviceLifeCycleProd
   if (RegisterDevice(ate_client, absl::GetFlag(FLAGS_sku).c_str(),
-                     reinterpret_cast<const device_id_t *>(&device_id),
+                     reinterpret_cast<const device_id_t*>(&device_id),
                      kDeviceLifeCycleProd, &dut_metadata,
                      &wrapped_rma_token_seed, &perso_blob_for_registry,
                      &perso_fw_hash, &hash_of_all_certs, nullptr, 0) != 0) {

@@ -6,6 +6,7 @@
 #include <openssl/asn1.h>
 #include <openssl/pem.h>
 #include <openssl/x509v3.h>
+#include <stdio.h>
 
 #include <algorithm>
 #include <chrono>
@@ -71,14 +72,14 @@ static_assert(
         static_cast<uint32_t>(ot::DeviceLifeCycle::DEVICE_LIFE_CYCLE_SCRAP),
     "LC state enum must match proto enum (Scrap)");
 
-std::string extractDNSNameFromCert(const char *certPath) {
-  FILE *certFile = fopen(certPath, "r");
+std::string extractDNSNameFromCert(const char* certPath) {
+  FILE* certFile = fopen(certPath, "r");
   if (!certFile) {
     LOG(ERROR) << "Failed to open certificate file";
     return "";
   }
 
-  X509 *cert = PEM_read_X509(certFile, nullptr, nullptr, nullptr);
+  X509* cert = PEM_read_X509(certFile, nullptr, nullptr, nullptr);
   fclose(certFile);
 
   if (!cert) {
@@ -87,7 +88,7 @@ std::string extractDNSNameFromCert(const char *certPath) {
   }
 
   // check that extension exist
-  STACK_OF(GENERAL_NAME) *sanExtension = static_cast<STACK_OF(GENERAL_NAME) *>(
+  STACK_OF(GENERAL_NAME)* sanExtension = static_cast<STACK_OF(GENERAL_NAME)*>(
       X509_get_ext_d2i(cert, NID_subject_alt_name, nullptr, nullptr));
   if (!sanExtension) {
     LOG(ERROR) << "Subject Alternative Name extension not found";
@@ -101,11 +102,11 @@ std::string extractDNSNameFromCert(const char *certPath) {
 
   // search for DNS name
   for (int i = 0; i < numEntries; ++i) {
-    GENERAL_NAME *sanEntry = sk_GENERAL_NAME_value(sanExtension, i);
+    GENERAL_NAME* sanEntry = sk_GENERAL_NAME_value(sanExtension, i);
     if (sanEntry->type == GEN_DNS) {
-      ASN1_STRING *dnsNameAsn1 = sanEntry->d.dNSName;
+      ASN1_STRING* dnsNameAsn1 = sanEntry->d.dNSName;
       dnsName = std::string(
-          reinterpret_cast<const char *>(ASN1_STRING_get0_data(dnsNameAsn1)),
+          reinterpret_cast<const char*>(ASN1_STRING_get0_data(dnsNameAsn1)),
           ASN1_STRING_length(dnsNameAsn1));
       break;
     }
@@ -117,7 +118,7 @@ std::string extractDNSNameFromCert(const char *certPath) {
   return dnsName;
 }
 
-int WriteFile(const std::string &filename, std::string input_str) {
+int WriteFile(const std::string& filename, std::string input_str) {
   std::ofstream file_stream(filename, std::ios::app | std::ios_base::out);
   if (!file_stream.is_open()) {
     // Failed open
@@ -128,7 +129,7 @@ int WriteFile(const std::string &filename, std::string input_str) {
 }
 
 // Returns `filename` content in a std::string format
-absl::StatusOr<std::string> ReadFile(const std::string &filename) {
+absl::StatusOr<std::string> ReadFile(const std::string& filename) {
   auto output_stream = std::ostringstream();
   std::ifstream file_stream(filename);
   if (!file_stream.is_open()) {
@@ -140,10 +141,10 @@ absl::StatusOr<std::string> ReadFile(const std::string &filename) {
 }
 
 // Loads the PEM data from the files into 'options'
-absl::Status LoadPEMResources(AteClient::Options *options,
-                              const std::string &pem_private_key_file,
-                              const std::string &pem_cert_chain_file,
-                              const std::string &pem_root_certs_file) {
+absl::Status LoadPEMResources(AteClient::Options* options,
+                              const std::string& pem_private_key_file,
+                              const std::string& pem_cert_chain_file,
+                              const std::string& pem_root_certs_file) {
   auto data = ReadFile(pem_private_key_file);
   if (!data.ok()) {
     LOG(ERROR) << "Could not read the pem_private_key file: " << data.status();
@@ -168,8 +169,8 @@ absl::Status LoadPEMResources(AteClient::Options *options,
 }
 
 DLLEXPORT int CreateClient(
-    ate_client_ptr *client,    // Out: the created client instance
-    client_options_t *options  // In: secure channel attributes
+    ate_client_ptr* client,    // Out: the created client instance
+    client_options_t* options  // In: secure channel attributes
 ) {
   DLOG(INFO) << "CreateClient";
   AteClient::Options o;
@@ -217,17 +218,17 @@ DLLEXPORT int CreateClient(
 DLLEXPORT void DestroyClient(ate_client_ptr client) {
   DLOG(INFO) << "DestroyClient";
   if (client != nullptr) {
-    AteClient *ate = reinterpret_cast<AteClient *>(client);
+    AteClient* ate = reinterpret_cast<AteClient*>(client);
     delete ate;
   } else {
     LOG(WARNING) << "DestroyClient called with a null client pointer";
   }
 }
 
-DLLEXPORT int InitSession(ate_client_ptr client, const char *sku,
-                          const char *sku_auth) {
+DLLEXPORT int InitSession(ate_client_ptr client, const char* sku,
+                          const char* sku_auth) {
   DLOG(INFO) << "InitSession";
-  AteClient *ate = reinterpret_cast<AteClient *>(client);
+  AteClient* ate = reinterpret_cast<AteClient*>(client);
 
   // run the service
   auto status = ate->InitSession(sku, sku_auth);
@@ -241,7 +242,7 @@ DLLEXPORT int InitSession(ate_client_ptr client, const char *sku,
 
 DLLEXPORT int CloseSession(ate_client_ptr client) {
   DLOG(INFO) << "CloseSession";
-  AteClient *ate = reinterpret_cast<AteClient *>(client);
+  AteClient* ate = reinterpret_cast<AteClient*>(client);
 
   // run the service
   auto status = ate->CloseSession();
@@ -255,7 +256,7 @@ DLLEXPORT int CloseSession(ate_client_ptr client) {
 
 namespace {
 // Convert `token_seed_t` to `TokenSeed`.
-int TokenSetSeedConfig(token_seed_t seed_kind, pa::TokenParams *param) {
+int TokenSetSeedConfig(token_seed_t seed_kind, pa::TokenParams* param) {
   switch (seed_kind) {
     case kTokenSeedSecurityLow:
       param->set_seed(pa::TokenSeed::TOKEN_SEED_LOW_SECURITY);
@@ -270,7 +271,7 @@ int TokenSetSeedConfig(token_seed_t seed_kind, pa::TokenParams *param) {
 }
 
 // Convert `token_type_t` to `TokenType`.
-int TokenSetType(token_type_t token_type, pa::TokenParams *param) {
+int TokenSetType(token_type_t token_type, pa::TokenParams* param) {
   switch (token_type) {
     case kTokenTypeRaw:
       param->set_type(pa::TokenType::TOKEN_TYPE_RAW);
@@ -285,7 +286,7 @@ int TokenSetType(token_type_t token_type, pa::TokenParams *param) {
 }
 
 // Convert `token_size_t` to `TokenSize`.
-int TokenSetSize(token_size_t token_size, pa::TokenParams *param) {
+int TokenSetSize(token_size_t token_size, pa::TokenParams* param) {
   switch (token_size) {
     case kTokenSize128:
       param->set_size(pa::TokenSize::TOKEN_SIZE_128_BITS);
@@ -300,8 +301,8 @@ int TokenSetSize(token_size_t token_size, pa::TokenParams *param) {
 }
 
 // Copy the tokens and seeds from the response to the output buffers.
-int TokensCopy(size_t count, const pa::DeriveTokensResponse &resp,
-               token_t *tokens, wrapped_seed_t *seeds) {
+int TokensCopy(size_t count, const pa::DeriveTokensResponse& resp,
+               token_t* tokens, wrapped_seed_t* seeds) {
   if (tokens == nullptr) {
     return static_cast<int>(absl::StatusCode::kInvalidArgument);
   }
@@ -318,8 +319,8 @@ int TokensCopy(size_t count, const pa::DeriveTokensResponse &resp,
   }
 
   for (int i = 0; i < resp.tokens_size(); i++) {
-    auto &sk = resp.tokens(i);
-    auto &resp_token = tokens[i];
+    auto& sk = resp.tokens(i);
+    auto& resp_token = tokens[i];
     auto token = sk.token();
 
     if (token.size() > sizeof(resp_token.data)) {
@@ -332,8 +333,8 @@ int TokensCopy(size_t count, const pa::DeriveTokensResponse &resp,
     memcpy(resp_token.data, token.data(), resp_token.size);
 
     if (seeds != nullptr) {
-      auto &s = sk.wrapped_seed();
-      wrapped_seed_t &seed = seeds[i];
+      auto& s = sk.wrapped_seed();
+      wrapped_seed_t& seed = seeds[i];
 
       if (s.size() == 0) {
         LOG(ERROR) << "DeriveTokens failed - seed size is 0 bytes. Seed "
@@ -357,9 +358,9 @@ int TokensCopy(size_t count, const pa::DeriveTokensResponse &resp,
 
 }  // namespace
 
-DLLEXPORT int DeriveTokens(ate_client_ptr client, const char *sku, size_t count,
-                           const derive_token_params_t *params,
-                           token_t *tokens) {
+DLLEXPORT int DeriveTokens(ate_client_ptr client, const char* sku, size_t count,
+                           const derive_token_params_t* params,
+                           token_t* tokens) {
   DLOG(INFO) << "DeriveTokens";
 
   if (params == nullptr || tokens == nullptr) {
@@ -370,7 +371,7 @@ DLLEXPORT int DeriveTokens(ate_client_ptr client, const char *sku, size_t count,
   req.set_sku(sku);
   for (size_t i = 0; i < count; ++i) {
     auto param = req.add_params();
-    auto &req_params = params[i];
+    auto& req_params = params[i];
     int result = TokenSetSeedConfig(req_params.seed, param);
     if (result != 0) {
       return result;
@@ -388,7 +389,7 @@ DLLEXPORT int DeriveTokens(ate_client_ptr client, const char *sku, size_t count,
     param->set_wrap_seed(false);
   }
 
-  AteClient *ate = reinterpret_cast<AteClient *>(client);
+  AteClient* ate = reinterpret_cast<AteClient*>(client);
 
   pa::DeriveTokensResponse resp;
   auto status = ate->DeriveTokens(req, &resp);
@@ -400,10 +401,10 @@ DLLEXPORT int DeriveTokens(ate_client_ptr client, const char *sku, size_t count,
   return TokensCopy(count, resp, tokens, /*seeds=*/nullptr);
 }
 
-DLLEXPORT int GenerateTokens(ate_client_ptr client, const char *sku,
+DLLEXPORT int GenerateTokens(ate_client_ptr client, const char* sku,
                              size_t count,
-                             const generate_token_params_t *params,
-                             token_t *tokens, wrapped_seed_t *seeds) {
+                             const generate_token_params_t* params,
+                             token_t* tokens, wrapped_seed_t* seeds) {
   DLOG(INFO) << "GenerateTokens";
 
   if (params == nullptr || tokens == nullptr || seeds == nullptr) {
@@ -414,7 +415,7 @@ DLLEXPORT int GenerateTokens(ate_client_ptr client, const char *sku,
   req.set_sku(sku);
   for (size_t i = 0; i < count; ++i) {
     auto param = req.add_params();
-    auto &req_params = params[i];
+    auto& req_params = params[i];
     int result = TokenSetType(req_params.type, param);
     if (result != 0) {
       return result;
@@ -431,7 +432,7 @@ DLLEXPORT int GenerateTokens(ate_client_ptr client, const char *sku,
     param->set_wrap_seed(true);
   }
 
-  AteClient *ate = reinterpret_cast<AteClient *>(client);
+  AteClient* ate = reinterpret_cast<AteClient*>(client);
 
   pa::DeriveTokensResponse resp;
   auto status = ate->DeriveTokens(req, &resp);
@@ -444,9 +445,9 @@ DLLEXPORT int GenerateTokens(ate_client_ptr client, const char *sku,
   return TokensCopy(count, resp, tokens, seeds);
 }
 
-DLLEXPORT int GetCaSubjectKeys(ate_client_ptr client, const char *sku,
-                               size_t count, const char **labels,
-                               ca_subject_key_t *key_ids) {
+DLLEXPORT int GetCaSubjectKeys(ate_client_ptr client, const char* sku,
+                               size_t count, const char** labels,
+                               ca_subject_key_t* key_ids) {
   DLOG(INFO) << "GetCaSubjectKeys";
 
   if (sku == nullptr || labels == nullptr || count == 0 || key_ids == nullptr) {
@@ -459,7 +460,7 @@ DLLEXPORT int GetCaSubjectKeys(ate_client_ptr client, const char *sku,
     req.add_cert_labels(labels[i]);
   }
 
-  AteClient *ate = reinterpret_cast<AteClient *>(client);
+  AteClient* ate = reinterpret_cast<AteClient*>(client);
 
   pa::GetCaSubjectKeysResponse resp;
   auto status = ate->GetCaSubjectKeys(req, &resp);
@@ -476,12 +477,64 @@ DLLEXPORT int GetCaSubjectKeys(ate_client_ptr client, const char *sku,
   return 0;
 }
 
-DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
-                           const diversifier_bytes_t *diversifier,
-                           const endorse_cert_signature_t *signature,
+DLLEXPORT int GetCaCerts(ate_client_ptr client, const char* sku, size_t count,
+                         const char** labels, endorse_cert_response_t* certs) {
+  DLOG(INFO) << "GetCaCerts";
+
+  if (sku == nullptr || labels == nullptr || count == 0 || certs == nullptr) {
+    return static_cast<int>(absl::StatusCode::kInvalidArgument);
+  }
+
+  pa::GetCaCertsRequest req;
+  req.set_sku(sku);
+  for (size_t i = 0; i < count; ++i) {
+    req.add_cert_labels(labels[i]);
+  }
+
+  AteClient* ate = reinterpret_cast<AteClient*>(client);
+
+  pa::GetCaCertsResponse resp;
+  auto status = ate->GetCaCerts(req, &resp);
+  if (!status.ok()) {
+    LOG(ERROR) << "GetCaCerts failed with " << status.error_code() << ": "
+               << status.error_message();
+    return static_cast<int>(status.error_code());
+  }
+
+  for (size_t i = 0; i < count; ++i) {
+    if (resp.certs(i).blob().size() > kCertificateMaxSize) {
+      LOG(ERROR) << "CA cert exceeds maximum size.";
+      return static_cast<int>(absl::StatusCode::kInternal);
+    }
+
+    certs[i].type = kCertTypeX509;
+    memcpy(certs[i].cert, resp.certs(i).blob().data(),
+           resp.certs(i).blob().size());
+    certs[i].cert_size = resp.certs(i).blob().size();
+    if (strncmp(labels[i], "root", 4) == 0) {
+      const char* root_cert_name = "OSAT_ROOT_CA";
+      // Include null terminator in what is copied, but not in the size field.
+      memcpy(certs[i].key_label, root_cert_name, strlen(root_cert_name) + 1);
+      certs[i].key_label_size = strlen(root_cert_name);
+    } else if (strncmp(labels[i], "dice", 4) == 0) {
+      const char* int_cert_name = "OSAT_ICA_DICE";
+      // Include null terminator in what is copied, but not in the size field.
+      memcpy(certs[i].key_label, int_cert_name, strlen(int_cert_name) + 1);
+      certs[i].key_label_size = strlen(int_cert_name);
+    } else {
+      return static_cast<int>(absl::StatusCode::kInvalidArgument);
+    }
+  }
+
+  return 0;
+}
+
+DLLEXPORT int EndorseCerts(ate_client_ptr client, const char* sku,
+                           const diversifier_bytes_t* diversifier,
+                           const endorse_cert_signature_t* signature,
                            const size_t cert_count,
-                           const endorse_cert_request_t *request,
-                           endorse_cert_response_t *certs) {
+                           const endorse_cert_request_t* request,
+                           endorse_cert_response_t* certs) {
   DLOG(INFO) << "EndorseCerts";
 
   if (request == nullptr || certs == nullptr) {
@@ -492,7 +545,7 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
   req.set_sku(sku);
   for (size_t i = 0; i < cert_count; ++i) {
     auto bundle = req.add_bundles();
-    auto &req_params = request[i];
+    auto& req_params = request[i];
 
     // TBS certificate buffer.
     if (req_params.tbs_size > sizeof(req_params.tbs)) {
@@ -547,7 +600,7 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
   req.set_diversifier(diversifier->raw, kDiversificationStringSize);
   req.set_signature(signature->raw, kWasHmacSignatureSize);
 
-  AteClient *ate = reinterpret_cast<AteClient *>(client);
+  AteClient* ate = reinterpret_cast<AteClient*>(client);
   pa::EndorseCertsResponse resp;
   auto status = ate->EndorseCerts(req, &resp);
   if (!status.ok()) {
@@ -569,8 +622,8 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
   }
 
   for (int i = 0; i < resp.certs_size(); i++) {
-    auto &c = resp.certs(i);
-    auto &resp_cert = certs[i];
+    auto& c = resp.certs(i);
+    auto& resp_cert = certs[i];
 
     if (c.cert().blob().size() > sizeof(resp_cert.cert)) {
       LOG(ERROR) << "EndorseCerts failed- certificate size is too big: "
@@ -599,8 +652,8 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char *sku,
   return 0;
 }
 
-DLLEXPORT int GetOwnerFwBootMessage(ate_client_ptr client, const char *sku,
-                                    char *boot_msg, size_t boot_msg_size) {
+DLLEXPORT int GetOwnerFwBootMessage(ate_client_ptr client, const char* sku,
+                                    char* boot_msg, size_t boot_msg_size) {
   DLOG(INFO) << "GetOwnerFwBootMessage";
 
   if (sku == nullptr || boot_msg == nullptr) {
@@ -610,7 +663,7 @@ DLLEXPORT int GetOwnerFwBootMessage(ate_client_ptr client, const char *sku,
   pa::GetOwnerFwBootMessageRequest req;
   req.set_sku(sku);
 
-  AteClient *ate = reinterpret_cast<AteClient *>(client);
+  AteClient* ate = reinterpret_cast<AteClient*>(client);
   pa::GetOwnerFwBootMessageResponse resp;
   auto status = ate->GetOwnerFwBootMessage(req, &resp);
 
@@ -642,7 +695,7 @@ uint64_t getMilliseconds(void) {
 #define ASCII(val) (((val) > 9) ? (((val)-0xA) + 'A') : ((val) + '0'))
 
 // Convert a byte to its ASCII representation in hex format.
-std::string bytesToHexStr(uint8_t *byteArray, size_t byteArraySize) {
+std::string bytesToHexStr(uint8_t* byteArray, size_t byteArraySize) {
   std::string str;
 
   for (size_t i = 0; i < byteArraySize; i++) {
@@ -653,12 +706,12 @@ std::string bytesToHexStr(uint8_t *byteArray, size_t byteArraySize) {
 }
 
 DLLEXPORT int RegisterDevice(
-    ate_client_ptr client, const char *sku, const device_id_t *device_id,
-    device_life_cycle_t device_life_cycle, const metadata_t *metadata,
-    const wrapped_seed_t *wrapped_rma_unlock_token_seed,
-    const perso_blob_t *perso_blob_for_registry,
-    const sha256_hash_t *perso_fw_hash, const sha256_hash_t *hash_of_all_certs,
-    uint8_t *ate_raw, size_t ate_raw_size) {
+    ate_client_ptr client, const char* sku, const device_id_t* device_id,
+    device_life_cycle_t device_life_cycle, const metadata_t* metadata,
+    const wrapped_seed_t* wrapped_rma_unlock_token_seed,
+    const perso_blob_t* perso_blob_for_registry,
+    const sha256_hash_t* perso_fw_hash, const sha256_hash_t* hash_of_all_certs,
+    uint8_t* ate_raw, size_t ate_raw_size) {
   DLOG(INFO) << "RegisterDevice";
 
   if (sku == nullptr || device_id == nullptr || metadata == nullptr ||
@@ -673,7 +726,7 @@ DLLEXPORT int RegisterDevice(
     return static_cast<int>(absl::StatusCode::kInvalidArgument);
   }
 
-  AteClient *ate = reinterpret_cast<AteClient *>(client);
+  AteClient* ate = reinterpret_cast<AteClient*>(client);
 
   // Build the RegisterDeviceRequest object.
   pa::RegistrationRequest req;
@@ -682,7 +735,7 @@ DLLEXPORT int RegisterDevice(
   // Certs hash type and hash.
   req.set_hash_type(crypto::common::HashType::HASH_TYPE_SHA256);
   req.set_certs_hash(std::string(
-      reinterpret_cast<const char *>(hash_of_all_certs->raw), kSha256HashSize));
+      reinterpret_cast<const char*>(hash_of_all_certs->raw), kSha256HashSize));
 
   // SKU.
   device_data->set_sku(sku);
@@ -697,7 +750,7 @@ DLLEXPORT int RegisterDevice(
   hardware_origin->set_device_identification_number(
       device_id->hardware_origin.device_identification_number);
   device_data->mutable_device_id()->set_sku_specific(
-      std::string(reinterpret_cast<const char *>(device_id->sku_specific),
+      std::string(reinterpret_cast<const char*>(device_id->sku_specific),
                   sizeof(device_id->sku_specific)));
 
   // Device Lifecycle state.
@@ -722,18 +775,18 @@ DLLEXPORT int RegisterDevice(
 
   // Wrapped RMA unlock token seed.
   device_data->set_wrapped_rma_unlock_token(std::string(
-      reinterpret_cast<const char *>(wrapped_rma_unlock_token_seed->seed),
+      reinterpret_cast<const char*>(wrapped_rma_unlock_token_seed->seed),
       wrapped_rma_unlock_token_seed->size));
 
   // Perso TLV data.
   device_data->set_perso_tlv_data(
-      std::string(reinterpret_cast<const char *>(perso_blob_for_registry->body),
+      std::string(reinterpret_cast<const char*>(perso_blob_for_registry->body),
                   perso_blob_for_registry->next_free));
   device_data->set_num_perso_tlv_objects(perso_blob_for_registry->num_objects);
 
   // Perso firmware SHA256 hash.
   device_data->set_perso_fw_sha256_hash(std::string(
-      reinterpret_cast<const char *>(perso_fw_hash->raw), kSha256HashSize));
+      reinterpret_cast<const char*>(perso_fw_hash->raw), kSha256HashSize));
 
   // Send the request to the PA.
   pa::RegistrationResponse resp;

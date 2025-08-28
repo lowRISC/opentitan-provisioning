@@ -54,11 +54,13 @@ if [[ -n "${OT_PROV_ORCHESTRATOR_PATH}" ]]; then
 fi
 
 for OTSKU in "${FPGA_SKUS[@]}"; do
-  # Workaround for the ti01 SKU, which is actually a ti00 SKU in the
-  # orchestrator release.
+  # Workaround for the ti01 and pi01 SKUs, which are actually the ti00 and pi02
+  # SKUs in the orchestrator release.
   SKU_NAME="${OTSKU}"
   if [[ "${OTSKU}" == "ti01" ]]; then
     SKU_NAME="ti00"
+  elif [[ "${OTSKU}" == "pi01" ]]; then
+    SKU_NAME="pi02"
   fi
 
   echo "Running CP FPGA test flow SKU: ${OTSKU} ..."

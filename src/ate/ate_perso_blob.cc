@@ -475,6 +475,8 @@ DLLEXPORT int UnpackPersoBlob(
 
 DLLEXPORT int PackPersoBlob(size_t cert_count,
                             const endorse_cert_response_t* certs,
+                            size_t ca_cert_count,
+                            const endorse_cert_response_t* ca_certs,
                             perso_blob_t* blob) {
   if (blob == nullptr) {
     LOG(ERROR) << "Invalid personalization blob pointer";
@@ -498,6 +500,19 @@ DLLEXPORT int PackPersoBlob(size_t cert_count,
       return -1;
     }
   }
+
+  for (size_t i = 0; i < ca_cert_count; i++) {
+    const endorse_cert_response_t& cert = ca_certs[i];
+    if (cert.cert_size == 0) {
+      LOG(ERROR) << "Invalid CA certificate at index " << i;
+      return -1;
+    }
+    if (PackCertTlvObject(&cert, blob) != 0) {
+      LOG(ERROR) << "Unable to pack CA certificate into perso blob.";
+      return -1;
+    }
+  }
+
   return 0;
 }
 

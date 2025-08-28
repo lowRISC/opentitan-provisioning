@@ -174,7 +174,7 @@ TEST_F(AtePersoBlobTest, UnpackPersoBlobNullInputs) {
 
 TEST_F(AtePersoBlobTest, PackPersoBlobSuccess) {
   perso_blob_t output_blob;
-  EXPECT_EQ(PackPersoBlob(1, &test_response_, &output_blob), 0);
+  EXPECT_EQ(PackPersoBlob(1, &test_response_, 0, nullptr, &output_blob), 0);
 
   // Verify the blob size is correct
   size_t expected_size =
@@ -187,13 +187,13 @@ TEST_F(AtePersoBlobTest, PackPersoBlobNullInputs) {
   perso_blob_t output_blob;
 
   // Test null blob
-  EXPECT_EQ(PackPersoBlob(1, &test_response_, nullptr), -1);
+  EXPECT_EQ(PackPersoBlob(1, &test_response_, 0, nullptr, nullptr), -1);
 
   // Test null certs
-  EXPECT_EQ(PackPersoBlob(1, nullptr, &output_blob), -1);
+  EXPECT_EQ(PackPersoBlob(1, nullptr, 0, nullptr, &output_blob), -1);
 
   // Test zero cert count
-  EXPECT_EQ(PackPersoBlob(0, &test_response_, &output_blob), -1);
+  EXPECT_EQ(PackPersoBlob(0, &test_response_, 0, nullptr, &output_blob), -1);
 }
 
 TEST_F(AtePersoBlobTest, PackPersoBlobOverflow) {
@@ -205,7 +205,7 @@ TEST_F(AtePersoBlobTest, PackPersoBlobOverflow) {
   large_cert.key_label_size = 8;
   memcpy(large_cert.key_label, "testkey1", 8);
 
-  EXPECT_EQ(PackPersoBlob(1, &large_cert, &output_blob), -1);
+  EXPECT_EQ(PackPersoBlob(1, &large_cert, 0, nullptr, &output_blob), -1);
 }
 
 }  // namespace

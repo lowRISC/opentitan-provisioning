@@ -615,6 +615,22 @@ DLLEXPORT int GetCaSubjectKeys(ate_client_ptr client, const char* sku,
                                ca_subject_key_t* key_ids);
 
 /**
+ * Gets the CA certificates.
+ *
+ * This function retrieves the CA certificates from the PA/SPM. The caller
+ * should allocate enough memory to store the certificates.
+ *
+ * @param client A client instance.
+ * @param sku The SKU of the product to get the certificates for.
+ * @param count The number of certificates to retrieve.
+ * @param labels The lable strings of the certs to retrieve. Size `count`.
+ * @param[out] certs The certificates. Size `count`.
+ * @return The result of the operation.
+ */
+DLLEXPORT int GetCaCerts(ate_client_ptr client, const char* sku, size_t count,
+                         const char** labels, endorse_cert_response_t* certs);
+
+/**
  * Endorse certificates.
  *
  * The function endorses certificates based on the request parameters.
@@ -800,11 +816,15 @@ DLLEXPORT int UnpackPersoBlob(
  *
  * @param cert_count The number of certificates to pack.
  * @param certs The array of endorsed certificates to pack.
+ * @param ca_cert_count The number of CA certificates to pack.
+ * @param ca_certs The array of CA certificates to pack.
  * @param[out] blob The personalization blob to pack the certificates into.
  * @return The result of the operation.
  */
 DLLEXPORT int PackPersoBlob(size_t cert_count,
                             const endorse_cert_response_t* certs,
+                            size_t ca_cert_count,
+                            const endorse_cert_response_t* ca_certs,
                             perso_blob_t* blob);
 
 /**

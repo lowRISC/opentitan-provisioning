@@ -29,6 +29,8 @@ using pa::DeriveTokensRequest;
 using pa::DeriveTokensResponse;
 using pa::EndorseCertsRequest;
 using pa::EndorseCertsResponse;
+using pa::GetCaCertsRequest;
+using pa::GetCaCertsResponse;
 using pa::GetCaSubjectKeysRequest;
 using pa::GetCaSubjectKeysResponse;
 using pa::GetOwnerFwBootMessageRequest;
@@ -177,6 +179,19 @@ Status AteClient::GetCaSubjectKeys(GetCaSubjectKeysRequest& request,
 
   // The actual RPC - call the server's DeriveTokens method.
   return stub_->GetCaSubjectKeys(&context, request, reply);
+}
+
+Status AteClient::GetCaCerts(GetCaCertsRequest& request,
+                             GetCaCertsResponse* reply) {
+  LOG(INFO) << "AteClient::GetCaCerts";
+
+  // Context for the client (It could be used to convey extra information to
+  // the server and/or tweak certain RPC behaviors).
+  ClientContext context;
+  context.AddMetadata("authorization", sku_session_token_);
+
+  // The actual RPC - call the server's DeriveTokens method.
+  return stub_->GetCaCerts(&context, request, reply);
 }
 
 Status AteClient::GetOwnerFwBootMessage(GetOwnerFwBootMessageRequest& request,
