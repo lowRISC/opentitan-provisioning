@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package buildver_tests implements unit tests for the buildver package.
+// Package buildver_test implements unit tests for the buildver package.
 package buildver_test
 
 import (
