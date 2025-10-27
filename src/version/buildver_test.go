@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package buildver_tests implements unit tests for the buildver package.
-package buildver_tests
+package buildver_test
 
 import (
 	"fmt"
