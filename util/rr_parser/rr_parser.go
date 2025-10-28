@@ -116,7 +116,6 @@ func parseRegistryRecord(rr *rrpb.RegistryRecord, diceLeaf string) (*certs, erro
 	deviceData := &dipb.DeviceData{}
 	proto.Unmarshal(rr.Data, deviceData)
 
-	// Print each field of the registry record.
 	log.Println(strings.Repeat("-", LineLimit))
 	log.Println("Registry Record: ")
 	log.Println(strings.Repeat("-", LineLimit))
@@ -143,14 +142,56 @@ func parseRegistryRecord(rr *rrpb.RegistryRecord, diceLeaf string) (*certs, erro
 	return certs, nil
 }
 
+func validateGenericSeed(persoBlobBytes []byte) error {
+	persoBlob, err := ate.UnpackPersoBlob(persoBlobBytes)
+	if err != nil {
+		return fmt.Errorf("failed to unpack perso blob for validation: %v", err)
+	}
+
+	var genericSeed *ate.Seed
+	for i := range persoBlob.Seeds {
+		if persoBlob.Seeds[i].Type == ate.PersoObjectTypeGenericSeed {
+			genericSeed = &persoBlob.Seeds[i]
+			break
+		}
+	}
+
+	// 1. Check that the generic seed exists.
+	if genericSeed == nil {
+		return errors.New("generic seed not found in personalization blob")
+	}
+
+	// 2. Check that the seed is 320 bits (40 bytes).
+	const expectedSeedSize = 40
+	if len(genericSeed.Raw) != expectedSeedSize {
+		return fmt.Errorf("generic seed size is %d bytes, expected %d bytes", len(genericSeed.Raw), expectedSeedSize)
+	}
+
+	// 3. Check that the seed is not all zeros.
+	isAllZeros := true
+	for _, b := range genericSeed.Raw {
+		if b != 0 {
+			isAllZeros = false
+			break
+		}
+	}
+	if isAllZeros {
+		return errors.New("generic seed is all zeros, which is invalid")
+	}
+
+	log.Println("GenericSeed validation passed.")
+	return nil
+}
+
 type flags struct {
-	DiceLeaf   string
-	DiceICA    string
-	ExtICA     string
-	RootCA     string
-	RRJSONPath string
-	RRCSVPath  string
-	RowNumber  int
+	DiceLeaf     string
+	DiceICA      string
+	ExtICA       string
+	RootCA       string
+	RRJSONPath   string
+	RRCSVPath    string
+	RowNumber    int
+	ValidateSeed bool
 }
 
 func parseFlags() flags {
@@ -161,6 +202,7 @@ func parseFlags() flags {
 	rrJSONPath := flag.String("rr-json", "", "Path to the JSON registry record file. Mutually exclusive with `-rr-csv`.")
 	rrCSVPath := flag.String("rr-csv", "", "Path to the CSV file containing multiple registry records. Mutually exclusive with `-rr-json`.")
 	rowNumber := flag.Int("row-number", 0, "Row to check on the CSV (index 0). Defaults to 0")
+	validateSeed := flag.Bool("validate-seed", false, "Validate the Generic Seed in the perso blob.")
 	flag.Parse()
 
 	if *rrJSONPath == "" && *rrCSVPath == "" {
@@ -181,13 +223,14 @@ func parseFlags() flags {
 	}
 
 	return flags{
-		DiceLeaf:   *diceCertLeaf,
-		DiceICA:    *diceICA,
-		ExtICA:     *extICA,
-		RootCA:     *rootCA,
-		RRJSONPath: *rrJSONPath,
-		RRCSVPath:  *rrCSVPath,
-		RowNumber:  *rowNumber,
+		DiceLeaf:     *diceCertLeaf,
+		DiceICA:      *diceICA,
+		ExtICA:       *extICA,
+		RootCA:       *rootCA,
+		RRJSONPath:   *rrJSONPath,
+		RRCSVPath:    *rrCSVPath,
+		RowNumber:    *rowNumber,
+		ValidateSeed: *validateSeed,
 	}
 }
 
@@ -318,6 +361,16 @@ func main() {
 		record, err = parseJSON(file)
 		if err != nil {
 			log.Fatalf("Failed to parse JSON registry record: %v", err)
+		}
+	}
+
+	// Parse device data from from the registry record.
+	deviceData := &dipb.DeviceData{}
+	proto.Unmarshal(record.Data, deviceData)
+
+	if flags.ValidateSeed {
+		if err := validateGenericSeed(deviceData.PersoTlvData); err != nil {
+			log.Fatalf("Failed to validate generic seed: %v", err)
 		}
 	}
 
