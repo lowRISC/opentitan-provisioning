@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
@@ -43,8 +44,14 @@ type certs struct {
 	extLeafs []cert
 }
 
-func processPersoBlob(persoBlobBytes []byte, diceLeaf string) (*certs, error) {
+func processPersoBlob(persoBlobBytes []byte, diceLeaf string, validateSeed bool) (*certs, error) {
 	certs := &certs{}
+
+	if validateSeed {
+		if err := validateGenericSeed(persoBlobBytes); err != nil {
+			return nil, fmt.Errorf("failed to validate generic seed: %v", err)
+		}
+	}
 
 	persoBlob, err := ate.UnpackPersoBlob(persoBlobBytes)
 	if err != nil {
@@ -111,7 +118,7 @@ func processPersoBlob(persoBlobBytes []byte, diceLeaf string) (*certs, error) {
 	return certs, nil
 }
 
-func parseRegistryRecord(rr *rrpb.RegistryRecord, diceLeaf string) (*certs, error) {
+func parseRegistryRecord(rr *rrpb.RegistryRecord, diceLeaf string, validateSeed bool) (*certs, error) {
 	// Parse device data from from the registry record.
 	deviceData := &dipb.DeviceData{}
 	proto.Unmarshal(rr.Data, deviceData)
@@ -129,7 +136,7 @@ func parseRegistryRecord(rr *rrpb.RegistryRecord, diceLeaf string) (*certs, erro
 	log.Println(strings.Repeat("-", LineLimit))
 	log.Printf("Num Perso TLV Objects:  %d\n", deviceData.NumPersoTlvObjects)
 
-	certs, err := processPersoBlob(deviceData.PersoTlvData, diceLeaf)
+	certs, err := processPersoBlob(deviceData.PersoTlvData, diceLeaf, validateSeed)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse perso blob: %v", err)
 	}
@@ -168,14 +175,8 @@ func validateGenericSeed(persoBlobBytes []byte) error {
 	}
 
 	// 3. Check that the seed is not all zeros.
-	isAllZeros := true
-	for _, b := range genericSeed.Raw {
-		if b != 0 {
-			isAllZeros = false
-			break
-		}
-	}
-	if isAllZeros {
+	zeroSeedValue := bytes.Repeat([]byte{0}, expectedSeedSize)
+	if bytes.Equal(zeroSeedValue, genericSeed.Raw) {
 		return errors.New("generic seed is all zeros, which is invalid")
 	}
 
@@ -364,17 +365,7 @@ func main() {
 		}
 	}
 
-	// Parse device data from from the registry record.
-	deviceData := &dipb.DeviceData{}
-	proto.Unmarshal(record.Data, deviceData)
-
-	if flags.ValidateSeed {
-		if err := validateGenericSeed(deviceData.PersoTlvData); err != nil {
-			log.Fatalf("Failed to validate generic seed: %v", err)
-		}
-	}
-
-	certs, err := parseRegistryRecord(record, flags.DiceLeaf)
+	certs, err := parseRegistryRecord(record, flags.DiceLeaf, flags.ValidateSeed)
 	if err != nil {
 		log.Fatalf("Error parsing registry record: %v", err)
 	}
