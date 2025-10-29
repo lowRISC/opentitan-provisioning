@@ -47,15 +47,15 @@ type certs struct {
 func processPersoBlob(persoBlobBytes []byte, diceLeaf string, validateSeed bool) (*certs, error) {
 	certs := &certs{}
 
-	if validateSeed {
-		if err := validateGenericSeed(persoBlobBytes); err != nil {
-			return nil, fmt.Errorf("failed to validate generic seed: %v", err)
-		}
-	}
-
 	persoBlob, err := ate.UnpackPersoBlob(persoBlobBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unpack perso blob: %v", err)
+	}
+
+	if validateSeed {
+		if err := validateGenericSeed(persoBlob); err != nil {
+			return nil, fmt.Errorf("failed to validate generic seed: %v", err)
+		}
 	}
 
 	for _, c := range persoBlob.X509Certs {
@@ -149,12 +149,7 @@ func parseRegistryRecord(rr *rrpb.RegistryRecord, diceLeaf string, validateSeed 
 	return certs, nil
 }
 
-func validateGenericSeed(persoBlobBytes []byte) error {
-	persoBlob, err := ate.UnpackPersoBlob(persoBlobBytes)
-	if err != nil {
-		return fmt.Errorf("failed to unpack perso blob for validation: %v", err)
-	}
-
+func validateGenericSeed(persoBlob *ate.PersoBlob) error {
 	var genericSeed *ate.Seed
 	for i := range persoBlob.Seeds {
 		if persoBlob.Seeds[i].Type == ate.PersoObjectTypeGenericSeed {
@@ -203,7 +198,7 @@ func parseFlags() flags {
 	rrJSONPath := flag.String("rr-json", "", "Path to the JSON registry record file. Mutually exclusive with `-rr-csv`.")
 	rrCSVPath := flag.String("rr-csv", "", "Path to the CSV file containing multiple registry records. Mutually exclusive with `-rr-json`.")
 	rowNumber := flag.Int("row-number", 0, "Row to check on the CSV (index 0). Defaults to 0")
-	validateSeed := flag.Bool("validate-seed", false, "Validate the Generic Seed in the perso blob.")
+	validateSeed := flag.Bool("validate-generic-seed", false, "Validate the Generic Seed in the perso blob.")
 	flag.Parse()
 
 	if *rrJSONPath == "" && *rrCSVPath == "" {
