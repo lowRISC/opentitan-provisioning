@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
@@ -43,12 +44,18 @@ type certs struct {
 	extLeafs []cert
 }
 
-func processPersoBlob(persoBlobBytes []byte, diceLeaf string) (*certs, error) {
+func processPersoBlob(persoBlobBytes []byte, flags flags) (*certs, error) {
 	certs := &certs{}
 
 	persoBlob, err := ate.UnpackPersoBlob(persoBlobBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unpack perso blob: %v", err)
+	}
+
+	if flags.ValidateGenericSeedSize > 0 {
+		if err := validateGenericSeed(persoBlob, flags.ValidateGenericSeedSize); err != nil {
+			return nil, fmt.Errorf("generic seed validation failed: %v", err)
+		}
 	}
 
 	for _, c := range persoBlob.X509Certs {
@@ -65,26 +72,26 @@ func processPersoBlob(persoBlobBytes []byte, diceLeaf string) (*certs, error) {
 
 		switch c.KeyLabel {
 		case "UDS":
-			if diceLeaf == "UDS" {
+			if flags.DiceLeaf == "UDS" {
 				certs.diceLeaf = append(certs.diceLeaf, cert)
 			} else {
 				certs.diceICA = append(certs.diceICA, cert)
 			}
 		case "CDI_0":
-			if diceLeaf == "UDS" {
-				return nil, fmt.Errorf("unexpected DICE leaf '%s' for cert '%s'", diceLeaf, c.KeyLabel)
+			if flags.DiceLeaf == "UDS" {
+				return nil, fmt.Errorf("unexpected DICE leaf '%s' for cert '%s'", flags.DiceLeaf, c.KeyLabel)
 			}
 
-			if diceLeaf == "CDI_0" {
+			if flags.DiceLeaf == "CDI_0" {
 				certs.diceLeaf = append(certs.diceLeaf, cert)
 			} else {
 				certs.diceICA = append(certs.diceICA, cert)
 			}
 		case "CDI_1":
-			if diceLeaf == "CDI_1" {
+			if flags.DiceLeaf == "CDI_1" {
 				certs.diceLeaf = append(certs.diceLeaf, cert)
 			} else {
-				return nil, fmt.Errorf("unexpected DICE leaf '%s' for cert '%s'", diceLeaf, c.KeyLabel)
+				return nil, fmt.Errorf("unexpected DICE leaf '%s' for cert '%s'", flags.DiceLeaf, c.KeyLabel)
 			}
 		default:
 			// If the certificate key label  is not one of the expected DICE certificates,
@@ -111,12 +118,11 @@ func processPersoBlob(persoBlobBytes []byte, diceLeaf string) (*certs, error) {
 	return certs, nil
 }
 
-func parseRegistryRecord(rr *rrpb.RegistryRecord, diceLeaf string) (*certs, error) {
+func parseRegistryRecord(rr *rrpb.RegistryRecord, flags flags) (*certs, error) {
 	// Parse device data from from the registry record.
 	deviceData := &dipb.DeviceData{}
 	proto.Unmarshal(rr.Data, deviceData)
 
-	// Print each field of the registry record.
 	log.Println(strings.Repeat("-", LineLimit))
 	log.Println("Registry Record: ")
 	log.Println(strings.Repeat("-", LineLimit))
@@ -130,7 +136,7 @@ func parseRegistryRecord(rr *rrpb.RegistryRecord, diceLeaf string) (*certs, erro
 	log.Println(strings.Repeat("-", LineLimit))
 	log.Printf("Num Perso TLV Objects:  %d\n", deviceData.NumPersoTlvObjects)
 
-	certs, err := processPersoBlob(deviceData.PersoTlvData, diceLeaf)
+	certs, err := processPersoBlob(deviceData.PersoTlvData, flags)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse perso blob: %v", err)
 	}
@@ -143,17 +149,53 @@ func parseRegistryRecord(rr *rrpb.RegistryRecord, diceLeaf string) (*certs, erro
 	return certs, nil
 }
 
-type flags struct {
-	DiceLeaf   string
-	DiceICA    string
-	ExtICA     string
-	RootCA     string
-	RRJSONPath string
-	RRCSVPath  string
-	RowNumber  int
+func validateGenericSeed(persoBlob *ate.PersoBlob, expectedSeedSize int) error {
+	var genericSeed *ate.Seed
+	for i := range persoBlob.Seeds {
+		if persoBlob.Seeds[i].Type == ate.PersoObjectTypeGenericSeed {
+			genericSeed = &persoBlob.Seeds[i]
+			break
+		}
+	}
+
+	// 1. Check that the generic seed exists.
+	if genericSeed == nil {
+		return errors.New("generic seed not found in personalization blob")
+	}
+
+	// 2. Check the seed size against the expected value for the SKU.
+	if len(genericSeed.Raw) != expectedSeedSize {
+		return fmt.Errorf("generic seed size is %d bytes, expected %d bytes", len(genericSeed.Raw), expectedSeedSize)
+	}
+
+	// 3. Check that the seed is not all zeros.
+	zeroSeedValue := bytes.Repeat([]byte{0}, expectedSeedSize)
+	if bytes.Equal(zeroSeedValue, genericSeed.Raw) {
+		return errors.New("generic seed is all zeros, which is an invalid value")
+	}
+
+	// 4. Check that the seed is not all ones (erased flash value).
+	onesSeedValue := bytes.Repeat([]byte{0xff}, expectedSeedSize)
+	if bytes.Equal(onesSeedValue, genericSeed.Raw) {
+		return errors.New("generic seed is all ones, which is an invalid value (erased flash)")
+	}
+
+	log.Println("GenericSeed validation passed.")
+	return nil
 }
 
-func parseFlags() flags {
+type flags struct {
+	DiceLeaf                string
+	DiceICA                 string
+	ExtICA                  string
+	RootCA                  string
+	RRJSONPath              string
+	RRCSVPath               string
+	RowNumber               int
+	ValidateGenericSeedSize int
+}
+
+func parseFlags() *flags {
 	diceCertLeaf := flag.String("dice-leaf", "", "DICE cert leaf: UDS, CDI_0 or CDI_1. Required.")
 	diceICA := flag.String("dice-ica", "", "Path to the DICE ICA certificate file. Required.")
 	extICA := flag.String("ext-ica", "", "Path to the external ICA certificate file. Optional.")
@@ -161,6 +203,7 @@ func parseFlags() flags {
 	rrJSONPath := flag.String("rr-json", "", "Path to the JSON registry record file. Mutually exclusive with `-rr-csv`.")
 	rrCSVPath := flag.String("rr-csv", "", "Path to the CSV file containing multiple registry records. Mutually exclusive with `-rr-json`.")
 	rowNumber := flag.Int("row-number", 0, "Row to check on the CSV (index 0). Defaults to 0")
+	validateGenericSeedSize := flag.Int("validate-generic-seed", 0, "If non-zero, validates the generic seed in the perso blob against the given size in bytes.")
 	flag.Parse()
 
 	if *rrJSONPath == "" && *rrCSVPath == "" {
@@ -180,14 +223,15 @@ func parseFlags() flags {
 		log.Fatalf("Error: Invalid DICE cert leaf '%s'. Must be one of: UDS, CDI_0, or CDI_1.", *diceCertLeaf)
 	}
 
-	return flags{
-		DiceLeaf:   *diceCertLeaf,
-		DiceICA:    *diceICA,
-		ExtICA:     *extICA,
-		RootCA:     *rootCA,
-		RRJSONPath: *rrJSONPath,
-		RRCSVPath:  *rrCSVPath,
-		RowNumber:  *rowNumber,
+	return &flags{
+		DiceLeaf:                *diceCertLeaf,
+		DiceICA:                 *diceICA,
+		ExtICA:                  *extICA,
+		RootCA:                  *rootCA,
+		RRJSONPath:              *rrJSONPath,
+		RRCSVPath:               *rrCSVPath,
+		RowNumber:               *rowNumber,
+		ValidateGenericSeedSize: *validateGenericSeedSize,
 	}
 }
 
@@ -279,7 +323,7 @@ func verifyCertificate(rootCA, intermediateCAs, leafCert string, ignore_critical
 }
 
 func main() {
-	flags := parseFlags()
+	flags := *parseFlags()
 
 	isCSV := false
 	// One and only one of RRJSONPath or RRCSVPath is non-empty
@@ -321,7 +365,7 @@ func main() {
 		}
 	}
 
-	certs, err := parseRegistryRecord(record, flags.DiceLeaf)
+	certs, err := parseRegistryRecord(record, flags)
 	if err != nil {
 		log.Fatalf("Error parsing registry record: %v", err)
 	}
