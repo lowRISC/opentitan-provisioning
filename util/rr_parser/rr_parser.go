@@ -52,8 +52,8 @@ func processPersoBlob(persoBlobBytes []byte, flags flags) (*certs, error) {
 		return nil, fmt.Errorf("failed to unpack perso blob: %v", err)
 	}
 
-	if flags.ValidateSeed {
-		if err := validateGenericSeed(persoBlob, flags.GenericSeedSize); err != nil {
+	if flags.ValidateGenericSeedSize > 0 {
+		if err := validateGenericSeed(persoBlob, flags.ValidateGenericSeedSize); err != nil {
 			return nil, fmt.Errorf("generic seed validation failed: %v", err)
 		}
 	}
@@ -185,15 +185,14 @@ func validateGenericSeed(persoBlob *ate.PersoBlob, expectedSeedSize int) error {
 }
 
 type flags struct {
-	DiceLeaf        string
-	DiceICA         string
-	ExtICA          string
-	RootCA          string
-	RRJSONPath      string
-	RRCSVPath       string
-	RowNumber       int
-	ValidateSeed    bool
-	GenericSeedSize int
+	DiceLeaf                string
+	DiceICA                 string
+	ExtICA                  string
+	RootCA                  string
+	RRJSONPath              string
+	RRCSVPath               string
+	RowNumber               int
+	ValidateGenericSeedSize int
 }
 
 func parseFlags() *flags {
@@ -204,8 +203,7 @@ func parseFlags() *flags {
 	rrJSONPath := flag.String("rr-json", "", "Path to the JSON registry record file. Mutually exclusive with `-rr-csv`.")
 	rrCSVPath := flag.String("rr-csv", "", "Path to the CSV file containing multiple registry records. Mutually exclusive with `-rr-json`.")
 	rowNumber := flag.Int("row-number", 0, "Row to check on the CSV (index 0). Defaults to 0")
-	validateSeed := flag.Bool("validate-generic-seed", false, "Validate the Generic Seed in the perso blob.")
-	genericSeedSize := flag.Int("generic-seed-size", 0, "The expected size of the generic seed in bytes. Required if -validate-generic-seed is set.")
+	validateGenericSeedSize := flag.Int("validate-generic-seed", 0, "If non-zero, validates the generic seed in the perso blob against the given size in bytes.")
 	flag.Parse()
 
 	if *rrJSONPath == "" && *rrCSVPath == "" {
@@ -219,10 +217,6 @@ func parseFlags() *flags {
 		log.Fatalf("Error: -dice-leaf, -dice-ica, and -root-cert flags are required.")
 	}
 
-	if *validateSeed && *genericSeedSize == 0 {
-		log.Fatal("Error: -generic-seed-size must be provided and non-zero when -validate-generic-seed is used.")
-	}
-
 	switch *diceCertLeaf {
 	case "UDS", "CDI_0", "CDI_1":
 	default:
@@ -230,15 +224,14 @@ func parseFlags() *flags {
 	}
 
 	return &flags{
-		DiceLeaf:        *diceCertLeaf,
-		DiceICA:         *diceICA,
-		ExtICA:          *extICA,
-		RootCA:          *rootCA,
-		RRJSONPath:      *rrJSONPath,
-		RRCSVPath:       *rrCSVPath,
-		RowNumber:       *rowNumber,
-		ValidateSeed:    *validateSeed,
-		GenericSeedSize: *genericSeedSize,
+		DiceLeaf:                *diceCertLeaf,
+		DiceICA:                 *diceICA,
+		ExtICA:                  *extICA,
+		RootCA:                  *rootCA,
+		RRJSONPath:              *rrJSONPath,
+		RRCSVPath:               *rrCSVPath,
+		RowNumber:               *rowNumber,
+		ValidateGenericSeedSize: *validateGenericSeedSize,
 	}
 }
 
