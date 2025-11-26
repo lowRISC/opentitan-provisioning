@@ -34,7 +34,7 @@ def lowrisc_repos(misc_linters = None, bazel_release = None, bazel_skylib = None
     maybe(
         http_archive_or_local,
         name = "bazel_skylib",
-        lcoal = bazel_skylib,
+        local = bazel_skylib,
         sha256 = "bc283cdfcd526a52c3201279cda4bc298652efa898b10b4db0837dc51652756f",
         url = "https://github.com/bazelbuild/bazel-skylib/releases/download/{}/bazel-skylib-{}.tar.gz".format(
             _BAZEL_SKYLIB_VERSION,
