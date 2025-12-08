@@ -207,6 +207,8 @@ function run_hsm_init() {
     echo "Error: Could not change back to original directory '${original_dir}'."
     return 1
   }
+
+  trap - EXIT
 }
 
 function action_spm_init() {
