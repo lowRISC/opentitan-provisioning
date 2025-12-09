@@ -58,7 +58,7 @@ for OTSKU in "${FPGA_SKUS[@]}"; do
   # SKUs in the orchestrator release.
   SKU_NAME="${OTSKU}"
   if [[ "${OTSKU}" == "ti01" ]]; then
-    SKU_NAME="ti00"
+    SKU_NAME="ti02"
   elif [[ "${OTSKU}" == "pi01" ]]; then
     SKU_NAME="pi02"
   fi
