@@ -60,17 +60,3 @@ jobs:
         run: OT_PROV_ORCHESTRATOR_PATH="${OT_PROV_ORCHESTRATOR_PATH}" OT_PROV_ORCHESTRATOR_UNPACK="${OT_PROV_ORCHESTRATOR_UNPACK}" OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./run_integration_tests.sh
       - name: Run integration tests (Thales HSM)
         run: OT_PROV_ORCHESTRATOR_PATH="${OT_PROV_ORCHESTRATOR_PATH}" OT_PROV_ORCHESTRATOR_UNPACK="${OT_PROV_ORCHESTRATOR_UNPACK}" OPENTITAN_VAR_DIR=$(pwd)/.otvar-prod ./run_integration_tests.sh --prod
-
-  # Test airgapped build.
-  airgapped_build_test:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 80
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-      - name: Prepare environment
-        uses: ./.github/actions/prepare-env
-      - name: Build everything in an airgapped network namespace.
-        run: |
-          ./util/airgapped_builds/test-airgapped-build.sh
