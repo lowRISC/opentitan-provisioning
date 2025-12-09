@@ -16,16 +16,14 @@ jobs:
       - name: Run linter checks
         run: bazel test //quality/...
 
-  # Build and test everything in codebase.
-  test:
-    runs-on: ubuntu-22.04
+  # Build and test everything in the codebase (except the FPGA tests).
+  build_and_test:
+    runs-on: ot-provisioning-self-hosted
     timeout-minutes: 80
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
-      - name: Prepare environment
-        uses: ./.github/actions/prepare-env
       - name: Build everything
         run: |
           bazel build //...
