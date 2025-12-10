@@ -115,13 +115,23 @@ cc_binary(
 )
 
 pkg_win(
-    name = "windows",
+    name = "windows_win32",
     srcs = [
         "ate_api.h",
         "ate_perso_blob.h",
         ":ate",
     ],
     platform = "@crt//platforms/x86_32:win32",
+)
+
+pkg_win(
+    name = "windows_x64",
+    srcs = [
+        "ate_api.h",
+        "ate_perso_blob.h",
+        ":ate",
+    ],
+    platform = "@crt//platforms/x86_64:win64",
 )
 
 go_library(
