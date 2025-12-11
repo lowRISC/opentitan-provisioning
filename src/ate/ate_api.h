@@ -13,14 +13,28 @@
 #define COMPILE_TIME_ASSERT(condition, msg) \
   typedef char COMPILE_TIME_ASSERT_##msg[(condition) ? 1 : -1]
 
-// types for TP
-typedef unsigned __int8 uint8_t;
-typedef unsigned __int16 uint16_t;
-typedef unsigned __int32 uint32_t;
-typedef unsigned __int64 uint64_t;
-typedef unsigned int size_t;
-#else  // not _WIN32
+// Check for standard definition of fixed-width integer types
+#ifndef UINT8_MAX
+/* Fallback for old compilers which do not provide a standart <stdint.h> header
+ * (pre-C99) */
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
+typedef unsigned int uint32_t;
+typedef unsigned long long uint64_t;
+#else
 #include <stdint.h>
+#endif  // UINT8_MAX
+
+// Check for standard definition of 'size_t' type
+#ifndef _SIZE_T_DEFINED
+/* Fallback for old compilers that do not provide a standard <stddef.h> header
+ * (pre-C99) */
+#if defined(_WIN64)
+typedef uint64_t size_t;  // 8 bytes size in 64-platform
+#else
+typedef uint32_t size_t;  // 4 bytes size in 32-platform
+#endif
+#endif  // _SIZE_T_DEFINED
 #endif  // _WIN32
 
 #ifdef __cplusplus
