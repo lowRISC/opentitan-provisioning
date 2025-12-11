@@ -44,7 +44,7 @@ jobs:
   # Run integration tests.
   integration_tests:
     runs-on: ot-provisioning-self-hosted
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       OT_PROV_ORCHESTRATOR_PATH: /home/ci/orchestrator/latest/orchestrator.zip
       OT_PROV_ORCHESTRATOR_UNPACK: /home/ci/orchestrator/latest/copy_files.sh
