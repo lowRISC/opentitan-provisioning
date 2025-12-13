@@ -38,10 +38,6 @@ go_deps()
 load("//third_party/lint:repos.bzl", "lint_repos")
 lint_repos()
 
-# SoftHSM2.
-load("//third_party/softhsm2:repos.bzl", "softhsm2_repos")
-softhsm2_repos()
-
 # Docker rules.
 load("//third_party/docker:repos.bzl", "docker_repos")
 docker_repos()
