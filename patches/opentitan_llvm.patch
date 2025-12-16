@@ -1,0 +1,16 @@
+--- opentitan_MODULE.bazel.orig	2025-12-09 18:57:21.361633546 -0800
++++ opentitan_MODULE.bazel	2025-12-09 18:57:21.365871520 -0800
+@@ -178,13 +178,6 @@
+ # Rust bindgen toolchain:
+ register_toolchains("//third_party/rust:bindgen_toolchain")
+ 
+-# LLVM toolchain used by bindgen for `libclang` (not for device software):
+-llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+-llvm.toolchain(
+-    name = "llvm_toolchain",
+-    llvm_versions = {"": "10.0.0"},
+-)
+-use_repo(llvm, "llvm_toolchain_llvm")
+ 
+ ################### originally from "//third_party/python:python.MODULE.bazel
+ 

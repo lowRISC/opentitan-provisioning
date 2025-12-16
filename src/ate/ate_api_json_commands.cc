@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "absl/log/log.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "src/ate/ate_api.h"
 #include "src/ate/proto/dut_commands.pb.h"
@@ -18,10 +19,10 @@ int RxSpiFrameSet(dut_spi_frame_t *frame, const std::string &payload) {
     return -1;
   }
   // This is an unlikely error.
-  if (payload.size() > sizeof(frame->payload)) {
+  if (payload.size() > kDutRxSpiFrameSizeInBytes) {
     LOG(ERROR) << "Output buffer size is too small"
                << " (expected: >=" << payload.size()
-               << ", got: " << sizeof(frame->payload) << ")";
+               << ", got: " << kDutRxSpiFrameSizeInBytes << ")";
     return -1;
   }
 
@@ -151,10 +152,10 @@ DLLEXPORT int TokensToJson(const token_t *wafer_auth_secret,
     LOG(ERROR) << "Invalid wafer auth secret" << wafer_auth_secret->size;
     return -1;
   }
-  const uint32_t *was_ptr =
-      reinterpret_cast<const uint32_t *>(wafer_auth_secret->data);
   for (size_t i = 0; i < 8; ++i) {
-    tokens_cmd.add_wafer_auth_secret(was_ptr[i]);
+    uint32_t val;
+    memcpy(&val, wafer_auth_secret->data + i * sizeof(uint32_t), sizeof(val));
+    tokens_cmd.add_wafer_auth_secret(val);
   }
 
   if (test_unlock_token == nullptr ||
@@ -162,10 +163,10 @@ DLLEXPORT int TokensToJson(const token_t *wafer_auth_secret,
     LOG(ERROR) << "Invalid test unlock token" << test_unlock_token->size;
     return -1;
   }
-  const uint64_t *test_unlock_token_ptr =
-      reinterpret_cast<const uint64_t *>(test_unlock_token->data);
   for (size_t i = 0; i < 2; ++i) {
-    tokens_cmd.add_test_unlock_token_hash(test_unlock_token_ptr[i]);
+    uint64_t val;
+    memcpy(&val, test_unlock_token->data + i * sizeof(uint64_t), sizeof(val));
+    tokens_cmd.add_test_unlock_token_hash(val);
   }
 
   if (test_exit_token == nullptr ||
@@ -173,21 +174,20 @@ DLLEXPORT int TokensToJson(const token_t *wafer_auth_secret,
     LOG(ERROR) << "Invalid test exit token" << test_exit_token->size;
     return -1;
   }
-  const uint64_t *test_exit_token_ptr =
-      reinterpret_cast<const uint64_t *>(test_exit_token->data);
   for (size_t i = 0; i < 2; ++i) {
-    tokens_cmd.add_test_exit_token_hash(test_exit_token_ptr[i]);
+    uint64_t val;
+    memcpy(&val, test_exit_token->data + i * sizeof(uint64_t), sizeof(val));
+    tokens_cmd.add_test_exit_token_hash(val);
   }
 
   // Convert the provisioning data to a JSON string.
   std::string command;
-  google::protobuf::util::JsonOptions options;
+  google::protobuf::util::JsonPrintOptions options;
   options.add_whitespace = false;
-  options.always_print_primitive_fields = true;
+  options.always_print_fields_with_no_presence = true;
   options.preserve_proto_field_names = true;
-  google::protobuf::util::Status status =
-      google::protobuf::util::MessageToJsonString(tokens_cmd, &command,
-                                                  options);
+  absl::Status status = google::protobuf::util::MessageToJsonString(
+      tokens_cmd, &command, options);
   if (!status.ok()) {
     LOG(ERROR) << "Failed to convert tokens to JSON: " << status.ToString();
     return -1;
@@ -210,9 +210,8 @@ DLLEXPORT int DeviceIdFromJson(const dut_spi_frame_t *frame,
   ot::dut_commands::DeviceIdJSON device_id_cmd;
   google::protobuf::util::JsonParseOptions options;
   options.ignore_unknown_fields = true;
-  google::protobuf::util::Status status =
-      google::protobuf::util::JsonStringToMessage(json_str, &device_id_cmd,
-                                                  options);
+  absl::Status status = google::protobuf::util::JsonStringToMessage(
+      json_str, &device_id_cmd, options);
   if (!status.ok()) {
     LOG(ERROR) << "Failed to parse JSON: " << status.ToString();
     return -1;
@@ -238,20 +237,19 @@ DLLEXPORT int RmaTokenToJson(const token_t *rma_token, dut_spi_frame_t *result,
     LOG(ERROR) << "Invalid RMA token" << rma_token->size;
     return -1;
   }
-  const uint64_t *rma_token_ptr =
-      reinterpret_cast<const uint64_t *>(rma_token->data);
   for (size_t i = 0; i < 2; ++i) {
-    rma_hash_cmd.add_hash(rma_token_ptr[i]);
+    uint64_t val;
+    memcpy(&val, rma_token->data + i * sizeof(uint64_t), sizeof(val));
+    rma_hash_cmd.add_hash(val);
   }
 
   std::string command;
-  google::protobuf::util::JsonOptions options;
+  google::protobuf::util::JsonPrintOptions options;
   options.add_whitespace = false;
-  options.always_print_primitive_fields = true;
+  options.always_print_fields_with_no_presence = true;
   options.preserve_proto_field_names = true;
-  google::protobuf::util::Status status =
-      google::protobuf::util::MessageToJsonString(rma_hash_cmd, &command,
-                                                  options);
+  absl::Status status = google::protobuf::util::MessageToJsonString(
+      rma_hash_cmd, &command, options);
   if (!skip_crc) {
     // The personalization firmware expects a CRC on this JSON payload.
     uint32_t crc = CalculateCrc32(command.data(), command.length());
@@ -287,9 +285,8 @@ DLLEXPORT int RmaTokenFromJson(const dut_spi_frame_t *frame,
   google::protobuf::util::JsonParseOptions options;
   options.ignore_unknown_fields = true;
 
-  google::protobuf::util::Status status =
-      google::protobuf::util::JsonStringToMessage(json_str, &rma_hash_cmd,
-                                                  options);
+  absl::Status status = google::protobuf::util::JsonStringToMessage(
+      json_str, &rma_hash_cmd, options);
   if (!status.ok()) {
     LOG(ERROR) << "Failed to parse JSON: " << status.ToString();
     return -1;
@@ -332,13 +329,12 @@ DLLEXPORT int CaSubjectKeysToJson(const ca_subject_key_t *dice_ca_sn,
   }
 
   std::string command;
-  google::protobuf::util::JsonOptions options;
+  google::protobuf::util::JsonPrintOptions options;
   options.add_whitespace = false;
-  options.always_print_primitive_fields = true;
+  options.always_print_fields_with_no_presence = true;
   options.preserve_proto_field_names = true;
-  google::protobuf::util::Status status =
-      google::protobuf::util::MessageToJsonString(ca_key_ids_cmd, &command,
-                                                  options);
+  absl::Status status = google::protobuf::util::MessageToJsonString(
+      ca_key_ids_cmd, &command, options);
   if (!status.ok()) {
     LOG(ERROR) << "Failed to convert CA serial number command to JSON: "
                << status.ToString();
@@ -375,11 +371,11 @@ DLLEXPORT int PersoBlobToJson(const perso_blob_t *blob, dut_spi_frame_t *result,
   }
 
   std::string command;
-  google::protobuf::util::JsonOptions options;
+  google::protobuf::util::JsonPrintOptions options;
   options.add_whitespace = false;
-  options.always_print_primitive_fields = true;
+  options.always_print_fields_with_no_presence = true;
   options.preserve_proto_field_names = true;
-  google::protobuf::util::Status status =
+  absl::Status status =
       google::protobuf::util::MessageToJsonString(blob_cmd, &command, options);
   if (!status.ok()) {
     LOG(ERROR) << "Failed to convert token hash command to JSON: "
@@ -436,9 +432,8 @@ DLLEXPORT int PersoBlobFromJson(const dut_spi_frame_t *frames,
   }
   std::string cleaned_json_str = TrimJsonString(json_str);
 
-  google::protobuf::util::Status status =
-      google::protobuf::util::JsonStringToMessage(cleaned_json_str, &blob_cmd,
-                                                  options);
+  absl::Status status = google::protobuf::util::JsonStringToMessage(
+      cleaned_json_str, &blob_cmd, options);
   if (!status.ok()) {
     LOG(ERROR) << "Failed to parse JSON: " << status.ToString();
     return -1;
@@ -469,9 +464,8 @@ DLLEXPORT int Sha256HashFromJson(const dut_spi_frame_t *frame,
   google::protobuf::util::JsonParseOptions options;
   options.ignore_unknown_fields = true;
 
-  google::protobuf::util::Status status =
-      google::protobuf::util::JsonStringToMessage(json_str, &sha256_hash_cmd,
-                                                  options);
+  absl::Status status = google::protobuf::util::JsonStringToMessage(
+      json_str, &sha256_hash_cmd, options);
   if (!status.ok()) {
     LOG(ERROR) << "Failed to parse JSON: " << status.ToString();
     return -1;

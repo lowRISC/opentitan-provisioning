@@ -1,0 +1,10 @@
+--- python/private/pypi/whl_library.bzl
++++ python/private/pypi/whl_library.bzl
+@@ -150,6 +150,7 @@
+     ]
+     extra_pip_args = []
+     extra_pip_args.extend(rctx.attr.extra_pip_args)
++    extra_pip_args.append("--index-url=https://pypi.org/simple")
+ 
+     # Manually construct the PYTHONPATH since we cannot use the toolchain here
+     environment = _create_repository_execution_environment(rctx, python_interpreter, logger = logger)

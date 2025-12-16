@@ -20,12 +20,12 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_replace.h"
-#include "external/lowrisc_opentitan/sw/device/lib/dif/dif_lc_ctrl.h"
 #include "src/ate/ate_api.h"
 #include "src/ate/test_programs/dut_lib/dut_lib.h"
 #include "src/pa/proto/pa.grpc.pb.h"
 #include "src/pa/proto/pa.pb.h"
 #include "src/version/version.h"
+#include "sw/device/lib/dif/dif_lc_ctrl.h"
 
 /**
  * DUT configuration flags.

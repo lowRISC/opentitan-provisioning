@@ -1,0 +1,12 @@
+--- toolchain/extensions/llvm.bzl
++++ toolchain/extensions/llvm.bzl
+@@ -38,6 +38,7 @@
+ def _llvm_impl_(module_ctx):
+     for mod in module_ctx.modules:
+-        if not mod.is_root:
+-            fail("Only the root module can use the 'llvm' extension")
++        # BYPASS: Allow non-root modules (like OpenTitan) to trigger this extension
++        # if not mod.is_root:
++        #     fail("Only the root module can use the 'llvm' extension")
+         toolchain_names = []
+         for toolchain_attr in mod.tags.toolchain:

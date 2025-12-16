@@ -167,7 +167,10 @@ func makeTokens() map[string]int {
 	}
 	os.Setenv(test_config.EnvVar, configPath)
 
-	softHSMUtilPath := os.ExpandEnv("$TEST_SRCDIR/softhsm2/softhsm2/bin/softhsm2-util")
+	softHSMUtilPath, err := bazel.Runfile("softhsm2/bin/softhsm2-util")
+	if err != nil {
+		panic(fmt.Sprintf("could not find softhsm2-util: %v", err))
+	}
 
 	toks := map[string]int{}
 	plugin := Plugin()
