@@ -180,3 +180,18 @@ http_archive(
     strip_prefix = "SoftHSMv2-4975c0df4c7090e97a3860ae21079a9597cfedc6",
     urls = ["https://github.com/opendnssec/SoftHSMv2/archive/4975c0df4c7090e97a3860ae21079a9597cfedc6.tar.gz"],
 )
+
+http_archive(
+    name = "lowrisc_bazel_release",
+    sha256 = "c7b0cbdec0a1081a0b0a52eb1ebd942e7eaa218408008661fdb6e8ec3b441a4a",
+    strip_prefix = "bazel-release-0.0.3",
+    urls = ["https://github.com/lowRISC/bazel-release/archive/refs/tags/v0.0.3.tar.gz"],
+)
+
+http_archive(
+    name = "com_github_gh",
+    build_file = "@lowrisc_bazel_release//third_party/github:BUILD.gh.bazel",
+    sha256 = "3bc7cd3b2fd9082218b8246595673f55badb351db1b9e627eec121beb8b26450",
+    strip_prefix = "gh_2.20.2_linux_amd64",
+    urls = ["https://github.com/cli/cli/releases/download/v2.20.2/gh_2.20.2_linux_amd64.tar.gz"],
+)
