@@ -3,14 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # lowRISC opentitan, linters, and release process.
-load("//third_party/lowrisc:repos.bzl", "lowrisc_repos")
-lowrisc_repos()
-
-# Release process.
-load("@lowrisc_bazel_release//:repos.bzl", "lowrisc_bazel_release_repos")
-lowrisc_bazel_release_repos()
-load("@lowrisc_bazel_release//:deps.bzl", "lowrisc_bazel_release_deps")
-lowrisc_bazel_release_deps()
 
 # CRT is the Compiler Repository Toolkit.  It contains the configuration for
 # the windows compiler.
