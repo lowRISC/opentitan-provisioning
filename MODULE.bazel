@@ -78,10 +78,10 @@ single_version_override(
 register_toolchains("@lowrisc_opentitan//third_party/rust:bindgen_toolchain")
 
 # Go Toolchain: Used for Go code.
-bazel_dep(name = "rules_go", version = "0.42.0", repo_name = "io_bazel_rules_go")
+bazel_dep(name = "rules_go", version = "0.52.0", repo_name = "io_bazel_rules_go")
 single_version_override(
     module_name = "rules_go",
-    version = "0.42.0",
+    version = "0.52.0",
 )
 
 go_sdk = use_extension("@io_bazel_rules_go//go:extensions.bzl", "go_sdk")
@@ -159,7 +159,7 @@ bazel_dep(name = "rules_apple", version = "3.5.1", repo_name = "build_bazel_rule
 bazel_dep(name = "rules_swift", version = "1.18.0", repo_name = "build_bazel_rules_swift")
 
 # Gazelle: Tool to generate Bazel build files for Go (and others).
-bazel_dep(name = "gazelle", version = "0.35.0", repo_name = "bazel_gazelle")
+bazel_dep(name = "gazelle", version = "0.41.0", repo_name = "bazel_gazelle")
 
 # -------------------------------------------------------------------------
 # Go Dependencies
@@ -325,9 +325,8 @@ http_archive(
 # Docker Rules: For container builds (legacy, not yet fully Bzlmod).
 http_archive(
     name = "io_bazel_rules_docker",
-    sha256 = "59536e6ae64359b716ba9c46c39183403b01eabfbd57578e84398b4829ca499a",
-    strip_prefix = "rules_docker-0.22.0",
-    urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.22.0/rules_docker-v0.22.0.tar.gz"],
+    sha256 = "b1e80761a8a8243d03ebca8845e9cc1ba6c82ce7c5179ce2b295cd36f7e394bf",
+    urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.25.0/rules_docker-v0.25.0.tar.gz"],
 )
 
 http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
