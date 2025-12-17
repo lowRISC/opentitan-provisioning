@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 module github.com/lowRISC/opentitan-provisioning
 
-go 1.21.0
+go 1.24.0
 
-toolchain go1.21.0
+toolchain go1.24.0
 
 // replace github.com/lowRISC/opentitan-provisioning => ./
 

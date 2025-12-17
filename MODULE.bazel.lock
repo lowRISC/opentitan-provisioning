@@ -2365,7 +2365,7 @@
     "@@rules_go~//go:extensions.bzl%go_sdk": {
       "os:linux,arch:amd64": {
         "bzlTransitiveDigest": "kkx23wB2DRp7rlh4YkKlcPG9/+Y8hEpOqn3hJtZtU8c=",
-        "usagesDigest": "GpJSqqYS0SKesn1M/ZlA0nUl5RzC4ALBipWgJ4xXqfI=",
+        "usagesDigest": "xF2NzTHLhUyy0zBx0DfbFGrD0JW0pfpo1Mo94ypwwwk=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2407,7 +2407,7 @@
               "urls": [
                 "https://dl.google.com/go/{}"
               ],
-              "version": "1.21.0",
+              "version": "1.24.0",
               "strip_prefix": "go"
             }
           },
@@ -2436,7 +2436,7 @@
                 "remote"
               ],
               "sdk_versions": [
-                "1.21.0",
+                "1.24.0",
                 "1.21.1"
               ]
             }
