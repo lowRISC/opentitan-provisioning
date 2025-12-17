@@ -185,6 +185,8 @@ if [[ "${FLAGS_WIPE}" == true ]]; then
 fi
 
 echo "Running hsmtool"
+ls -l "${HSMTOOL_MODULE}" || echo "Module not found"
+ls -l "${INIT_HJSON}" || echo "HJSON not found"
 env "${hsmtool_vars[@]}" "${hsmtool_args[@]}" exec "${INIT_HJSON}"
 
 if [[ -n "${FLAGS_OUT_TAR}" ]]; then
