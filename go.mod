@@ -27,7 +27,7 @@ require (
 	github.com/miekg/pkcs11 v1.0.3
 	golang.org/x/crypto v0.17.0
 	golang.org/x/sync v0.18.0
-	golang.org/x/sys v0.20.0
+	golang.org/x/sys v0.39.0
 	// Required by Bazel golang infrastructure.
 	golang.org/x/tools v0.17.0
 	google.golang.org/api v0.62.0
