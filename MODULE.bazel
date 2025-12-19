@@ -22,8 +22,13 @@ llvm.toolchain(
     name = "llvm_toolchain_host",
     llvm_versions = {"": "10.0.0"},
 )
+llvm.toolchain(
+    name = "llvm_toolchain_lint",
+    llvm_versions = {"": "14.0.0"},
+)
 use_repo(llvm, "llvm_toolchain_llvm")
 use_repo(llvm, "llvm_toolchain_host")
+use_repo(llvm, "llvm_toolchain_lint")
 
 register_toolchains("@llvm_toolchain_host//:all")
 
@@ -141,6 +146,9 @@ bazel_dep(name = "rules_fuzzing", version = "0.5.2")
 
 # Packaging Rules: For creating packages (tar, deb, etc.).
 bazel_dep(name = "rules_pkg", version = "1.0.1")
+
+# Lint Rules
+bazel_dep(name = "aspect_rules_lint", version = "1.0.8")
 
 # Proto Rules: Standard Proto rules.
 bazel_dep(name = "rules_proto", version = "6.0.2")

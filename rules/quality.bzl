@@ -114,9 +114,9 @@ clang_format_attrs = {
         doc = "Execution mode: display diffs or fix formatting",
     ),
     "lint_tool": attr.label(
-        default = "@clang-format//:clang-format",
+        default = "@llvm_toolchain_lint//:clang-format",
         allow_single_file = True,
-        cfg = "host",
+        cfg = "exec",
         executable = True,
         doc = "The clang-format executable",
     ),
