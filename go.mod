@@ -5,8 +5,6 @@ module github.com/lowRISC/opentitan-provisioning
 
 go 1.24.0
 
-// replace github.com/lowRISC/opentitan-provisioning => ./
-
 // This file is used to manage dependencies for the OpenTitan Provisioning
 // project. It is used by the Go toolchain to fetch dependencies and their
 // transitive dependencies.
