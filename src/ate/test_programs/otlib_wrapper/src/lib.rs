@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::ffi::CStr;
+use std::io::Write;
 use std::os::raw::c_char;
 use std::path::PathBuf;
 use std::slice;
@@ -12,6 +13,7 @@ use std::time::Duration;
 use anyhow::Result;
 use arrayvec::ArrayVec;
 use crc::{Crc, CRC_32_ISO_HDLC};
+use regex::Regex;
 
 use cp_lib::reset_and_lock;
 use opentitanlib::app::TransportWrapper;
@@ -35,7 +37,7 @@ use opentitanlib::test_utils::load_bitstream::LoadBitstream;
 use opentitanlib::test_utils::load_sram_program::{
     ExecutionMode, ExecutionResult, SramProgramParams,
 };
-use opentitanlib::uart::console::UartConsole;
+use opentitanlib::uart::console::{ExitStatus, UartConsole};
 
 // NOTE: must match kDutTxMaxSpiFrameSizeInBytes defined in src/ate/ate_api.h
 // TODO(timothytrippel): look into using bindgen here to keep in sync
@@ -278,7 +280,7 @@ pub extern "C" fn OtLibConsoleRx(
     spi_frames: *mut DutSpiFrame,
     num_frames: *mut usize,
     skip_crc_check: bool,
-    _quiet: bool,
+    quiet: bool,
     timeout_ms: u64,
 ) {
     // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
@@ -309,78 +311,75 @@ pub extern "C" fn OtLibConsoleRx(
     }
 
     // Instantiate a "UartConsole", which is really just a console buffer.
-    // Replace UartConsole manual construction with wait_for to avoid Regex type mismatch.
-    let exit_success_regex = r"RESP_OK:(.*) CRC:([0-9]+)\n";
-    let exit_failure_regex = r"RESP_ERR:(.*) CRC:([0-9]+)\n";
-    let combined_regex = format!("({})|({})", exit_success_regex, exit_failure_regex);
+    let mut console = UartConsole {
+        timeout: Some(Duration::from_millis(timeout_ms)),
+        timestamp: true,
+        newline: true,
+        exit_success: Some(Regex::new(r"RESP_OK:(.*) CRC:([0-9]+)\n").unwrap()),
+        exit_failure: Some(Regex::new(r"RESP_ERR:(.*) CRC:([0-9]+)\n").unwrap()),
+        ..Default::default()
+    };
 
-    // We can't easily respect `quiet` here as UartConsole::wait_for unconditionally prints to stdout.
-    // However, this is a necessary compromise to avoid the dependency mismatch.
+    // Select if we should silence STDOUT.
+    let mut stdout = std::io::stdout();
+    let out = if !quiet {
+        let w: &mut dyn Write = &mut stdout;
+        Some(w)
+    } else {
+        None
+    };
 
-    let result = UartConsole::wait_for(&spi_console, &combined_regex, Duration::from_millis(timeout_ms));
-
+    // Receive the payload from DUT.
+    // SAFETY: num_frames should be a valid pointer to memory allocated by the caller.
+    let num_frames = unsafe { &mut *num_frames };
+    // SAFETY: msg should be a valid pointer to memory allocated by the caller.
+    let spi_frames = unsafe { std::slice::from_raw_parts_mut(spi_frames, *num_frames) };
+    let result = console.interact(&spi_console, None, out).unwrap();
     match result {
-        Ok(captures) => {
-            // captures[0] is full match.
-            // captures[1] is RESP_OK payload (from first group)
-            // captures[2] is RESP_OK CRC
-            // captures[3] is RESP_ERR payload
-            // captures[4] is RESP_ERR CRC
-
-            // Check if success group matched (index 1 is not empty)
-            if captures.get(1).map(|s| !s.is_empty()).unwrap_or(false) {
-                // ExitSuccess case
-                // SAFETY: num_frames should be a valid pointer to memory allocated by the caller.
-                let num_frames_ref = unsafe { &mut *num_frames };
-
-                let json_str = &captures[1];
-                let crc_str = &captures[2];
-                if !skip_crc_check {
-                    check_console_crc(json_str, crc_str).expect("CRC check failed.");
-                }
-                let num_frames_required =
-                    (json_str.len() + CONSOLE_BUFFER_MAX_SIZE - 1) / CONSOLE_BUFFER_MAX_SIZE;
-                if *num_frames_ref < num_frames_required {
-                    panic!(
+        ExitStatus::ExitSuccess => {
+            let cap = console
+                .captures(ExitStatus::ExitSuccess)
+                .expect("RESP_OK capture");
+            let json_str = cap.get(1).expect("RESP_OK group").as_str();
+            let crc_str = cap.get(2).expect("CRC group").as_str();
+            if !skip_crc_check {
+                check_console_crc(json_str, crc_str).expect("CRC check failed.");
+            }
+            let num_frames_required =
+                (json_str.len() + CONSOLE_BUFFER_MAX_SIZE - 1) / CONSOLE_BUFFER_MAX_SIZE;
+            if *num_frames < num_frames_required {
+                panic!(
                         "Not enough frames ({} frames of size {} bytes) allocated to receive JSON string of length {}",
-                        *num_frames_ref,
+                        *num_frames,
                         CONSOLE_BUFFER_MAX_SIZE,
                         json_str.len()
                     )
-                }
-
-                // SAFETY: msg should be a valid pointer to memory allocated by the caller.
-                let spi_frames = unsafe { std::slice::from_raw_parts_mut(spi_frames, *num_frames_ref) };
-
-                for (i, spi_frame) in spi_frames.iter_mut().enumerate() {
-                    if i < num_frames_required {
-                        let start = i * CONSOLE_BUFFER_MAX_SIZE;
-                        let end = (start + CONSOLE_BUFFER_MAX_SIZE).min(json_str.len());
-                        let chunk = &json_str.as_bytes()[start..end];
-                        let chunk_len = chunk.len();
-                        spi_frame.payload[..chunk_len].copy_from_slice(chunk);
-                        spi_frame.size = chunk_len;
-                    } else {
-                        break;
-                    }
-                }
-                *num_frames_ref = num_frames_required;
-            } else if captures.get(3).map(|s| !s.is_empty()).unwrap_or(false) {
-                // ExitFailure case
-                let json_str = &captures[3];
-                let crc_str = &captures[4];
-                check_console_crc(json_str, crc_str).unwrap();
-                panic!("{}", json_str)
-            } else {
-                panic!("Regex matched but no expected group captured: {:?}", captures);
             }
+            for (i, spi_frame) in spi_frames.iter_mut().enumerate() {
+                if i < num_frames_required {
+                    let start = i * CONSOLE_BUFFER_MAX_SIZE;
+                    let end = (start + CONSOLE_BUFFER_MAX_SIZE).min(json_str.len());
+                    let chunk = &json_str.as_bytes()[start..end];
+                    let chunk_len = chunk.len();
+                    spi_frame.payload[..chunk_len].copy_from_slice(chunk);
+                    spi_frame.size = chunk_len;
+                } else {
+                    break;
+                }
+            }
+            *num_frames = num_frames_required;
         }
-        Err(e) => {
-             if e.to_string().contains("Timed Out") {
-                 panic!("Timed Out");
-             }
-             panic!("Impossible result: {:?}", e);
+        ExitStatus::ExitFailure => {
+            let cap = console
+                .captures(ExitStatus::ExitFailure)
+                .expect("RESP_ERR capture");
+            let json_str = cap.get(1).expect("RESP_OK group").as_str();
+            let crc_str = cap.get(2).expect("CRC group").as_str();
+            check_console_crc(json_str, crc_str).unwrap();
+            panic!("{}", json_str)
         }
+        ExitStatus::Timeout => panic!("Timed Out"),
+        _ => panic!("Impossible result: {:?}", result),
     }
 }
 
