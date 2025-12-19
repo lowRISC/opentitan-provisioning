@@ -8,7 +8,7 @@
 
 ### System Requirements
 
-Currently, Ubuntu 22.04 LTS is the only supported development environment. There
+Currently, Ubuntu 22.04LTS is the only supported development environment. There
 are [build container](docs/containers.md#building-inside-the-build-container)
 instructions available for other OS distributions.
 

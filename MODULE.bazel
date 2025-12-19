@@ -286,42 +286,6 @@ http_archive(
     urls = ["https://github.com/opendnssec/SoftHSMv2/archive/4975c0df4c7090e97a3860ae21079a9597cfedc6.tar.gz"],
 )
 
-# Protolint: Protobuf linter.
-http_archive(
-    name = "protolint",
-    build_file_content = """package(default_visibility = ["//visibility:public"])
-
-exports_files(glob(["**"]))
-""",
-    sha256 = "f6073ee43c8f87d4a9a8479f5f806f3d3d06741534ae0facbe135a632c4e5988",
-    urls = ["https://github.com/yoheimuta/protolint/releases/download/v0.50.5/protolint_0.50.5_linux_amd64.tar.gz"],
-)
-
-# Clang Format: Code formatter.
-deb_package = use_repo_rule("//rules:util.bzl", "deb_package")
-
-deb_package(
-    name = "clang_format",
-    build_file_content = """package(default_visibility = ["//visibility:public"])
-
-exports_files(["clang-format"])
-""",
-    extra_debs = {
-        "http://ftp.us.debian.org/debian/pool/main/l/llvm-toolchain-14/libclang-cpp14_14.0.6-12_amd64.deb": "964b13d74e9aece340cde93fecd2a2f18dd63afcb707a797ce7b39d430a01c46",
-        "http://ftp.us.debian.org/debian/pool/main/l/llvm-toolchain-14/libllvm14_14.0.6-12_amd64.deb": "cd986403cfe53f47c41b80667f6b344c40fe35de4c5081dad9358b4c77cf64a8",
-    },
-    sha256 = "3fbcadd614577667f6ff5958cc70b01fcf0b6a27f723a01516ced294b83d1002",
-    url = "http://ftp.us.debian.org/debian/pool/main/l/llvm-toolchain-14/clang-format-14_14.0.6-12_amd64.deb",
-)
-
-# Buildtools: For buildifier.
-http_archive(
-    name = "bazelbuild_buildtools",
-    sha256 = "05c3c3602d25aeda1e9dbc91d3b66e624c1f9fdadf273e5480b489e744ca7269",
-    strip_prefix = "buildtools-6.4.0",
-    urls = ["https://github.com/bazelbuild/buildtools/archive/refs/tags/v6.4.0.tar.gz"],
-)
-
 # Docker Rules: For container builds (legacy, not yet fully Bzlmod).
 http_archive(
     name = "io_bazel_rules_docker",

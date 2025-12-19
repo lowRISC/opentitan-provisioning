@@ -18,3 +18,7 @@ crt_register_toolchains(
     win32 = True,
     win64 = True,
 )
+
+# Various linters.
+load("//third_party/lint:repos.bzl", "lint_repos")
+lint_repos()
