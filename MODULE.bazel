@@ -354,3 +354,6 @@ register_toolchains("//config/containers:docker_toolchain")
 
 vendor_deps = use_extension("//rules:vendor.bzl", "vendor_deps")
 use_repo(vendor_deps, "vendor_repo")
+
+lint_deps = use_extension("//third_party/lint:extensions.bzl", "lint_deps")
+use_repo(lint_deps, "bazelbuild_buildtools", "clang-format", "protolint")
