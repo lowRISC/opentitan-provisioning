@@ -9,6 +9,7 @@ import (
 	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"flag"
 	"fmt"
@@ -306,6 +307,27 @@ func writeFile(path string, data []byte) error {
 	return nil
 }
 
+// possiblyConvertToPEM converts a DER-encoded certificate into PEM-encoded.
+// If the certificate is already PEM-encoded, it returns the original value.
+func possiblyConvertToPEM(data []byte) ([]byte, error) {
+	block, _ := pem.Decode(data)
+	if block != nil && block.Type == "CERTIFICATE" {
+		// Already PEM-encoded
+		return data, nil
+	}
+
+	derBlock := &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: data,
+	}
+	pemBytes := pem.EncodeToMemory(derBlock)
+	if pemBytes == nil {
+		return nil, fmt.Errorf("failed to encode DER to PEM")
+	}
+
+	return pemBytes, nil
+}
+
 func verifyCertificate(rootCA, intermediateCAs, leafCert string, ignore_critical bool) error {
 	args := []string{"verify"}
 	if ignore_critical {
@@ -374,14 +396,22 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to read DICE ICA certificate file: %v", err)
 	}
-	certs.diceICA = append(certs.diceICA, cert{id: flags.DiceICA, data: string(diceICABytes)})
+	diceICAPemBytes, err := possiblyConvertToPEM(diceICABytes)
+	if err != nil {
+		log.Fatalf("Failed to convert DICE ICA certificate to PEM: %v", err)
+	}
+	certs.diceICA = append(certs.diceICA, cert{id: flags.DiceICA, data: string(diceICAPemBytes)})
 
 	if flags.ExtICA != "" {
 		extICABytes, err := utils.ReadFile(flags.ExtICA)
 		if err != nil {
 			log.Fatalf("Failed to read external ICA certificate file: %v", err)
 		}
-		certs.extICA = append(certs.extICA, cert{id: flags.ExtICA, data: string(extICABytes)})
+		extICAPemBytes, err := possiblyConvertToPEM(extICABytes)
+		if err != nil {
+			log.Fatalf("Failed to convert EXT ICA certificate to PEM: %v", err)
+		}
+		certs.extICA = append(certs.extICA, cert{id: flags.ExtICA, data: string(extICAPemBytes)})
 	}
 
 	var diceICACerts strings.Builder
