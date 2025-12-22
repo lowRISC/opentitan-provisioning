@@ -186,6 +186,7 @@ func validateGenericSeed(persoBlob *ate.PersoBlob, expectedSeedSize int) error {
 }
 
 type flags struct {
+	SkipValidation          bool
 	DiceLeaf                string
 	DiceICA                 string
 	ExtICA                  string
@@ -197,6 +198,7 @@ type flags struct {
 }
 
 func parseFlags() *flags {
+	skipValidation := flag.Bool("skip-validation", false, "If true, will only parse records and skip cert validation.")
 	diceCertLeaf := flag.String("dice-leaf", "", "DICE cert leaf: UDS, CDI_0 or CDI_1. Required.")
 	diceICA := flag.String("dice-ica", "", "Path to the DICE ICA certificate file. Required.")
 	extICA := flag.String("ext-ica", "", "Path to the external ICA certificate file. Optional.")
@@ -215,7 +217,11 @@ func parseFlags() *flags {
 	}
 
 	if *diceCertLeaf == "" || *diceICA == "" || *rootCA == "" {
-		log.Fatalf("Error: -dice-leaf, -dice-ica, and -root-cert flags are required.")
+		if *skipValidation {
+			log.Print("-skip-validation set to true, will skip verifying cert flags are not empty")
+		} else {
+			log.Fatal("Error: -dice-leaf, -dice-ica, and -root-cert flags are required.")
+		}
 	}
 
 	switch *diceCertLeaf {
@@ -225,6 +231,7 @@ func parseFlags() *flags {
 	}
 
 	return &flags{
+		SkipValidation:          *skipValidation,
 		DiceLeaf:                *diceCertLeaf,
 		DiceICA:                 *diceICA,
 		ExtICA:                  *extICA,
@@ -392,15 +399,19 @@ func main() {
 		log.Fatalf("Error parsing registry record: %v", err)
 	}
 
-	diceICABytes, err := utils.ReadFile(flags.DiceICA)
-	if err != nil {
-		log.Fatalf("Failed to read DICE ICA certificate file: %v", err)
+	// This flag will always be set unless flags.SkipValidation is true.
+	if flags.DiceICA != "" {
+		diceICABytes, err := utils.ReadFile(flags.DiceICA)
+		if err != nil {
+			log.Fatalf("Failed to read DICE ICA certificate file: %v", err)
+		}
+		certs.diceICA = append(certs.diceICA, cert{id: flags.DiceICA, data: string(diceICABytes)})
+		diceICAPemBytes, err := possiblyConvertToPEM(diceICABytes)
+		if err != nil {
+			log.Fatalf("Failed to convert DICE ICA certificate to PEM: %v", err)
+		}
+		certs.diceICA = append(certs.diceICA, cert{id: flags.DiceICA, data: string(diceICAPemBytes)})
 	}
-	diceICAPemBytes, err := possiblyConvertToPEM(diceICABytes)
-	if err != nil {
-		log.Fatalf("Failed to convert DICE ICA certificate to PEM: %v", err)
-	}
-	certs.diceICA = append(certs.diceICA, cert{id: flags.DiceICA, data: string(diceICAPemBytes)})
 
 	if flags.ExtICA != "" {
 		extICABytes, err := utils.ReadFile(flags.ExtICA)
@@ -443,6 +454,10 @@ func main() {
 		if err := writeFile(diceLeafFilename, []byte(cert.data)); err != nil {
 			log.Fatalf("failed to write DICE leaf certificate: %v", err)
 		}
+		if flags.SkipValidation {
+			log.Printf("Skipping validation for DICE cert %q because --skip-validation is set to true", cert.id)
+			continue
+		}
 		if err := verifyCertificate(flags.RootCA, diceICAFilename, diceLeafFilename, true); err != nil {
 			log.Fatalf("failed to verify DICE leaf certificate: %v", err)
 		}
@@ -453,6 +468,10 @@ func main() {
 		log.Printf("Writing ext leaf certificate to %s", extLeafFilename)
 		if err := writeFile(extLeafFilename, []byte(cert.data)); err != nil {
 			log.Fatalf("failed to write external leaf certificate: %v", err)
+		}
+		if flags.SkipValidation {
+			log.Printf("Skipping validation for EXT cert %q because --skip-validation is set to true", cert.id)
+			continue
 		}
 		if err := verifyCertificate(flags.RootCA, extICAFilename, extLeafFilename, false); err != nil {
 			log.Fatalf("failed to verify external leaf certificate: %v", err)
