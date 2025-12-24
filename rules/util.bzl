@@ -14,5 +14,6 @@ deb_package = repository_rule(
         "url": attr.string(mandatory = True),
         "sha256": attr.string(mandatory = True),
         "build_file": attr.label(mandatory = True),
+        "extra_debs": attr.string_dict(default = {}),
     },
 )

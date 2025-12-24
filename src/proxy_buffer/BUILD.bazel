@@ -44,6 +44,7 @@ go_binary(
 go_image(
     name = "pb_server_image",
     srcs = ["pb_server.go"],
+    pure = "on",
     static = "on",
     deps = PB_SERVER_DEPS,
 )
