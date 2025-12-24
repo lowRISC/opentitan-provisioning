@@ -23,12 +23,27 @@ register_toolchains("@llvm_toolchain_host//:all")
 bazel_dep(name = "abseil-cpp", version = "20240116.1", repo_name = "com_google_absl")
 bazel_dep(name = "bazel_skylib", version = "1.7.1")
 bazel_dep(name = "googletest", version = "1.14.0.bcr.1", repo_name = "com_google_googletest")
+bazel_dep(name = "re2", version = "2024-02-01", repo_name = "com_googlesource_code_re2")
 bazel_dep(name = "platforms", version = "0.0.11")
 bazel_dep(name = "rules_cc", version = "0.1.2")
 bazel_dep(name = "rules_fuzzing", version = "0.5.2")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
+bazel_dep(name = "rules_proto", version = "6.0.2")
 bazel_dep(name = "aspect_rules_lint", version = "1.0.8")
 bazel_dep(name = "rules_rust", version = "0.59.2")
+
+# Protobuf matchers for googletest.
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "com_github_protobuf_matchers",
+    build_file_content = 'package(default_visibility = ["//visibility:public"])',
+    patch_args = ["-p1"],
+    patches = ["//third_party/google:protobuf_matchers_fix.patch"],
+    sha256 = "8314521014fb7b5e33f061d0f53a3c7222dbee1871df2f66198522a5687a71c1",
+    strip_prefix = "protobuf-matchers-7c8e15741bcea83db7819cc472c3e96301a95158",
+    urls = ["https://github.com/inazarenko/protobuf-matchers/archive/7c8e15741bcea83db7819cc472c3e96301a95158.zip"],
+)
 
 # Use a modern gRPC (compatible with Protobuf 27+)
 bazel_dep(name = "grpc", version = "1.66.0.bcr.3", repo_name = "com_github_grpc_grpc")
