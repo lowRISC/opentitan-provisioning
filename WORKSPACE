@@ -34,18 +34,9 @@ go_repos()
 load("//third_party/go:deps.bzl", "go_deps")
 go_deps()
 
-# Protobuf rules.
-load("//third_party/protobuf:repos.bzl", "protobuf_repos")
-
 # Various linters.
 load("//third_party/lint:repos.bzl", "lint_repos")
 lint_repos()
-
-# Foreign CC and packaging/release rules.
-load("//third_party/bazel:repos.bzl", "bazel_repos")
-bazel_repos()
-load("//third_party/bazel:deps.bzl", "bazel_deps")
-bazel_deps()
 
 # SoftHSM2.
 load("//third_party/softhsm2:repos.bzl", "softhsm2_repos")
@@ -65,10 +56,4 @@ vendor_repo_setup(
 )
 load("@vendor_setup//:repos.bzl", "vendor_repo")
 vendor_repo(name = "vendor_repo")
-
-
-bind(
-    name = "protocol_compiler",
-    actual = "@com_google_protobuf//:protoc",
-)
 
