@@ -25,4 +25,8 @@ def lint_repos(buildtools = None, protolint = None):
         url = "http://ftp.us.debian.org/debian/pool/main/l/llvm-toolchain-14/clang-format-14_14.0.6-12_amd64.deb",
         sha256 = "3fbcadd614577667f6ff5958cc70b01fcf0b6a27f723a01516ced294b83d1002",
         build_file = Label("//third_party/lint:BUILD.clang-format.bazel"),
+        extra_debs = {
+            "http://ftp.us.debian.org/debian/pool/main/l/llvm-toolchain-14/libclang-cpp14_14.0.6-12_amd64.deb": "964b13d74e9aece340cde93fecd2a2f18dd63afcb707a797ce7b39d430a01c46",
+            "http://ftp.us.debian.org/debian/pool/main/l/llvm-toolchain-14/libllvm14_14.0.6-12_amd64.deb": "cd986403cfe53f47c41b80667f6b344c40fe35de4c5081dad9358b4c77cf64a8",
+        },
     )

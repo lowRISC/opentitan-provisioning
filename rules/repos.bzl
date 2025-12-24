@@ -2,5 +2,6 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-# This is just a dummy config file to enable the third party @lowrisc_opentitan
-# Bazel repo dependencies to build cleanly without having to close the repo.
+"""Custom repository rules for bzlmod migration."""
+
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")

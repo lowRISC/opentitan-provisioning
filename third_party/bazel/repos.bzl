@@ -14,14 +14,3 @@ def bazel_repos(rules_foreign_cc = None, rules_pkg = None):
         strip_prefix = "rules_foreign_cc-0.8.0",
         url = "https://github.com/bazelbuild/rules_foreign_cc/archive/0.8.0.tar.gz",
     )
-
-    maybe(
-        http_archive_or_local,
-        name = "rules_pkg",
-        local = rules_pkg,
-        urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.7.0/rules_pkg-0.7.0.tar.gz",
-            "https://github.com/bazelbuild/rules_pkg/releases/download/0.7.0/rules_pkg-0.7.0.tar.gz",
-        ],
-        sha256 = "8a298e832762eda1830597d64fe7db58178aa84cd5926d76d5b744d6558941c2",
-    )

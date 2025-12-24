@@ -16,6 +16,7 @@ def softhsm2_repos(local = None):
         sha256 = "72cf979ec4f74ca4555861dcae45cf7d1b667cc2e4f3ee3fb26e6ff1b99aec95",
         patches = [
             Label("//util/containers/softhsm2:0001-Disable-filename-logging.patch"),
+            Label("//third_party/softhsm2:0002-Include-time.patch"),
         ],
         patch_args = ["-p1"],
     )

@@ -1,0 +1,10 @@
+--- src/core/BUILD	2025-12-12 10:22:45.648676127 -0800
++++ src/core/BUILD	2025-12-12 10:25:29.702073486 -0800
+@@ -2573,6 +2573,7 @@
+     ],
+     deps = [
+         "error",
++        "event_engine_common",
+         "event_engine_tcp_socket_utils",
+         "event_engine_thread_pool",
+         "status_helper",
