@@ -1,0 +1,10 @@
+--- third_party/rust/BUILD
++++ third_party/rust/BUILD
+@@ -23,4 +23,5 @@
+-cc_import(
++cc_library(
+     name = "libclang",
+-    shared_library = "@llvm_toolchain_llvm//:lib/libclang.so",
++    srcs = ["@llvm_toolchain_llvm//:lib/libclang.so"],
++    data = ["@llvm_toolchain_llvm//:include"],
+ )

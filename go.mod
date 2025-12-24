@@ -26,20 +26,17 @@ require (
 	github.com/miekg/pkcs11 v1.0.3
 	golang.org/x/crypto v0.23.0
 	golang.org/x/sync v0.1.0
-	golang.org/x/sys v0.0.0-20211019181941-9d821ace8654
-	google.golang.org/api v0.32.0
 	google.golang.org/grpc v1.41.0
 
 	// Proxy buffer backends.
 	gorm.io/gorm v1.25.12
 
 	// Required by gorm.
-	github.com/mattn/go-sqlite3 v1.14.22
-	gorm.io/driver/sqlite v1.5.7
+	github.com/glebarez/sqlite v1.11.0
+	github.com/glebarez/go-sqlite v1.21.2
 	github.com/jinzhu/now v1.1.5
 	github.com/jinzhu/inflection v1.0.0
 
 	// Required by google.golang.org/grpc
 	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c
 )
-

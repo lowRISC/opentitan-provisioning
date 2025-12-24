@@ -19,6 +19,7 @@ go_binary(
 go_image(
     name = "fake_registry_server_image",
     srcs = ["fake_registry.go"],
+    pure = "on",
     static = "on",
     deps = [
         "//src/proxy_buffer/proto:proxy_buffer_go_pb",
