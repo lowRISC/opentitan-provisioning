@@ -2,12 +2,11 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-# https://docs.opentitan.org/doc/rm/c_cpp_coding_style/#cxx-version specifies
-# the standard as C++14.
-# TODO(cfrantz): Why doesn't `--cxxopt` work?
-build --action_env=BAZEL_CXXOPTS="-std=c++14"
-#build --cxxopt="-std=c++14"
-build --conlyopt="-std=c11"
+# https://opentitan.org/book/doc/contributing/style_guides/c_cpp_coding_style.html#c-version 
+# specifies C++17 and C11.
+build --action_env=BAZEL_CXXOPTS="-std=gnu++17"
+build --cxxopt='-std=gnu++17'
+build --conlyopt='-std=gnu11'
 
 # Override default enablement of CRT flags.
 build --features=-all_warnings_as_errors

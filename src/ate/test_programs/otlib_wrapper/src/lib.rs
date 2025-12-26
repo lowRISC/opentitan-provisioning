@@ -90,6 +90,10 @@ pub extern "C" fn OtLibFpgaTransportInit(fpga: *mut c_char) -> *const TransportW
         verilator_opts: empty_verilator_opts,
         proxy_opts: empty_proxy_opts,
         ti50emulator_opts: empty_ti50emul_opts,
+        qemu_opts: Some(opentitanlib::backend::qemu::QemuOpts {
+            qemu_monitor_tty: None,
+            qemu_quit: false,
+        }),
     };
 
     // Create transport.
@@ -149,7 +153,7 @@ pub extern "C" fn OtLibLoadSramElf(
         log_stdio: false,
     };
     let _ = transport.pin_strapping("PINMUX_TAP_RISCV").unwrap().apply();
-    let _ = transport.reset_target(Duration::from_millis(50), true);
+    let _ = transport.reset_with_delay(opentitanlib::app::UartRx::Clear, Duration::from_millis(50));
     let mut jtag = jtag_params
         .create(transport)
         .unwrap()
@@ -211,7 +215,6 @@ pub extern "C" fn OtLibBootstrap(transport: *const TransportWrapper, bin: *mut c
             },
             protocol: BootstrapProtocol::Eeprom,
             clear_uart: None,
-            reset_delay: Duration::from_millis(100),
             leave_in_bootstrap: false,
             leave_in_reset: false,
             inter_frame_delay: None,
@@ -439,7 +442,7 @@ pub extern "C" fn OtLibResetAndLock(transport: *const TransportWrapper, openocd_
         adapter_speed_khz: 1000,
         log_stdio: false,
     };
-    reset_and_lock(transport, &jtag_params, Duration::from_millis(50))
+    reset_and_lock(transport, &jtag_params)
         .expect("Failed to lock the DUT.");
 }
 
@@ -488,7 +491,7 @@ pub extern "C" fn OtLibLcTransition(
         .apply()
         .expect("Could not apply LC TAP straps.");
     transport
-        .reset_target(reset_delay, true)
+        .reset_with_delay(opentitanlib::app::UartRx::Clear, reset_delay)
         .expect("Could not reset chip.");
     let mut jtag = jtag_params
         .create(transport)
@@ -513,7 +516,6 @@ pub extern "C" fn OtLibLcTransition(
         lc_token,
         /*use_external_clk=*/
         false, // AST will be calibrated by now, so no need for ext_clk.
-        reset_delay,
         /*reset_tap_straps=*/ Some(JtagTap::LcTap),
     )
     .expect("Could not perform LC transition.");
@@ -559,7 +561,7 @@ pub extern "C" fn OtLibCheckTransportImgBoot(
 
     // Reset the DUT and get the UART console handle.
     transport
-        .reset_target(timeout, true)
+        .reset_with_delay(opentitanlib::app::UartRx::Clear, timeout)
         .expect("Failed to reset the DUT.");
     let uart_console = transport
         .uart("console")
