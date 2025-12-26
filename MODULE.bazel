@@ -89,11 +89,6 @@ bazel_dep(
     name = "lowrisc_misc_linters",
     dev_dependency = True,
 )
-
-bazel_dep(
-    name = "lowrisc_opentitan",
-)
-
 archive_override(
     module_name = "lowrisc_misc_linters",
     integrity = "sha256-Nl/mfYFo/uGg/DrqS7gFiL9yHcT8g7QEY7CetQiXzaM=",
@@ -109,6 +104,7 @@ single_version_override(
     patches = ["third_party/bazel/toolchains_llvm_no_root_check.patch"],
 )
 
+bazel_dep(name = "lowrisc_opentitan")
 archive_override(
     module_name = "lowrisc_opentitan",
     integrity = "sha256-dlAOmYr6B0VvdsvDoDQkM1GM3Fc9qYxgmEnXQG+d07k=",
