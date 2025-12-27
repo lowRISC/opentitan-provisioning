@@ -1,0 +1,39 @@
+From c4d7717228cdc8ef26eff2f61c4a36650a318e40 Mon Sep 17 00:00:00 2001
+From: Willy Zhang <willyzhang@google.com>
+Date: Fri, 26 Dec 2025 20:39:12 -0800
+Subject: [PATCH 2/3] Prioritize PIC static libraries
+
+Prioritize PIC static libraries over standard static libraries.
+
+This repository builds both host tools (e.g. hsmtool) and embedded device firmware.
+Host tools on modern Linux are built as PIE executables, which require linking against
+Position Independent Code (PIC) libraries. Standard static libraries (.a) are often non-PIC.
+
+By prioritizing `pic_static_library`, we ensure host tools link correctly against the PIC version.
+We retain the ability to use `static_library` for embedded targets that do not require PIC
+or explicitly request static linking, by checking for it in the `elif` block.
+
+---
+ private/bindgen.bzl | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/extensions/bindgen/private/bindgen.bzl b/extensions/bindgen/private/bindgen.bzl
+--- private/bindgen.bzl
++++ private/bindgen.bzl
+@@ -143,11 +143,11 @@ def _generate_cc_link_build_info(ctx, cc_lib):
+ 
+     for linker_input in cc_lib[CcInfo].linking_context.linker_inputs.to_list():
+         for lib in linker_input.libraries:
+-            if lib.static_library:
+-                rustc_flags.append("-lstatic={}".format(get_lib_name_default(lib.static_library)))
+-                linker_search_paths.append(lib.static_library.dirname)
+-                compile_data.append(lib.static_library)
+-            elif lib.pic_static_library:
++            if lib.pic_static_library:
+                 rustc_flags.append("-lstatic={}".format(get_lib_name_default(lib.pic_static_library)))
+                 linker_search_paths.append(lib.pic_static_library.dirname)
+                 compile_data.append(lib.pic_static_library)
++            elif lib.static_library:
++                rustc_flags.append("-lstatic={}".format(get_lib_name_default(lib.static_library)))
++                linker_search_paths.append(lib.static_library.dirname)
++                compile_data.append(lib.static_library)
