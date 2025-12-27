@@ -147,7 +147,9 @@ single_version_override(
     module_name = "rules_rust_bindgen",
     patch_strip = 0,
     patches = [
-        "third_party/bazel/rules_rust.bindgen_static_lib.patch",
+        "third_party/bazel/rules_rust.bindgen_remove_static_check.patch",
+        "third_party/bazel/rules_rust.bindgen_prioritize_pic.patch",
+        "third_party/bazel/rules_rust.bindgen_fix_resource_dir.patch",
     ],
     version = "0.59.2",
 )
