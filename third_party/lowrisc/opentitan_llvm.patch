@@ -1,0 +1,33 @@
+From c55844a41010ec4af8e4be8f78a5fa5d3d7faef5 Mon Sep 17 00:00:00 2001
+From: Willy Zhang <willyzhang@google.com>
+Date: Sun, 28 Dec 2025 20:35:40 -0800
+Subject: [PATCH] Remove conflicting LLVM toolchain configuration
+
+This patch removes the LLVM toolchain configuration from MODULE.bazel.
+The explicit LLVM toolchain definition for bindgen is causing conflicts
+or is unnecessary as we rely on the host toolchain or a different mechanism
+for libclang dependencies in the current build environment.
+
+Signed-off-by: Willy Zhang <willyzhang@google.com>
+---
+ MODULE.bazel | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/MODULE.bazel b/MODULE.bazel
+index f93d757682..dc6145f0ae 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -178,13 +178,6 @@ use_repo(crate, "tock_index")
+ # Rust bindgen toolchain:
+ register_toolchains("//third_party/rust:bindgen_toolchain")
+ 
+-# LLVM toolchain used by bindgen for `libclang` (not for device software):
+-llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+-llvm.toolchain(
+-    name = "llvm_toolchain",
+-    llvm_versions = {"": "10.0.0"},
+-)
+-use_repo(llvm, "llvm_toolchain_llvm")
+ 
+ ################### originally from "//third_party/python:python.MODULE.bazel
+ 

@@ -3,23 +3,27 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@io_bazel_rules_docker//container:pull.bzl", "container_pull")
-load("@io_bazel_rules_docker//go:image.bzl", _go_image_repos = "repositories")
-load("@io_bazel_rules_docker//repositories:deps.bzl", "deps")
-load("@io_bazel_rules_docker//repositories:repositories.bzl", "repositories")
-load(
-    "@io_bazel_rules_docker//toolchains/docker:toolchain.bzl",
-    docker_toolchain_configure = "toolchain_configure",
-)
+load("@io_bazel_rules_docker//toolchains/docker:toolchain.bzl", "toolchain_configure")
 
-def docker_deps():
-    docker_toolchain_configure(
+def _docker_extension_impl(ctx):
+    toolchain_configure(
         name = "docker_config",
         docker_path = "/usr/bin/podman",
     )
 
-    repositories()
-    deps()
-    _go_image_repos()
+    container_pull(
+        name = "go_image_base",
+        registry = "gcr.io",
+        repository = "distroless/base",
+        tag = "debug",
+    )
+
+    container_pull(
+        name = "go_image_static",
+        registry = "gcr.io",
+        repository = "distroless/static",
+        tag = "latest",
+    )
 
     container_pull(
         name = "container_k8s_pause",
@@ -36,3 +40,7 @@ def docker_deps():
         digest = "sha256:b7da668a27ffe47a7da34a476bbb2acf59ac390cb9f7b166d76aa437c61088d6",
         tag = "latest",
     )
+
+docker_extension = module_extension(
+    implementation = _docker_extension_impl,
+)
