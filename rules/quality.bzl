@@ -59,11 +59,10 @@ gofmt_attrs = {
         doc = "Execution mode: display diffs or fix formatting",
     ),
     "lint_tool": attr.label(
-        default = "@go_sdk//:bin/gofmt",
+        default = Label("@go_default_sdk//:bin/gofmt"),
         allow_single_file = True,
-        cfg = "host",
         executable = True,
-        doc = "The gofmt executable",
+        cfg = "exec",
     ),
     "workspace": attr.label(
         allow_single_file = True,

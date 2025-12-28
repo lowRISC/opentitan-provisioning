@@ -1,0 +1,28 @@
+From 57f97b332d8e969442a929c78e21e72c2ef1ea0b Mon Sep 17 00:00:00 2001
+From: Willy Zhang <willyzhang@google.com>
+Date: Sun, 28 Dec 2025 20:44:47 -0800
+Subject: [PATCH] Fix image_transition platform constraints
+
+This patch modifies the image_transition platform to strictly use
+@platforms//cpu:x86_64 and @platforms//os:linux constraints, avoiding
+issues with dynamic constraint generation in some build environments.
+
+Signed-off-by: Willy Zhang <willyzhang@google.com>
+---
+ platforms/BUILD | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/platforms/BUILD b/platforms/BUILD
+index 9298bf8..7613665 100644
+--- a/platforms/BUILD
++++ b/platforms/BUILD
+@@ -78,7 +78,7 @@ _IMAGE_TRANSITION_CONSTRAINTS = [
+ platform(
+     name = "image_transition",
+     constraint_values = [
+-        ":image_transition_{}".format(name)
+-        for name, _ in _IMAGE_TRANSITION_CONSTRAINTS
++        "@platforms//cpu:x86_64",
++        "@platforms//os:linux",
+     ],
+ )
