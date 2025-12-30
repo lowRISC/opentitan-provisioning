@@ -43,6 +43,34 @@ bazel_dep(name = "rules_rust", version = "0.59.2")
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
+    name = "crt",
+    sha256 = "aad71e39d0361d3eede8cb889d5ffb3a560108671598b01a4b6deadcfe75d6a6",
+    strip_prefix = "crt-0.4.14",
+    urls = ["https://github.com/lowRISC/crt/archive/refs/tags/v0.4.14.tar.gz"],
+)
+
+_MXE_BUILD_FILE = """
+package(default_visibility = ["//visibility:public"])
+filegroup(
+    name = "all",
+    srcs = glob(["**"], exclude = ["**/*.html", "**/*.pdf"]),
+)
+exports_files(glob(["bin/**"]))
+"""
+
+http_archive(
+    name = "gcc_mxe_mingw32_files",
+    build_file_content = _MXE_BUILD_FILE,
+    sha256 = "215b9dfa070687dafab29453b04a075e7955c2c7f3b8d16960207cfde730f126",
+    strip_prefix = "mxe",
+    urls = ["https://github.com/lowRISC/crt/releases/download/v0.4.14/mxe-binaries-win32.tar.xz"],
+)
+
+register_toolchains(
+    "//toolchains/gcc_mxe_mingw32:cc_toolchain_pc-win32",
+)
+
+http_archive(
     name = "com_github_protobuf_matchers",
     build_file_content = 'package(default_visibility = ["//visibility:public"])',
     patch_args = ["-p1"],

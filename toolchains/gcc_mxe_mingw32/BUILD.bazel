@@ -1,0 +1,50 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@crt//config:compiler.bzl", "setup")
+load("@crt//platforms/x86_32:windows.bzl", "DEVICES")
+
+package(default_visibility = ["//visibility:public"])
+
+SYSTEM_INCLUDE_PATHS = [
+    "external/_main~_repo_rules~gcc_mxe_mingw32_files/lib/gcc/i686-w64-mingw32.shared/11.3.0/include",
+    "external/_main~_repo_rules~gcc_mxe_mingw32_files/lib/gcc/i686-w64-mingw32.shared/11.3.0/include-fixed",
+    "external/_main~_repo_rules~gcc_mxe_mingw32_files/lib/gcc/i686-w64-mingw32.shared/11.3.0/include/c++",
+    "external/_main~_repo_rules~gcc_mxe_mingw32_files/lib/gcc/i686-w64-mingw32.shared/11.3.0/include/c++/backward",
+    "external/_main~_repo_rules~gcc_mxe_mingw32_files/lib/gcc/i686-w64-mingw32.shared/11.3.0/include/c++/i686-w64-mingw32.shared",
+    "external/_main~_repo_rules~gcc_mxe_mingw32_files/i686-w64-mingw32.shared/include",
+]
+
+filegroup(
+    name = "compiler_components",
+    srcs = [
+        "//toolchains/gcc_mxe_mingw32/wrappers:all",
+        "@gcc_mxe_mingw32_files//:all",
+    ],
+)
+
+[setup(
+    name = device.name,
+    architecture = device.architecture,
+    artifact_naming = ["@crt" + a if a.startswith("//") else a for a in device.artifact_naming],
+    compiler_components = ":compiler_components",
+    constraints = device.constraints,
+    feature_set = "@crt" + device.feature_set if device.feature_set.startswith("//") else device.feature_set,
+    include_directories = SYSTEM_INCLUDE_PATHS,
+    params = {
+        "compiler": "gcc",
+    },
+    substitutions = device.substitutions,
+    tools = {
+        "ar": "wrappers/ar",
+        "cpp": "wrappers/cpp",
+        "gcc": "wrappers/gcc",
+        "gcov": "wrappers/gcov",
+        "ld": "wrappers/ld",
+        "nm": "wrappers/nm",
+        "objcopy": "wrappers/objcopy",
+        "objdump": "wrappers/objdump",
+        "strip": "wrappers/strip",
+    },
+) for device in DEVICES]
