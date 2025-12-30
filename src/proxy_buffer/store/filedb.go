@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/store/connector"

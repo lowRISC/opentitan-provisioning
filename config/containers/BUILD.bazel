@@ -11,3 +11,17 @@ filegroup(
     ],
     visibility = ["//visibility:public"],
 )
+
+toolchain(
+    name = "docker_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    toolchain = "@docker_config//:toolchain",
+    toolchain_type = "@io_bazel_rules_docker//toolchains/docker:toolchain_type",
+)

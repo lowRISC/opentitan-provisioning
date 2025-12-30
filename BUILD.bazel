@@ -37,19 +37,3 @@ nogo(
     vet = True,
     visibility = ["//visibility:public"],
 )
-
-# Use this rule to update Go dependencies.
-#
-# Note: Gazelle really likes to mess with WORKSPACE, even though
-# we'd like for it not too. Make sure to run git restore WORKSPACE
-# after this rule.
-gazelle(
-    name = "update-go-repos",
-    args = [
-        "-from_file=go.mod",
-        "-to_macro=third_party/go/deps.bzl%go_packages_",
-        "--build_file_proto_mode=disable_global",
-        "-prune",
-    ],
-    command = "update-repos",
-)

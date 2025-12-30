@@ -613,6 +613,7 @@ def _hsm_config_script_impl(ctx):
 
     return DefaultInfo(
         runfiles = ctx.runfiles(files = outfiles),
+        files = depset([out_file, up_hson_file, down_hjson_file, show_hjson_file]),
         executable = out_file,
     )
 

@@ -3,12 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@crt//rules:pkg_win.bzl", "pkg_win")
+load("//rules:windows_binary.bzl", "windows_binary")
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 package(default_visibility = ["//visibility:public"])
 
 WINDOWS_LIBS = [
     "-lbcrypt",  # aka: bcrypt.lib
+    "-lcrypt32",  # aka: crypt32.lib
     "-ldbghelp",  # aka: dbghelp.lib
     "-lws2_32",  # aka: ws2_32.lib
     "-lstdc++",  # Standard C++ library
@@ -97,7 +99,7 @@ cc_test(
 )
 
 cc_binary(
-    name = "ate",
+    name = "ate_bin",
     srcs = [
         "ate_api.h",
         "ate_perso_blob.h",
@@ -112,6 +114,11 @@ cc_binary(
         "@platforms//os:windows",
     ],
     deps = ATE_LIB_DEPS,
+)
+
+windows_binary(
+    name = "ate",
+    dep = ":ate_bin",
 )
 
 pkg_win(
