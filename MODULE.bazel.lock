@@ -9365,7 +9365,7 @@
         "recordedFileInputs": {
           "@@lowrisc_opentitan~//third_party/rust/Cargo.toml": "0ee40cf528f3ae57d9b0e5e27da36bff6dbd4e4baaef912a4278d2357d7a2686",
           "@@lowrisc_opentitan~//third_party/tock/Cargo.toml": "5a939bd934aef4775b65a82e678f1180ec00aa78cf214f6052cc82353c975cc4",
-          "@@//MODULE.bazel": "3cd0d5bc1eb44b4273d907088b67f7e02d8e71cc0a5b85c30838d5037464df45",
+          "@@//MODULE.bazel": "3ab4bf02b8276825d6d02cdbda201f046db6208a91c6b6d7316ae16f8c4be278",
           "@@lowrisc_opentitan~//third_party/rust/Cargo.lock": "1174b96ea73bc0976bad76e658fd1445510788585e34c4cafa9f0d61f535e2bf",
           "@@lowrisc_opentitan~//third_party/tock/Cargo.lock": "b5a7a833ae205f1e3697a510e97e3185b44b195d7a22879b4669bff95febd5c8",
           "@@rules_rust~~rust_host_tools~rust_host_tools//WORKSPACE.bazel": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"

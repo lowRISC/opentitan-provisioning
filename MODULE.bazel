@@ -44,6 +44,12 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 
 http_archive(
     name = "crt",
+    patch_args = ["-p1"],
+    # Restore executable permission to driver.sh, which is sometimes stripped
+    # when patches are applied. This is necessary for the toolchain wrapper
+    # to function correctly.
+    patch_cmds = ["chmod +x toolchains/gcc_mxe_mingw32/wrappers/driver.sh"],
+    patches = ["third_party/crt/crt_bzlmod.patch"],
     sha256 = "aad71e39d0361d3eede8cb889d5ffb3a560108671598b01a4b6deadcfe75d6a6",
     strip_prefix = "crt-0.4.14",
     urls = ["https://github.com/lowRISC/crt/archive/refs/tags/v0.4.14.tar.gz"],
@@ -67,7 +73,7 @@ http_archive(
 )
 
 register_toolchains(
-    "//toolchains/gcc_mxe_mingw32:cc_toolchain_pc-win32",
+    "@crt//toolchains/gcc_mxe_mingw32:cc_toolchain_pc-win32",
 )
 
 http_archive(
