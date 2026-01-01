@@ -6,3 +6,9 @@
 exports_files([
     "fix_include_guard.py",
 ])
+
+py_binary(
+    name = "pkg_win",
+    srcs = ["pkg_win.py"],
+    visibility = ["//visibility:public"],
+)
