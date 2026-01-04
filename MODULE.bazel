@@ -175,7 +175,7 @@ crate.from_cargo(
     manifests = ["@lowrisc_opentitan//third_party/rust:Cargo.toml"],
     supported_platform_triples = ["x86_64-unknown-linux-gnu"],
 )
-use_repo(crate, crate_index = "provisioning_index")
+use_repo(crate, "crate_index", "provisioning_index")
 
 # Dev dependencies:
 bazel_dep(
@@ -283,9 +283,11 @@ http_archive(
 http_archive(
     name = "io_bazel_rules_docker",
     patch_args = ["-p1"],
-    patches = ["//third_party/docker:rules_docker_fix.patch"],
-    sha256 = "b1e80761a8a8243d03ebca8845e9cc1ba6c82ce7c5179ce2b295cd36f7e394bf",
-    urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.25.0/rules_docker-v0.25.0.tar.gz"],
+    patches = [
+        "//third_party/docker:rules_docker_fix.patch",
+    ],
+    sha256 = "f6dcb97e992f13bc9effd794e9bb300f06b0dadc88061f81ae68d8d5994be964",
+    urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.26.0/rules_docker-v0.26.0.tar.gz"],
 )
 
 http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")

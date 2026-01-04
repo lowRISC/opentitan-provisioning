@@ -8,12 +8,12 @@ load("//third_party/crt/platforms/x86_32:windows.bzl", "DEVICES")
 package(default_visibility = ["//visibility:public"])
 
 SYSTEM_INCLUDE_PATHS = [
-    "external/_main~_repo_rules~gcc_mxe_mingw32_files/lib/gcc/i686-w64-mingw32.shared/11.3.0/include",
-    "external/_main~_repo_rules~gcc_mxe_mingw32_files/lib/gcc/i686-w64-mingw32.shared/11.3.0/include-fixed",
-    "external/_main~_repo_rules~gcc_mxe_mingw32_files/lib/gcc/i686-w64-mingw32.shared/11.3.0/include/c++",
-    "external/_main~_repo_rules~gcc_mxe_mingw32_files/lib/gcc/i686-w64-mingw32.shared/11.3.0/include/c++/backward",
-    "external/_main~_repo_rules~gcc_mxe_mingw32_files/lib/gcc/i686-w64-mingw32.shared/11.3.0/include/c++/i686-w64-mingw32.shared",
-    "external/_main~_repo_rules~gcc_mxe_mingw32_files/i686-w64-mingw32.shared/include",
+    "external/+_repo_rules+gcc_mxe_mingw32_files/lib/gcc/i686-w64-mingw32.shared/11.3.0/include",
+    "external/+_repo_rules+gcc_mxe_mingw32_files/lib/gcc/i686-w64-mingw32.shared/11.3.0/include-fixed",
+    "external/+_repo_rules+gcc_mxe_mingw32_files/lib/gcc/i686-w64-mingw32.shared/11.3.0/include/c++",
+    "external/+_repo_rules+gcc_mxe_mingw32_files/lib/gcc/i686-w64-mingw32.shared/11.3.0/include/c++/backward",
+    "external/+_repo_rules+gcc_mxe_mingw32_files/lib/gcc/i686-w64-mingw32.shared/11.3.0/include/c++/i686-w64-mingw32.shared",
+    "external/+_repo_rules+gcc_mxe_mingw32_files/i686-w64-mingw32.shared/include",
 ]
 
 filegroup(
