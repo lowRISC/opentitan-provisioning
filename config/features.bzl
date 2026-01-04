@@ -4,7 +4,6 @@
 
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
-    "FeatureInfo",
     __feature = "feature",
     __flag_group = "flag_group",
     __flag_set = "flag_set",
@@ -38,6 +37,7 @@ LD_ALL_ACTIONS = [
 ]
 
 FeatureSetInfo = provider(fields = ["features", "subst"])
+MyFeatureInfo = provider(fields = ["feature_config"])
 
 def reify_flag_group(
         flags = [],
@@ -98,6 +98,17 @@ def feature_set_subst(fs, **kwargs):
     subst.update(kwargs)
     features = {}
     for name, feature in fs.features.items():
+        # Unwrap the feature config if it's wrapped in MyFeatureInfo,
+        # but here 'feature' comes from FeatureSetInfo.features which we populate in _feature_set_impl.
+        # In _feature_set_impl we store the UNWRAPPED feature (the result of __feature).
+        # However, __feature returns a struct/provider that we can't inspect easily to get flag_sets?
+        # Wait, if we unwrap it, it's the opaque object from cc_toolchain_config_lib.
+        # Can we access fields of that object?
+        # The original code did:
+        # for f in feature.flag_sets
+        # This implies 'feature' has a 'flag_sets' field.
+        # If __feature returns a provider, we can access its fields.
+
         flag_sets = [
             __flag_set(
                 f.actions,
@@ -160,15 +171,16 @@ def flag_set(
     })
 
 def _feature_impl(ctx):
+    f = __feature(
+        name = ctx.attr.name,
+        enabled = ctx.attr.enabled,
+        flag_sets = [reify_flag_set(**json.decode(v)) for v in ctx.attr.flag_sets],
+        requires = ctx.attr.requires,
+        implies = ctx.attr.implies,
+        provides = ctx.attr.provides,
+    )
     return [
-        __feature(
-            name = ctx.attr.name,
-            enabled = ctx.attr.enabled,
-            flag_sets = [reify_flag_set(**json.decode(v)) for v in ctx.attr.flag_sets],
-            requires = ctx.attr.requires,
-            implies = ctx.attr.implies,
-            provides = ctx.attr.provides,
-        ),
+        MyFeatureInfo(feature_config = f),
     ]
 
 feature = rule(
@@ -180,7 +192,7 @@ feature = rule(
         "implies": attr.string_list(default = [], doc = "A string list of features or action configs that are automatically enabled when this feature is enabled."),
         "provides": attr.string_list(default = [], doc = "A list of names this feature conflicts with."),
     },
-    provides = [FeatureInfo],
+    provides = [MyFeatureInfo],
 )
 
 def feature_single_flag_c_cpp(name, flag, c_only = False, enabled = True):
@@ -207,7 +219,8 @@ def _feature_set_impl(ctx):
         features.update(base[FeatureSetInfo].features)
         subst.update(base[FeatureSetInfo].subst)
     for feature in ctx.attr.feature:
-        f = feature[FeatureInfo]
+        # Unwrap the feature from MyFeatureInfo
+        f = feature[MyFeatureInfo].feature_config
         features[f.name] = f
     subst.update(ctx.attr.substitutions)
 
@@ -220,7 +233,7 @@ feature_set = rule(
     implementation = _feature_set_impl,
     attrs = {
         "base": attr.label_list(default = [], providers = [FeatureSetInfo], doc = "A base feature set to derive a new set"),
-        "feature": attr.label_list(mandatory = True, providers = [FeatureInfo], doc = "A list of features in this set"),
+        "feature": attr.label_list(mandatory = True, providers = [MyFeatureInfo], doc = "A list of features in this set"),
         "substitutions": attr.string_dict(doc = "Substitutions to apply to features"),
     },
     provides = [FeatureSetInfo],

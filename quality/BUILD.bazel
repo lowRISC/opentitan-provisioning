@@ -28,7 +28,6 @@ buildifier_exclude = [
 buildifier_test(
     name = "buildifier_check",
     diff_command = "diff -u",
-    exclude_patterns = buildifier_exclude,
     mode = "diff",
     no_sandbox = True,
     tags = ["lint"],
@@ -38,7 +37,6 @@ buildifier_test(
 
 buildifier(
     name = "buildifier_fix",
-    exclude_patterns = buildifier_exclude,
 )
 
 ################################################################################

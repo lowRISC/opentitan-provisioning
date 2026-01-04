@@ -26,7 +26,7 @@ require (
 	golang.org/x/sys v0.39.0
 
 	// Required by Bazel golang infrastructure.
-	golang.org/x/tools v0.17.0
+	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d
 	google.golang.org/api v0.62.0
 
 	// Required by google.golang.org/grpc
@@ -65,7 +65,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/vbatts/tar-split v0.11.5
 	golang.org/x/exp v0.0.0-20200224162631-6cc2880d07d6
-	golang.org/x/text v0.15.0
+	golang.org/x/text v0.16.0
 	modernc.org/libc v1.43.1
 	modernc.org/mathutil v1.7.1
 	modernc.org/memory v1.7.2

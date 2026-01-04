@@ -26,3 +26,17 @@ index 9298bf8..7613665 100644
 +        "@platforms//os:linux",
      ],
  )
+
+diff --git a/container/layer.bzl b/container/layer.bzl
+index 0000000..0000000
+--- a/container/layer.bzl
++++ b/container/layer.bzl
+@@ -158,7 +158,7 @@ def build_layer(
+         debs = [f.path for f in debs],
+     )
+     manifest_file = ctx.actions.declare_file(name + "-layer.manifest")
+-    ctx.actions.write(manifest_file, manifest.to_json())
++    ctx.actions.write(manifest_file, json.encode(manifest))
+     args.add(manifest_file, format = "--manifest=%s")
+ 
+     ctx.actions.run(

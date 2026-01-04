@@ -9,7 +9,7 @@ def _get_toolchain_dir(cc_toolchain):
     workspace = [f for f in cc_toolchain.all_files.to_list() if f.basename == "WORKSPACE" or f.basename == "MODULE.bazel"]
     if not workspace:
         fail("Could not find the WORKSPACE or MODULE.bazel of the cc_toolchain")
-    return workspace[0]
+    return workspace[0].dirname
 
 def _pkg_win_impl(ctx):
     out = ctx.actions.declare_file(ctx.attr.name + ".zip")
@@ -22,11 +22,11 @@ def _pkg_win_impl(ctx):
 
     toolchain = find_cc_toolchain(ctx)
     cc_toolchain = getattr(toolchain, "cc", toolchain)
-    mxe = _get_toolchain_dir(cc_toolchain)
+    mxe_dir = _get_toolchain_dir(cc_toolchain)
 
     args = [
         "--target={}".format(target),
-        "--mxe={}".format(mxe.dirname),
+        "--mxe={}".format(mxe_dir),
         "--out={}".format(out.path),
     ]
     if ctx.attr.skip_dlls:

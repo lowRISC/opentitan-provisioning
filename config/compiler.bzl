@@ -5,7 +5,6 @@
 load("//config:features.bzl", "FeatureSetInfo", "feature_set_subst")
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
-    "ArtifactNamePatternInfo",
     "artifact_name_pattern",
     "tool_path",
 )
@@ -19,6 +18,8 @@ PARAM_DEFAULTS = {
     "abi_version": "unknown",
     "abi_libc_version": "unknown",
 }
+
+MyArtifactNamePatternInfo = provider(fields = ["pattern"])
 
 def listify_flags(flag, args = [], spaces_in_args = False):
     args = [flag.format(p) for p in args]
@@ -42,7 +43,7 @@ def _toolchain_config_impl(ctx):
     params = dict(**PARAM_DEFAULTS)
     params.update(ctx.attr.params)
     features = feature_set_subst(ctx.attr.feature_set[FeatureSetInfo], **ctx.attr.substitutions)
-    artifact_name_patterns = [a[ArtifactNamePatternInfo] for a in ctx.attr.artifact_naming]
+    artifact_name_patterns = [a[MyArtifactNamePatternInfo].pattern for a in ctx.attr.artifact_naming]
 
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,
@@ -64,7 +65,7 @@ toolchain_config = rule(
     implementation = _toolchain_config_impl,
     attrs = {
         "architecture": attr.string(doc = "Target architecture"),
-        "artifact_naming": attr.label_list(providers = [ArtifactNamePatternInfo], doc = "Naming conventions"),
+        "artifact_naming": attr.label_list(providers = [MyArtifactNamePatternInfo], doc = "Naming conventions"),
         "feature_set": attr.label(providers = [FeatureSetInfo], doc = "Features of this toolchain"),
         "substitutions": attr.string_dict(doc = "Substitutions for the feature_set"),
         "tools": attr.string_dict(doc = "Mapping of tool names to their wrapper paths"),
@@ -79,11 +80,11 @@ toolchain_config = rule(
 )
 
 def _artifact_name_impl(ctx):
-    return artifact_name_pattern(
+    return [MyArtifactNamePatternInfo(pattern = artifact_name_pattern(
         category_name = ctx.attr.category,
         prefix = ctx.attr.prefix,
         extension = ctx.attr.extension,
-    )
+    ))]
 
 artifact_name = rule(
     implementation = _artifact_name_impl,
@@ -92,7 +93,7 @@ artifact_name = rule(
         "prefix": attr.string(doc = "The prefix for creating the artifact for this selection."),
         "extension": attr.string(doc = "The extension for creating the artifact for this selection."),
     },
-    provides = [ArtifactNamePatternInfo],
+    provides = [MyArtifactNamePatternInfo],
 )
 
 def setup(

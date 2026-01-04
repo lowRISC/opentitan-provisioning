@@ -35,7 +35,7 @@ bazel_dep(name = "platforms", version = "0.0.11")
 bazel_dep(name = "rules_cc", version = "0.1.2")
 bazel_dep(name = "rules_fuzzing", version = "0.5.2")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
-bazel_dep(name = "rules_proto", version = "6.0.2")
+bazel_dep(name = "rules_proto", version = "7.0.2")
 bazel_dep(name = "aspect_rules_lint", version = "1.0.8")
 bazel_dep(name = "rules_rust", version = "0.59.2")
 
@@ -85,7 +85,7 @@ single_version_override(
 )
 
 # Pin Protobuf explicitly to ensure sync
-bazel_dep(name = "protobuf", version = "27.3", repo_name = "com_google_protobuf")
+bazel_dep(name = "protobuf", version = "29.0", repo_name = "com_google_protobuf")
 
 # Explicitly add upb (required by gRPC 1.66+ in Bzlmod)
 bazel_dep(name = "upb", version = "0.0.0-20230907-e7430e6")
@@ -175,7 +175,8 @@ crate.from_cargo(
     manifests = ["@lowrisc_opentitan//third_party/rust:Cargo.toml"],
     supported_platform_triples = ["x86_64-unknown-linux-gnu"],
 )
-use_repo(crate, crate_index = "provisioning_index")
+use_repo(crate, "provisioning_index")
+use_repo(crate, "crate_index")
 
 # Dev dependencies:
 bazel_dep(
