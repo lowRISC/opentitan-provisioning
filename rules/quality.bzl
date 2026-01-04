@@ -59,15 +59,14 @@ gofmt_attrs = {
         doc = "Execution mode: display diffs or fix formatting",
     ),
     "lint_tool": attr.label(
-        default = "@go_sdk//:bin/gofmt",
+        default = Label("@go_default_sdk//:bin/gofmt"),
         allow_single_file = True,
-        cfg = "host",
         executable = True,
-        doc = "The gofmt executable",
+        cfg = "exec",
     ),
     "workspace": attr.label(
         allow_single_file = True,
-        doc = "Label of the WORKSPACE file",
+        doc = "Label of the workspace file (e.g. WORKSPACE or MODULE.bazel)",
     ),
     "_runner": attr.label(
         default = "//rules/scripts:gofmt.sh",
@@ -115,15 +114,15 @@ clang_format_attrs = {
         doc = "Execution mode: display diffs or fix formatting",
     ),
     "lint_tool": attr.label(
-        default = "@clang-format//:clang-format",
+        default = "@llvm_toolchain_lint//:clang-format",
         allow_single_file = True,
-        cfg = "host",
+        cfg = "exec",
         executable = True,
         doc = "The clang-format executable",
     ),
     "workspace": attr.label(
         allow_single_file = True,
-        doc = "Label of the WORKSPACE file",
+        doc = "Label of the workspace file (e.g. WORKSPACE or MODULE.bazel)",
     ),
     "_runner": attr.label(
         default = "//rules/scripts:clang_format.sh",
@@ -179,7 +178,7 @@ protolint_attrs = {
     ),
     "workspace": attr.label(
         allow_single_file = True,
-        doc = "Label of the WORKSPACE file",
+        doc = "Label of the workspace file (e.g. WORKSPACE or MODULE.bazel)",
     ),
     "_runner": attr.label(
         default = "//rules/scripts:protolint.sh",
@@ -235,7 +234,7 @@ include_guard_attrs = {
     ),
     "workspace": attr.label(
         allow_single_file = True,
-        doc = "Label of the WORKSPACE file",
+        doc = "Label of the workspace file (e.g. WORKSPACE or MODULE.bazel)",
     ),
     "_runner": attr.label(
         default = "//rules/scripts:include_guard.sh",

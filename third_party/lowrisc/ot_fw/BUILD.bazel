@@ -2,11 +2,12 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//rules:unzip.bzl", "unzip_archive")
+
 package(default_visibility = ["//visibility:public"])
 
-genrule(
+unzip_archive(
     name = "orchestrator_unzip",
-    srcs = ["orchestrator.zip"],
-    outs = ["orchestrator"],
-    cmd = "unzip $< -d $@",
+    src = "orchestrator.zip",
+    out = "orchestrator",
 )

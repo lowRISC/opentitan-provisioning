@@ -1,0 +1,38 @@
+From cb643c0a915e62e32845be33fc33aed8fffc48b0 Mon Sep 17 00:00:00 2001
+From: Willy Zhang <willyzhang@google.com>
+Date: Fri, 26 Dec 2025 20:40:50 -0800
+Subject: [PATCH 3/3] Fix bindgen resource directory detection
+
+Fix clang resource directory detection by dynamically locating stddef.h in runfiles.
+Also adds libclang runfiles to the bindgen inputs to ensure headers are available in the sandbox.
+
+---
+ private/bindgen.bzl | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/extensions/bindgen/private/bindgen.bzl b/extensions/bindgen/private/bindgen.bzl
+--- private/bindgen.bzl
++++ private/bindgen.bzl
+@@ -239,6 +239,14 @@ def _rust_bindgen_impl(ctx):
+ 
+     # Configure Clang Arguments
+     args.add("--")
++    resource_dir = libclang_dir + "/clang/10.0.0"
++    for f in libclang[DefaultInfo].data_runfiles.files.to_list():
++        if f.basename == "stddef.h":
++            if f.dirname.endswith("/include"):
++                resource_dir = f.dirname[:-8]
++                break
++    args.add("-resource-dir", resource_dir)
++    args.add("-isystem", resource_dir + "/include")
+ 
+     compile_variables = cc_common.create_compile_variables(
+         cc_toolchain = cc_toolchain,
+@@ -314,6 +322,7 @@ def _rust_bindgen_impl(ctx):
+             transitive = [
+                 cc_lib[CcInfo].compilation_context.headers,
+                 _get_libs_for_static_executable(libclang),
++                libclang[DefaultInfo].data_runfiles.files,
+             ] + ([
+                 _get_libs_for_static_executable(libstdcxx),
+             ] if libstdcxx else []),

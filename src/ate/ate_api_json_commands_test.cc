@@ -10,6 +10,7 @@
 #include <string>
 
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "src/ate/ate_api.h"
 #include "src/ate/proto/dut_commands.pb.h"
 #include "src/pa/proto/pa.grpc.pb.h"
@@ -23,7 +24,7 @@ using testing::EqualsProto;
 class AteJsonTest : public ::testing::Test {};
 
 TEST_F(AteJsonTest, TokensToJson) {
-  dut_spi_frame_t frame;
+  dut_spi_frame_t frame = {0};
   token_t wafer_auth_secret = {0};
   token_t test_unlock_token = {0};
   token_t test_exit_token = {0};
@@ -46,9 +47,8 @@ TEST_F(AteJsonTest, TokensToJson) {
   ot::dut_commands::TokensJSON tokens_cmd;
   google::protobuf::util::JsonParseOptions options;
   options.ignore_unknown_fields = true;
-  google::protobuf::util::Status status =
-      google::protobuf::util::JsonStringToMessage(json_string, &tokens_cmd,
-                                                  options);
+  absl::Status status = google::protobuf::util::JsonStringToMessage(
+      json_string, &tokens_cmd, options);
   EXPECT_EQ(status.ok(), true);
   EXPECT_THAT(tokens_cmd, EqualsProto(R"pb(
                 wafer_auth_secret: 1
@@ -74,13 +74,12 @@ TEST_F(AteJsonTest, DeviceIdFromJson) {
   device_id_cmd.add_cp_device_id(0x0);
 
   std::string command;
-  google::protobuf::util::JsonOptions options;
+  google::protobuf::util::JsonPrintOptions options;
   options.add_whitespace = false;
-  options.always_print_primitive_fields = true;
+  options.always_print_fields_with_no_presence = true;
   options.preserve_proto_field_names = true;
-  google::protobuf::util::Status status =
-      google::protobuf::util::MessageToJsonString(device_id_cmd, &command,
-                                                  options);
+  absl::Status status = google::protobuf::util::MessageToJsonString(
+      device_id_cmd, &command, options);
   EXPECT_EQ(status.ok(), true);
 
   dut_spi_frame_t frame = {0};
@@ -115,16 +114,15 @@ TEST_F(AteJsonTest, RmaTokenWithoutCrc) {
   ot::dut_commands::RmaTokenJSON rma_hash_cmd;
   google::protobuf::util::JsonParseOptions options;
   options.ignore_unknown_fields = true;
-  google::protobuf::util::Status status =
-      google::protobuf::util::JsonStringToMessage(json_string, &rma_hash_cmd,
-                                                  options);
+  absl::Status status = google::protobuf::util::JsonStringToMessage(
+      json_string, &rma_hash_cmd, options);
   EXPECT_EQ(status.ok(), true);
   EXPECT_THAT(rma_hash_cmd, EqualsProto(R"pb(
                 hash: 8721 hash: 0
               )pb"));
 
-  dut_spi_frame_t dut_to_ate_frame = {.payload = {0},
-                                      .size = kDutTxMaxSpiFrameSizeInBytes};
+  dut_spi_frame_t dut_to_ate_frame = {0};
+  dut_to_ate_frame.size = kDutTxMaxSpiFrameSizeInBytes;
   memcpy(dut_to_ate_frame.payload, ate_to_dut_frame.payload,
          kDutRxSpiFrameSizeInBytes);
   token_t rma_token_got = {0};
@@ -157,16 +155,15 @@ TEST_F(AteJsonTest, RmaTokenWithCrc) {
   ot::dut_commands::RmaTokenJSON rma_hash_cmd;
   google::protobuf::util::JsonParseOptions options;
   options.ignore_unknown_fields = true;
-  google::protobuf::util::Status status =
-      google::protobuf::util::JsonStringToMessage(json_string_without_crc,
-                                                  &rma_hash_cmd, options);
+  absl::Status status = google::protobuf::util::JsonStringToMessage(
+      json_string_without_crc, &rma_hash_cmd, options);
   EXPECT_EQ(status.ok(), true);
   EXPECT_THAT(rma_hash_cmd, EqualsProto(R"pb(
                 hash: 8721 hash: 0
               )pb"));
 
-  dut_spi_frame_t dut_to_ate_frame_with_crc = {
-      .payload = {0}, .size = kDutTxMaxSpiFrameSizeInBytes};
+  dut_spi_frame_t dut_to_ate_frame_with_crc = {0};
+  dut_to_ate_frame_with_crc.size = kDutTxMaxSpiFrameSizeInBytes;
   memcpy(dut_to_ate_frame_with_crc.payload, frame_with_crc.payload,
          kDutRxSpiFrameSizeInBytes);
   token_t rma_token_got = {0};
@@ -195,9 +192,8 @@ TEST_F(AteJsonTest, CaSubjectKeys) {
   ot::dut_commands::CaSubjectKeysJSON ca_key_ids_cmd;
   google::protobuf::util::JsonParseOptions options;
   options.ignore_unknown_fields = true;
-  google::protobuf::util::Status status =
-      google::protobuf::util::JsonStringToMessage(json_string, &ca_key_ids_cmd,
-                                                  options);
+  absl::Status status = google::protobuf::util::JsonStringToMessage(
+      json_string, &ca_key_ids_cmd, options);
   EXPECT_EQ(status.ok(), true);
   EXPECT_THAT(ca_key_ids_cmd, EqualsProto(R"pb(
                 dice_auth_key_key_id: 65
@@ -264,7 +260,7 @@ TEST_F(AteJsonTest, PersoBlob) {
       ((kNum256ByteFrames * kDutRxSpiFrameSizeInBytes) + 2020 - 1) / 2020;
   dut_spi_frame_t dut_to_ate_frames[kNum2020ByteFrames] = {0};
   uint8_t tmp[kNum2020ByteFrames * 2020] = {0};
-  memset(tmp, sizeof(tmp), ' ');
+  memset(tmp, ' ', sizeof(tmp));
   for (size_t i = 0; i < kNum256ByteFrames; ++i) {
     memcpy(&tmp[i * kDutRxSpiFrameSizeInBytes], ate_to_dut_frames[i].payload,
            kDutRxSpiFrameSizeInBytes);
