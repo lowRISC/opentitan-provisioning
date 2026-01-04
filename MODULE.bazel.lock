@@ -239,6 +239,23 @@
   },
   "selectedYankedVersions": {},
   "moduleExtensions": {
+    "//rules:vendor.bzl%vendor_deps": {
+      "general": {
+        "bzlTransitiveDigest": "HGfMiiczHbPWXlGb7uus5wqtqulEyh1WhaJKafHsfaw=",
+        "usagesDigest": "pejs80RFxj2b9rxSKHYVxofSzbZNKhBeRknm09EzMlI=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "vendor_repo": {
+            "bzlFile": "@@//rules:vendor.bzl",
+            "ruleClassName": "vendor_repo",
+            "attributes": {}
+          }
+        },
+        "recordedRepoMappingEntries": []
+      }
+    },
     "//third_party/docker:extensions.bzl%docker_extension": {
       "general": {
         "bzlTransitiveDigest": "I7HZySIuINY+WLM7nZU+B+Vstj9m4jLMR8e3OP5sooo=",

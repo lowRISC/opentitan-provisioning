@@ -6,7 +6,7 @@ load("@bazel_gazelle//:def.bzl", "gazelle")
 load("@io_bazel_rules_go//go:def.bzl", "nogo")
 
 exports_files([
-    "WORKSPACE",
+    "MODULE.bazel",
 ])
 
 config_setting(

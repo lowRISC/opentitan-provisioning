@@ -66,7 +66,7 @@ gofmt_attrs = {
     ),
     "workspace": attr.label(
         allow_single_file = True,
-        doc = "Label of the WORKSPACE file",
+        doc = "Label of the MODULE.bazel file",
     ),
     "_runner": attr.label(
         default = "//rules/scripts:gofmt.sh",
@@ -122,7 +122,7 @@ clang_format_attrs = {
     ),
     "workspace": attr.label(
         allow_single_file = True,
-        doc = "Label of the WORKSPACE file",
+        doc = "Label of the MODULE.bazel file",
     ),
     "_runner": attr.label(
         default = "//rules/scripts:clang_format.sh",
@@ -178,7 +178,7 @@ protolint_attrs = {
     ),
     "workspace": attr.label(
         allow_single_file = True,
-        doc = "Label of the WORKSPACE file",
+        doc = "Label of the MODULE.bazel file",
     ),
     "_runner": attr.label(
         default = "//rules/scripts:protolint.sh",
@@ -234,7 +234,7 @@ include_guard_attrs = {
     ),
     "workspace": attr.label(
         allow_single_file = True,
-        doc = "Label of the WORKSPACE file",
+        doc = "Label of the MODULE.bazel file",
     ),
     "_runner": attr.label(
         default = "//rules/scripts:include_guard.sh",
