@@ -22,7 +22,7 @@ package(default_visibility = ["//visibility:public"])
 # Bazel BUILD file lint/formatting
 ################################################################################
 buildifier_exclude = [
-    "./WORKSPACE",  # Prevent Buildifier from inserting unnecessary newlines.
+    "./MODULE.bazel",  # Prevent Buildifier from inserting unnecessary newlines.
 ]
 
 buildifier_test(
@@ -33,7 +33,7 @@ buildifier_test(
     no_sandbox = True,
     tags = ["lint"],
     verbose = True,
-    workspace = "//:WORKSPACE",
+    workspace = "//:MODULE.bazel",
 )
 
 buildifier(
@@ -54,7 +54,7 @@ clang_format_check(
     exclude_patterns = clang_format_exclude,
     mode = "diff",
     tags = ["lint"],
-    workspace = "//:WORKSPACE",
+    workspace = "//:MODULE.bazel",
 )
 
 clang_format_fix(
@@ -70,7 +70,7 @@ gofmt_check(
     name = "gofmt_check",
     mode = "diff",
     tags = ["lint"],
-    workspace = "//:WORKSPACE",
+    workspace = "//:MODULE.bazel",
 )
 
 gofmt_fix(
@@ -85,7 +85,7 @@ include_guard_check(
     name = "include_guard_check",
     mode = "diff",
     tags = ["lint"],
-    workspace = "//:WORKSPACE",
+    workspace = "//:MODULE.bazel",
 )
 
 include_guard_fix(
@@ -116,7 +116,7 @@ licence_test(
     SPDX-License-Identifier: Apache-2.0
     """,
     tags = ["lint"],
-    workspace = "//:WORKSPACE",
+    workspace = "//:MODULE.bazel",
 )
 
 ################################################################################
@@ -126,7 +126,7 @@ protolint_check(
     name = "protolint_check",
     mode = "diff",
     tags = ["lint"],
-    workspace = "//:WORKSPACE",
+    workspace = "//:MODULE.bazel",
 )
 
 protolint_fix(
