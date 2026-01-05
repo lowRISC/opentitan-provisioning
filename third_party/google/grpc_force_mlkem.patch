@@ -1,0 +1,28 @@
+diff --git a/src/core/tsi/ssl_transport_security.cc b/src/core/tsi/ssl_transport_security.cc
+index dbc47f85f7..3d92031bd6 100644
+--- src/core/tsi/ssl_transport_security.cc
++++ src/core/tsi/ssl_transport_security.cc
+@@ -816,6 +816,15 @@ static tsi_result populate_ssl_context(
+   }
+   {
+ #if OPENSSL_VERSION_NUMBER < 0x30000000L
++#if defined(OPENSSL_IS_BORINGSSL)
++    // Explicitly configure the groups we want (ML-KEM, X25519, P-256)
++    // We only use C++ gRPC as the client, and the server will be responsible
++    // for enforcing the supported curves.
++    if (!SSL_CTX_set1_groups_list(context, "X25519MLKEM768:X25519:P-256")) {
++      LOG(ERROR) << "Could not set supported groups.";
++      return TSI_INTERNAL_ERROR;
++    }
++#else
+     EC_KEY* ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+     if (!SSL_CTX_set_tmp_ecdh(context, ecdh)) {
+       LOG(ERROR) << "Could not set ephemeral ECDH key.";
+@@ -824,6 +833,7 @@ static tsi_result populate_ssl_context(
+     }
+     SSL_CTX_set_options(context, SSL_OP_SINGLE_ECDH_USE);
+     EC_KEY_free(ecdh);
++#endif
+ #else
+     if (!SSL_CTX_set1_groups(context, kSslEcCurveNames, 1)) {
+       LOG(ERROR) << "Could not set ephemeral ECDH key.";

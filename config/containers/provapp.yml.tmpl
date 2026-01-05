@@ -15,6 +15,7 @@ spec:
   - name: paserver-1
     args:
     - --enable_tls=true
+    - --enable_mlkem=${ENABLE_MLKEM}
     - --service_key=/var/lib/opentitan/config/certs/out/pa-service-key.pem
     - --service_cert=/var/lib/opentitan/config/certs/out/pa-service-cert.pem
     - --ca_root_certs=/var/lib/opentitan/config/certs/out/ca-cert.pem
@@ -39,6 +40,7 @@ spec:
   - name: paserver-2
     args:
     - --enable_tls=true
+    - --enable_mlkem=${ENABLE_MLKEM}
     - --service_key=/var/lib/opentitan/config/certs/out/pa-service-key.pem
     - --service_cert=/var/lib/opentitan/config/certs/out/pa-service-cert.pem
     - --ca_root_certs=/var/lib/opentitan/config/certs/out/ca-cert.pem
@@ -63,6 +65,7 @@ spec:
   - name: paserver-3
     args:
     - --enable_tls=true
+    - --enable_mlkem=${ENABLE_MLKEM}
     - --service_key=/var/lib/opentitan/config/certs/out/pa-service-key.pem
     - --service_cert=/var/lib/opentitan/config/certs/out/pa-service-cert.pem
     - --ca_root_certs=/var/lib/opentitan/config/certs/out/ca-cert.pem
@@ -87,6 +90,7 @@ spec:
   - name: pbserver
     args:
     - --enable_tls=true
+    - --enable_mlkem=${ENABLE_MLKEM}
     - --service_key=/var/lib/opentitan/config/certs/out/pb-service-key.pem
     - --service_cert=/var/lib/opentitan/config/certs/out/pb-service-cert.pem
     - --ca_root_certs=/var/lib/opentitan/config/certs/out/ca-cert.pem

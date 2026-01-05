@@ -34,10 +34,24 @@ func loadCertPool(rootsFilename string) (*x509.CertPool, error) {
 	return certPool, nil
 }
 
+type Config struct  {
+	EnableMLKEMTLS bool 
+}
+
+func (c *Config) applyMLKEMConfig(tlsConfig *tls.Config) {
+	if c.EnableMLKEMTLS {
+		// Strictly prefer MLKEM. This enforces that clients must support MLKEM key exchange.
+		tlsConfig.CurvePreferences = []tls.CurveID{
+			tls.X25519MLKEM768, 
+		}
+		tlsConfig.MinVersion = tls.VersionTLS13
+	}
+}
+
 // LoadServerCredentials returns server side mTLS transport credentials.
 // `rootsFilename` should point to the client CA root certificates in PEM
 // format.
-func LoadServerCredentials(rootsFilename, certFilename, keyFilename string) (credentials.TransportCredentials, error) {
+func (c *Config) LoadServerCredentials(rootsFilename, certFilename, keyFilename string) (credentials.TransportCredentials, error) {
 	certPool, err := loadCertPool(rootsFilename)
 	if err != nil {
 		return nil, err
@@ -48,18 +62,22 @@ func LoadServerCredentials(rootsFilename, certFilename, keyFilename string) (cre
 		return nil, err
 	}
 
-	return credentials.NewTLS(&tls.Config{
-		Certificates:       []tls.Certificate{cert},
-		ClientAuth:         tls.RequireAndVerifyClientCert,
-		ClientCAs:          certPool,
-		InsecureSkipVerify: false,
-	}), nil
+	var tlsConfig = &tls.Config{
+			Certificates:       []tls.Certificate{cert},
+			ClientAuth:         tls.RequireAndVerifyClientCert,
+			ClientCAs:          certPool,
+			InsecureSkipVerify: false,
+	}
+
+	c.applyMLKEMConfig(tlsConfig)
+
+	return credentials.NewTLS(tlsConfig), nil
 }
 
 // LoadClientCredentials returns client side mTLS transport credentials.
 // `rootsFilename` should point to the server CA root certificates in PEM
 // format.
-func LoadClientCredentials(rootsFilename, certFilename, keyFilename string) (credentials.TransportCredentials, error) {
+func (c *Config) LoadClientCredentials(rootsFilename, certFilename, keyFilename string) (credentials.TransportCredentials, error) {
 	certPool, err := loadCertPool(rootsFilename)
 	if err != nil {
 		return nil, err
@@ -70,10 +88,14 @@ func LoadClientCredentials(rootsFilename, certFilename, keyFilename string) (cre
 		return nil, err
 	}
 
-	return credentials.NewTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-		RootCAs:      certPool,
-	}), nil
+	var tlsConfig = &tls.Config{
+		Certificates:     []tls.Certificate{cert},
+		RootCAs:          certPool,
+	}
+
+	c.applyMLKEMConfig(tlsConfig)
+
+	return credentials.NewTLS(tlsConfig), nil
 }
 
 func ExtractClientIP(ctx context.Context) (string, error) {

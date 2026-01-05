@@ -9,11 +9,22 @@ set -e
 # in the background and still be able to run other commands in parallel.
 set -m
 
+export ENABLE_MLKEM="true"
+
 # Ensure we are running from the repository root
 cd "$(dirname "$0")/.."
 
 # Build and deploy the provisioning infrastructure.
 source util/integration_test_setup.sh
+
+# Dump PA logs on failure
+dump_pa_logs() {
+  echo "----------------------------------------------------------------"
+  echo "Dumping PA logs (provapp-paserver-1)..."
+  podman logs provapp-paserver-1
+  echo "----------------------------------------------------------------"
+}
+trap dump_pa_logs ERR
 
 # Run the TLS connection test.
 echo "Running TLS connection test ..."

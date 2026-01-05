@@ -9,6 +9,8 @@ set -e
 # in the background and still be able to run other commands in parallel.
 set -m
 
+export ENABLE_MLKEM="true"
+
 # Ensure we are running from the repository root
 cd "$(dirname "$0")/.."
 

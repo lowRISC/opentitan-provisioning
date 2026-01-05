@@ -23,10 +23,10 @@ import (
 
 var registryClient proxybuffer.Registry
 
-func StartRegistryBuffer(registryBufferAddress string, enableTLS bool, caRootCerts string, serviceCert string, serviceKey string) error {
+func StartRegistryBuffer(registryBufferAddress string, enableTLS bool, enableMLKEM bool, caRootCerts string, serviceCert string, serviceKey string) error {
 	opts := grpc.WithInsecure()
 	if enableTLS {
-		credentials, err := grpconn.LoadClientCredentials(caRootCerts, serviceCert, serviceKey)
+		credentials, err := (&grpconn.Config{EnableMLKEMTLS: enableMLKEM}).LoadClientCredentials(caRootCerts, serviceCert, serviceKey)
 		if err != nil {
 			return err
 		}
