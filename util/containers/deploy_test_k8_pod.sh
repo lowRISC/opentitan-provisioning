@@ -8,6 +8,10 @@ set -e
 # Deploy the provisioning appliance services.
 export CONTAINERS_ONLY="yes"
 
+if [[ -z "${ENABLE_MLKEM}" ]]; then
+    export ENABLE_MLKEM="false"
+fi
+
 DEPLOY_ENV="dev"
 if [[ -n "${OT_PROV_PROD_EN}" ]]; then
     DEPLOY_ENV="prod"

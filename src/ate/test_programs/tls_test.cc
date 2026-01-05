@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
     LOG(ERROR) << "InitSession with PA failed.";
     return -1;
   }
-  
+
   LOG(INFO) << "TLS Connection to PA established successfully.";
 
   // Close session with PA.

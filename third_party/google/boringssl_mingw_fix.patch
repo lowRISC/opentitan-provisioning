@@ -1,0 +1,20 @@
+--- util/util.bzl.orig	2026-01-05 11:11:25.552839764 -0800
++++ util/util.bzl	2026-01-05 11:11:25.560933463 -0800
+@@ -62,7 +62,7 @@
+     "@platforms//os:linux": ["-D_XOPEN_SOURCE=700"],
+     # Without WIN32_LEAN_AND_MEAN, <windows.h> pulls in wincrypt.h, which
+     # conflicts with our <openssl/x509.h>.
+-    "@platforms//os:windows": ["-DWIN32_LEAN_AND_MEAN", "-utf-8"],
++    "@platforms//os:windows": ["-DWIN32_LEAN_AND_MEAN"],
+     "//conditions:default": [],
+ })
+ 
+@@ -79,7 +79,7 @@
+ # for our code or the headers we include, so configure the C version inside the
+ # library. If Bazel's C/C++ version handling improves, we may reconsider this.
+ boringssl_copts_c = boringssl_copts_common + select({
+-    "@platforms//os:windows": ["/std:c11"],
++    "@platforms//os:windows": ["-std=c11"],
+     "//conditions:default": ["-std=c11"] + gcc_copts_c,
+ })
+ 

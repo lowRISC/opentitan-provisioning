@@ -19,6 +19,12 @@ go_library(
     ],
 )
 
+go_test(
+    name = "grpconn_test",
+    srcs = ["grpconn_test.go"],
+    embed = [":grpconn"],
+)
+
 WINDOWS_LIBS = [
     "-lbcrypt",  # aka: bcrypt.lib
     "-ldbghelp",  # aka: dbghelp.lib

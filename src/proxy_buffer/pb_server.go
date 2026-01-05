@@ -38,6 +38,7 @@ var (
 	syncerMaxRetriesPerRecord = flag.Int("syncer_max_retries_per_record", 5, "Number of times a record can be retried before it stops pb_server. Anything less than zero will not stop the service. Defaults to 5.")
 	// gRPC server
 	enableTLS   = flag.Bool("enable_tls", false, "Enable mTLS secure channel; optional")
+	enableMLKEM = flag.Bool("enable_mlkem", false, "Enable MLKEM TLS configuration; optional")
 	serviceKey  = flag.String("service_key", "", "File path to the PEM encoding of the server's private key")
 	serviceCert = flag.String("service_cert", "", "File path to the PEM encoding of the server's certificate chain")
 	caRootCerts = flag.String("ca_root_certs", "", "File path to the PEM encoding of the CA root certificates")
@@ -94,7 +95,7 @@ func main() {
 
 	opts := []grpc.ServerOption{}
 	if *enableTLS {
-		credentials, err := grpconn.LoadServerCredentials(*caRootCerts, *serviceCert, *serviceKey)
+		credentials, err := (&grpconn.Config{EnableMLKEMTLS: *enableMLKEM}).LoadServerCredentials(*caRootCerts, *serviceCert, *serviceKey)
 		if err != nil {
 			log.Fatalf("Failed to load server credentials: %v", err)
 		}

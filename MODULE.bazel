@@ -8,11 +8,11 @@ module(name = "lowrisc_opentitan_provisioning")
 # Standard Libraries & Utilities
 # -------------------------------------------------------------------------
 
-bazel_dep(name = "abseil-cpp", version = "20240116.1", repo_name = "com_google_absl")
+bazel_dep(name = "abseil-cpp", version = "20240722.0.bcr.1", repo_name = "com_google_absl")
 bazel_dep(name = "bazel_skylib", version = "1.7.1")
-bazel_dep(name = "googletest", version = "1.14.0.bcr.1", repo_name = "com_google_googletest")
+bazel_dep(name = "googletest", version = "1.15.2", repo_name = "com_google_googletest")
 bazel_dep(name = "platforms", version = "0.0.11")
-bazel_dep(name = "re2", version = "2023-09-01", repo_name = "com_googlesource_code_re2")
+bazel_dep(name = "re2", version = "2024-07-02", repo_name = "com_googlesource_code_re2")
 bazel_dep(name = "upb", version = "0.0.0-20230907-e7430e6")
 
 # -------------------------------------------------------------------------
@@ -20,9 +20,12 @@ bazel_dep(name = "upb", version = "0.0.0-20230907-e7430e6")
 # -------------------------------------------------------------------------
 
 bazel_dep(name = "rules_apple", version = "3.16.1")
+bazel_dep(name = "rules_swift", version = "2.1.1", repo_name = "build_bazel_rules_swift")
 bazel_dep(name = "rules_cc", version = "0.1.2")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
 bazel_dep(name = "rules_proto", version = "7.0.2")
+
+bazel_dep(name = "aspect_rules_lint", version = "1.0.8")
 
 bazel_dep(name = "rules_foreign_cc", version = "0.9.0")
 single_version_override(
@@ -35,15 +38,28 @@ single_version_override(
 # -------------------------------------------------------------------------
 
 bazel_dep(name = "protobuf", version = "29.0", repo_name = "com_google_protobuf")
+bazel_dep(name = "protoc-gen-validate", version = "1.0.4.bcr.2")
 
-bazel_dep(name = "grpc", version = "1.66.0.bcr.3", repo_name = "com_github_grpc_grpc")
+# Use a modern gRPC (compatible with Protobuf 27+)
+bazel_dep(name = "grpc", version = "1.68.0", repo_name = "com_github_grpc_grpc")
 single_version_override(
     module_name = "grpc",
     patch_strip = 0,
     patches = [
         "third_party/google/grpc_windows_config_setting.patch",
         "third_party/google/grpc_windows_endpoint_fix.patch",
+        "third_party/google/grpc_force_mlkem.patch",
     ],
+)
+
+bazel_dep(name = "boringssl")
+archive_override(
+    module_name = "boringssl",
+    integrity = "sha256-dHR3G61xqu8ZpYuovGGINHZ7VxPMPEean1AquU74k5E=",
+    patch_strip = 0,
+    patches = ["third_party/google/boringssl_mingw_fix.patch"],
+    strip_prefix = "boringssl-0.20241024.0",
+    urls = ["https://github.com/google/boringssl/releases/download/0.20241024.0/boringssl-0.20241024.0.tar.gz"],
 )
 
 # -------------------------------------------------------------------------

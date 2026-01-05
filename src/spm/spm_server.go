@@ -24,6 +24,7 @@ var (
 	hsmPWFile     = flag.String("hsm_pw", "", "File path to the HSM's Password; required for TPM")
 	hsmSOPath     = flag.String("hsm_so", "", "File path to the PCKS#11 .so library used to interface to the HSM")
 	enableTLS     = flag.Bool("enable_tls", false, "Enable mTLS secure channel; optional")
+	enableMLKEM   = flag.Bool("enable_mlkem", false, "Enable MLKEM TLS configuration; optional")
 	serviceKey    = flag.String("service_key", "", "File path to the PEM encoding of the server's private key")
 	serviceCert   = flag.String("service_cert", "", "File path to the PEM encoding of the server's certificate chain")
 	caRootCerts   = flag.String("ca_root_certs", "", "File path to the PEM encoding of the CA root certificates")
@@ -35,7 +36,7 @@ var (
 func startSPMServer() (*grpc.Server, error) {
 	opts := []grpc.ServerOption{}
 	if *enableTLS {
-		credentials, err := grpconn.LoadServerCredentials(*caRootCerts, *serviceCert, *serviceKey)
+		credentials, err := (&grpconn.Config{EnableMLKEMTLS: *enableMLKEM}).LoadServerCredentials(*caRootCerts, *serviceCert, *serviceKey)
 		if err != nil {
 			return nil, err
 		}
