@@ -58,7 +58,9 @@ jobs:
       # above is not sufficient on self hosted runners.
       - name: Initialize LFS objects
         run: git lfs pull
+      - name: Run provisioning appliance load test
+        run: OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./integration/run_pa_loadtest.sh --prod
       - name: Run integration tests (SoftHSM2)
-        run: OT_PROV_ORCHESTRATOR_PATH="${OT_PROV_ORCHESTRATOR_PATH}" OT_PROV_ORCHESTRATOR_UNPACK="${OT_PROV_ORCHESTRATOR_UNPACK}" OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./run_integration_tests.sh
+        run: OT_PROV_ORCHESTRATOR_PATH="${OT_PROV_ORCHESTRATOR_PATH}" OT_PROV_ORCHESTRATOR_UNPACK="${OT_PROV_ORCHESTRATOR_UNPACK}" OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./integration/run_client_tests.sh
       - name: Run integration tests (Thales HSM)
-        run: OT_PROV_ORCHESTRATOR_PATH="${OT_PROV_ORCHESTRATOR_PATH}" OT_PROV_ORCHESTRATOR_UNPACK="${OT_PROV_ORCHESTRATOR_UNPACK}" OPENTITAN_VAR_DIR=$(pwd)/.otvar-prod ./run_integration_tests.sh --prod
+        run: OT_PROV_ORCHESTRATOR_PATH="${OT_PROV_ORCHESTRATOR_PATH}" OT_PROV_ORCHESTRATOR_UNPACK="${OT_PROV_ORCHESTRATOR_UNPACK}" OPENTITAN_VAR_DIR=$(pwd)/.otvar-prod ./integration/run_client_tests.sh --prod
