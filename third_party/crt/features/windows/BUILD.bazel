@@ -1,0 +1,99 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//third_party/crt/config:compiler.bzl", "artifact_name")
+load(
+    "//third_party/crt/config:features.bzl",
+    "CPP_ALL_COMPILE_ACTIONS",
+    "C_ALL_COMPILE_ACTIONS",
+    "LD_ALL_ACTIONS",
+    "feature",
+    "feature_set",
+    "flag_group",
+    "flag_set",
+)
+
+package(default_visibility = ["//visibility:public"])
+
+artifact_name(
+    name = "exe",
+    category = "executable",
+    extension = ".exe",
+)
+
+artifact_name(
+    name = "dll",
+    category = "dynamic_library",
+    extension = ".dll",
+)
+
+feature(
+    name = "default_link_flags",
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = CPP_ALL_COMPILE_ACTIONS + C_ALL_COMPILE_ACTIONS + LD_ALL_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-lstdc++",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+feature(
+    name = "opt",
+    enabled = False,
+    flag_sets = [
+        flag_set(
+            actions = CPP_ALL_COMPILE_ACTIONS + C_ALL_COMPILE_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-O2",
+                        "-finline-small-functions",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+feature(
+    name = "reproducible",
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = CPP_ALL_COMPILE_ACTIONS + C_ALL_COMPILE_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = ["-Werror=date-time"],
+                ),
+            ],
+        ),
+        flag_set(
+            actions = LD_ALL_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-Wl,--no-insert-timestamp",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+feature_set(
+    name = "windows",
+    base = ["//third_party/crt/features/common"],
+    feature = [
+        ":default_link_flags",
+        ":opt",
+        ":reproducible",
+    ],
+)

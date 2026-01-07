@@ -1,0 +1,119 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//third_party/crt/config:features.bzl",
+    "CPP_ALL_COMPILE_ACTIONS",
+    "C_ALL_COMPILE_ACTIONS",
+    "LD_ALL_ACTIONS",
+    "feature",
+    "feature_set",
+    "feature_single_flag_c_cpp",
+    "flag_group",
+    "flag_set",
+)
+
+package(default_visibility = ["//visibility:public"])
+
+feature(
+    name = "runtime_type_information",
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = CPP_ALL_COMPILE_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        # Disable RTTI
+                        "-fno-rtti",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+feature(
+    name = "exceptions",
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = CPP_ALL_COMPILE_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        # Disable Exceptions
+                        "-fno-exceptions",
+                        "-fno-non-call-exceptions",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+feature(
+    name = "cc_constructor_destructor",
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = CPP_ALL_COMPILE_ACTIONS + C_ALL_COMPILE_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        # Indicate that this program may not neccesarily be able to use standard system calls
+                        "-ffreestanding",
+                        # Instantiate global variables only once
+                        "-fno-common",
+                        # Emits guards against functions that have references to local array definitions
+                        "[STACK_PROTECTOR]",
+                    ],
+                ),
+            ],
+        ),
+        flag_set(
+            actions = CPP_ALL_COMPILE_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        # Disable teardown/destructors for static variables
+                        "-fno-use-cxa-atexit",
+                        # Disable threadsafe statics
+                        "-fno-threadsafe-statics",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+feature_single_flag_c_cpp(
+    name = "clang_gnu_warnings",
+    flag = "-Wgnu",
+)
+
+feature_single_flag_c_cpp(
+    name = "no_gnu_zero_variadic_macro_arguments_warning",
+    flag = "-Wno-gnu-zero-variadic-macro-arguments",
+)
+
+feature_single_flag_c_cpp(
+    name = "no_gnu_statement_expression_from_macro_expansion",
+    flag = "-Wno-gnu-statement-expression-from-macro-expansion",
+)
+
+feature_set(
+    name = "embedded",
+    feature = [
+        "runtime_type_information",
+        "exceptions",
+        "cc_constructor_destructor",
+        "clang_gnu_warnings",
+        "no_gnu_zero_variadic_macro_arguments_warning",
+        "no_gnu_statement_expression_from_macro_expansion",
+    ],
+    substitutions = {
+        "[STACK_PROTECTOR]": "-fstack-protector-strong",
+    },
+)

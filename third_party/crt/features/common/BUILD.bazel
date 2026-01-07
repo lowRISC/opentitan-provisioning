@@ -1,0 +1,333 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//third_party/crt/config:features.bzl",
+    "CPP_ALL_COMPILE_ACTIONS",
+    "C_ALL_COMPILE_ACTIONS",
+    "LD_ALL_ACTIONS",
+    "feature",
+    "feature_set",
+    "feature_single_flag_c_cpp",
+    "flag_group",
+    "flag_set",
+)
+
+package(default_visibility = ["//visibility:public"])
+
+feature(
+    name = "includes",
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = CPP_ALL_COMPILE_ACTIONS + C_ALL_COMPILE_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-nostdinc",
+                        "[SYSTEM_INCLUDES]",
+                    ],
+                ),
+                flag_group(
+                    expand_if_available = "includes",
+                    flags = [
+                        "-include",
+                        "%{includes}",
+                    ],
+                    iterate_over = "includes",
+                ),
+            ],
+        ),
+    ],
+)
+
+feature_single_flag_c_cpp(
+    name = "all_warnings",
+    flag = "-Wall",
+)
+
+feature_single_flag_c_cpp(
+    name = "all_warnings_as_errors",
+    flag = "-Werror",
+)
+
+feature_single_flag_c_cpp(
+    name = "extra_warnings",
+    flag = "-Wextra",
+)
+
+feature_single_flag_c_cpp(
+    name = "pedantic_warnings",
+    flag = "-Wpedantic",
+)
+
+feature_single_flag_c_cpp(
+    name = "clang_covered_switch_default_warnings",
+    flag = "-Wno-covered-switch-default",
+)
+
+feature_single_flag_c_cpp(
+    name = "implicit_conversion_warnings",
+    flag = "-Wconversion",
+)
+
+feature_single_flag_c_cpp(
+    name = "implicit_fallthrough_warnings",
+    flag = "-Wimplicit-fallthrough",
+)
+
+feature_single_flag_c_cpp(
+    name = "invalid_pch_warnings",
+    flag = "-Winvalid-pch",
+)
+
+feature_single_flag_c_cpp(
+    name = "strict_prototypes_warnings",
+    c_only = True,
+    flag = "-Wstrict-prototypes",
+)
+
+feature_single_flag_c_cpp(
+    name = "switch_default_warnings",
+    flag = "-Wswitch-default",
+)
+
+feature_single_flag_c_cpp(
+    name = "no_missing_field_initializers_warning",
+    flag = "-Wno-missing-field-initializers",
+)
+
+feature_single_flag_c_cpp(
+    name = "no_sign_compare_warning",
+    flag = "-Wno-sign-compare",
+)
+
+feature_single_flag_c_cpp(
+    name = "no_unused_function_warning",
+    flag = "-Wno-error=unused-function",
+)
+
+feature_single_flag_c_cpp(
+    name = "no_unused_parameter_warning",
+    flag = "-Wno-unused-parameter",
+)
+
+feature_single_flag_c_cpp(
+    name = "type_limits_warning",
+    flag = "-Wtype-limits",
+)
+
+feature(
+    name = "reproducible",
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = CPP_ALL_COMPILE_ACTIONS + C_ALL_COMPILE_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = ["-Werror=date-time"],
+                ),
+            ],
+        ),
+    ],
+)
+
+feature(
+    name = "exceptions",
+    enabled = False,
+    flag_sets = [
+        flag_set(
+            actions = CPP_ALL_COMPILE_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-fno-exceptions",
+                        "-fno-non-call-exceptions",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+feature(
+    name = "use_lld",
+    enabled = False,
+    flag_sets = [
+        flag_set(
+            actions = LD_ALL_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = ["-fuse-ld=lld"],
+                ),
+            ],
+        ),
+    ],
+)
+
+feature(
+    name = "lto",
+    enabled = False,
+    flag_sets = [
+        flag_set(
+            actions = C_ALL_COMPILE_ACTIONS + CPP_ALL_COMPILE_ACTIONS + LD_ALL_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-flto",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+feature(
+    name = "symbol_garbage_collection",
+    enabled = True,
+    flag_sets = [
+        flag_set(
+            actions = CPP_ALL_COMPILE_ACTIONS + C_ALL_COMPILE_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-ffunction-sections",
+                        "-fdata-sections",
+                    ],
+                ),
+            ],
+        ),
+        flag_set(
+            actions = LD_ALL_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-Wl,--gc-sections",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+feature(
+    name = "dbg",
+    enabled = False,
+    flag_sets = [
+        flag_set(
+            actions = CPP_ALL_COMPILE_ACTIONS + C_ALL_COMPILE_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-O0",
+                        "-g3",
+                    ],
+                ),
+            ],
+        ),
+    ],
+    provides = ["compilation_mode"],
+)
+
+feature(
+    name = "fastbuild",
+    enabled = False,
+    flag_sets = [
+        flag_set(
+            actions = CPP_ALL_COMPILE_ACTIONS + C_ALL_COMPILE_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-O1",
+                        "-g3",
+                    ],
+                ),
+            ],
+        ),
+    ],
+    provides = ["compilation_mode"],
+)
+
+feature(
+    name = "opt",
+    enabled = False,
+    flag_sets = [
+        flag_set(
+            actions = CPP_ALL_COMPILE_ACTIONS + C_ALL_COMPILE_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-O2",
+                        "-finline-small-functions",
+                        "-flto",
+                    ],
+                ),
+            ],
+        ),
+        flag_set(
+            actions = LD_ALL_ACTIONS,
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-flto",
+                    ],
+                ),
+            ],
+        ),
+    ],
+    provides = ["compilation_mode"],
+)
+
+feature(
+    name = "architecture",
+    enabled = False,
+)
+
+feature(
+    name = "output_format",
+    enabled = False,
+)
+
+feature(
+    name = "misc",
+    enabled = False,
+)
+
+feature(
+    name = "coverage",
+    enabled = False,
+)
+
+feature_set(
+    name = "common",
+    feature = [
+        ":includes",
+        ":architecture",
+        ":all_warnings",
+        ":all_warnings_as_errors",
+        ":extra_warnings",
+        ":pedantic_warnings",
+        ":clang_covered_switch_default_warnings",
+        ":implicit_conversion_warnings",
+        ":implicit_fallthrough_warnings",
+        ":invalid_pch_warnings",
+        ":strict_prototypes_warnings",
+        ":switch_default_warnings",
+        ":no_missing_field_initializers_warning",
+        ":no_sign_compare_warning",
+        ":no_unused_function_warning",
+        ":no_unused_parameter_warning",
+        ":reproducible",
+        ":exceptions",
+        ":use_lld",
+        ":lto",
+        ":symbol_garbage_collection",
+        ":dbg",
+        ":fastbuild",
+        ":opt",
+        ":output_format",
+        ":misc",
+        ":coverage",
+    ],
+)

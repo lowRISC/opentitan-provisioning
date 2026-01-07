@@ -4,7 +4,7 @@
 
 def _windows_platform_transition_impl(settings, attr):
     return {
-        "//command_line_option:platforms": "@crt//platforms/x86_32:win32",
+        "//command_line_option:platforms": "//third_party/crt/platforms/x86_32:win32",
     }
 
 windows_platform_transition = transition(
