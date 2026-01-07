@@ -23,3 +23,7 @@ build --@rules_rust//cargo/settings:use_default_shell_env=False
 
 # Import site-specific configuration.
 try-import .bazelrc-site
+
+# Bzlmod
+common --enable_bzlmod
+common --noenable_workspace

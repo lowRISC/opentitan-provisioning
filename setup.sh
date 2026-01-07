@@ -14,7 +14,7 @@ sed -e '/^$/d' -e '/^#/d' -e 's/#.*//' \
   | sudo xargs apt install -y
 sudo apt clean
 
-go install github.com/bazelbuild/bazelisk@v1.10.1
+go install github.com/bazelbuild/bazelisk@v1.27.0
 
 # Create Project config settings directory.
 if [ ! -d "${OPENTITAN_VAR_DIR}" ]; then
