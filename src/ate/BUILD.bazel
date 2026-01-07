@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@crt//rules:pkg_win.bzl", "pkg_win")
+load("//third_party/crt/rules:pkg_win.bzl", "pkg_win")
 load("//rules:windows_binary.bzl", "windows_binary")
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
@@ -128,7 +128,7 @@ pkg_win(
         "ate_perso_blob.h",
         ":ate",
     ],
-    platform = "@crt//platforms/x86_32:win32",
+    platform = "//third_party/crt/platforms/x86_32:win32",
 )
 
 go_library(

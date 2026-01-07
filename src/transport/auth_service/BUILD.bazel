@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
-load("@crt//rules:pkg_win.bzl", "pkg_win")
+load("//third_party/crt/rules:pkg_win.bzl", "pkg_win")
 
 package(default_visibility = ["//visibility:public"])
 
