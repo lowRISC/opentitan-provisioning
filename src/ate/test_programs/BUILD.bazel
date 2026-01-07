@@ -40,3 +40,17 @@ cc_binary(
         "@lowrisc_opentitan//sw/device/lib/dif:lc_ctrl",
     ],
 )
+
+cc_binary(
+    name = "tls_test",
+    srcs = ["tls_test.cc"],
+    deps = [
+        "//src/ate:ate_lib",
+        "//src/version",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
