@@ -4,7 +4,6 @@
 
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
-    "FeatureInfo",
     __feature = "feature",
     __flag_group = "flag_group",
     __flag_set = "flag_set",
@@ -38,6 +37,13 @@ LD_ALL_ACTIONS = [
 ]
 
 FeatureSetInfo = provider(fields = ["features", "subst"])
+
+# This provider wraps the feature configuration so it can be passed from the 'feature'
+# rule to the 'feature_set' rule.
+FeatureInfo = provider(
+    fields = ["feature_config"],
+    doc = "Wraps a C++ feature configuration object for passing between rules.",
+)
 
 def reify_flag_group(
         flags = [],
@@ -160,15 +166,16 @@ def flag_set(
     })
 
 def _feature_impl(ctx):
+    f = __feature(
+        name = ctx.attr.name,
+        enabled = ctx.attr.enabled,
+        flag_sets = [reify_flag_set(**json.decode(v)) for v in ctx.attr.flag_sets],
+        requires = ctx.attr.requires,
+        implies = ctx.attr.implies,
+        provides = ctx.attr.provides,
+    )
     return [
-        __feature(
-            name = ctx.attr.name,
-            enabled = ctx.attr.enabled,
-            flag_sets = [reify_flag_set(**json.decode(v)) for v in ctx.attr.flag_sets],
-            requires = ctx.attr.requires,
-            implies = ctx.attr.implies,
-            provides = ctx.attr.provides,
-        ),
+        FeatureInfo(feature_config = f),
     ]
 
 feature = rule(
@@ -207,7 +214,8 @@ def _feature_set_impl(ctx):
         features.update(base[FeatureSetInfo].features)
         subst.update(base[FeatureSetInfo].subst)
     for feature in ctx.attr.feature:
-        f = feature[FeatureInfo]
+        # Unwrap the feature from FeatureInfo
+        f = feature[FeatureInfo].feature_config
         features[f.name] = f
     subst.update(ctx.attr.substitutions)
 

@@ -5,7 +5,6 @@
 load("//third_party/crt/config:features.bzl", "FeatureSetInfo", "feature_set_subst")
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
-    "ArtifactNamePatternInfo",
     "artifact_name_pattern",
     "tool_path",
 )
@@ -19,6 +18,13 @@ PARAM_DEFAULTS = {
     "abi_version": "unknown",
     "abi_libc_version": "unknown",
 }
+
+# This provider wraps the opaque artifact_name_pattern object so it can be passed
+# from the 'artifact_name' rule to the 'toolchain_config' rule.
+ArtifactNamePatternInfo = provider(
+    fields = ["pattern"],
+    doc = "Wraps an artifact_name_pattern object for passing between rules.",
+)
 
 def listify_flags(flag, args = [], spaces_in_args = False):
     args = [flag.format(p) for p in args]
@@ -42,7 +48,7 @@ def _toolchain_config_impl(ctx):
     params = dict(**PARAM_DEFAULTS)
     params.update(ctx.attr.params)
     features = feature_set_subst(ctx.attr.feature_set[FeatureSetInfo], **ctx.attr.substitutions)
-    artifact_name_patterns = [a[ArtifactNamePatternInfo] for a in ctx.attr.artifact_naming]
+    artifact_name_patterns = [a[ArtifactNamePatternInfo].pattern for a in ctx.attr.artifact_naming]
 
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,
@@ -79,11 +85,11 @@ toolchain_config = rule(
 )
 
 def _artifact_name_impl(ctx):
-    return artifact_name_pattern(
+    return [ArtifactNamePatternInfo(pattern = artifact_name_pattern(
         category_name = ctx.attr.category,
         prefix = ctx.attr.prefix,
         extension = ctx.attr.extension,
-    )
+    ))]
 
 artifact_name = rule(
     implementation = _artifact_name_impl,
