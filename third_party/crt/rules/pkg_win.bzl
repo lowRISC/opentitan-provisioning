@@ -6,9 +6,9 @@ load("//third_party/crt/rules:transition.bzl", "platform_rule")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain")
 
 def _get_toolchain_dir(cc_toolchain):
-    workspace = [f for f in cc_toolchain.all_files.to_list() if f.basename == "WORKSPACE"]
+    workspace = [f for f in cc_toolchain.all_files.to_list() if f.basename == "WORKSPACE" or f.basename == "MODULE.bazel"]
     if not workspace:
-        fail("Could not find the WORKSPACE of the cc_toolchain")
+        fail("Could not find the WORKSPACE or MODULE.bazel of the cc_toolchain")
     return workspace[0]
 
 def _pkg_win_impl(ctx):
