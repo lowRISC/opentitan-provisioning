@@ -9,8 +9,10 @@ MXE="gcc_mxe_mingw32_files"
 
 # Bzlmod compatibility: Find the actual directory name in external/
 if [ ! -d "external/${MXE}" ]; then
-    # Look for directory ending with ~gcc_mxe_mingw32_files (Bzlmod canonical name style)
-    FOUND=$(find external -maxdepth 1 -name "*~${MXE}" -type d | head -n 1)
+    # Look for directory ending with ~gcc_mxe_mingw32_files or +gcc_mxe_mingw32_files
+    # Bazel 7 uses ~ as a separator in Bzlmod canonical names.
+    # Bazel 8 uses + as a separator.
+    FOUND=$(find external -maxdepth 1 \( -name "*~${MXE}" -o -name "*+${MXE}" \) -type d | head -n 1)
     if [ -n "$FOUND" ]; then
         MXE=${FOUND#external/}
     fi

@@ -16,7 +16,7 @@ jobs:
       - name: Prepare environment
         uses: ./.github/actions/prepare-env
       - name: Run linter checks
-        run: bazel test //quality/... --test_output=errors
+        run: bazelisk test //quality/... --test_output=errors
 
   # Build and test everything in the codebase (except the FPGA tests).
   build_and_test:
@@ -28,9 +28,9 @@ jobs:
           lfs: true
       - name: Build everything
         run: |
-          bazel build //...
-          bazel build --//src/pa/services:use_vendor_shim //src/pa/services:pa
-          bazel run //release:release -- \
+          bazelisk build //...
+          bazelisk build --//src/pa/services:use_vendor_shim //src/pa/services:pa
+          bazelisk run //release:release -- \
               --norelease \
               --copy "${PWD}/artifacts" \
               "no_tag_not_a_release"
@@ -41,7 +41,7 @@ jobs:
           path: artifacts/*
       - name: Test everything
         # Skip running lint tests as those are run in a previous stage.
-        run: bazel test --test_tag_filters=-lint,-fpga //...
+        run: bazelisk test --test_tag_filters=-lint,-fpga //...
 
   # Run integration tests.
   integration_tests:
