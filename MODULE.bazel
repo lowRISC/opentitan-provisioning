@@ -5,44 +5,37 @@
 module(name = "lowrisc_opentitan_provisioning")
 
 # -------------------------------------------------------------------------
-# Toolchains
-# -------------------------------------------------------------------------
-
-llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
-llvm.toolchain(
-    name = "llvm_toolchain_host",
-    llvm_versions = {"": "10.0.0"},
-)
-llvm.toolchain(
-    name = "llvm_toolchain_lint",
-    llvm_versions = {"": "14.0.0"},
-)
-use_repo(llvm, "llvm_toolchain_llvm")
-use_repo(llvm, "llvm_toolchain_host")
-use_repo(llvm, "llvm_toolchain_lint")
-
-register_toolchains("@llvm_toolchain_host//:all")
-
-# -------------------------------------------------------------------------
-# Dependencies
+# Standard Libraries & Utilities
 # -------------------------------------------------------------------------
 
 bazel_dep(name = "abseil-cpp", version = "20240116.1", repo_name = "com_google_absl")
 bazel_dep(name = "bazel_skylib", version = "1.7.1")
 bazel_dep(name = "googletest", version = "1.14.0.bcr.1", repo_name = "com_google_googletest")
-bazel_dep(name = "re2", version = "2023-09-01", repo_name = "com_googlesource_code_re2")
 bazel_dep(name = "platforms", version = "0.0.11")
+bazel_dep(name = "re2", version = "2023-09-01", repo_name = "com_googlesource_code_re2")
+bazel_dep(name = "upb", version = "0.0.0-20230907-e7430e6")
+
+# -------------------------------------------------------------------------
+# Build Rules
+# -------------------------------------------------------------------------
+
+bazel_dep(name = "rules_apple", version = "3.16.1")
 bazel_dep(name = "rules_cc", version = "0.1.2")
-bazel_dep(name = "rules_fuzzing", version = "0.5.2")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
 bazel_dep(name = "rules_proto", version = "7.0.2")
-bazel_dep(name = "aspect_rules_lint", version = "1.0.8")
-bazel_dep(name = "rules_apple", version = "3.16.1")
-bazel_dep(name = "rules_rust", version = "0.59.2")
-bazel_dep(name = "protobuf", version = "29.0", repo_name = "com_google_protobuf")
-bazel_dep(name = "gazelle", version = "0.41.0", repo_name = "bazel_gazelle")
 
-# Use a modern gRPC (compatible with Protobuf 27+)
+bazel_dep(name = "rules_foreign_cc", version = "0.9.0")
+single_version_override(
+    module_name = "rules_foreign_cc",
+    version = "0.9.0",
+)
+
+# -------------------------------------------------------------------------
+# Protocol Buffers & gRPC
+# -------------------------------------------------------------------------
+
+bazel_dep(name = "protobuf", version = "29.0", repo_name = "com_google_protobuf")
+
 bazel_dep(name = "grpc", version = "1.66.0.bcr.3", repo_name = "com_github_grpc_grpc")
 single_version_override(
     module_name = "grpc",
@@ -53,62 +46,60 @@ single_version_override(
     ],
 )
 
-# Explicitly add upb (required by gRPC 1.66+ in Bzlmod)
-bazel_dep(name = "upb", version = "0.0.0-20230907-e7430e6")
-bazel_dep(name = "rules_foreign_cc", version = "0.9.0")
-single_version_override(
-    module_name = "rules_foreign_cc",
-    version = "0.9.0",
+# -------------------------------------------------------------------------
+# OpenTitan Project
+# -------------------------------------------------------------------------
+
+bazel_dep(name = "lowrisc_opentitan")
+archive_override(
+    module_name = "lowrisc_opentitan",
+    integrity = "sha256-dlAOmYr6B0VvdsvDoDQkM1GM3Fc9qYxgmEnXQG+d07k=",
+    patch_strip = 0,
+    patches = ["third_party/lowrisc/lowrisc_opentitan_libclang.patch"],
+    strip_prefix = "opentitan-Earlgrey-A2-Orchestrator-RC4",
+    urls = ["https://github.com/lowRISC/opentitan/archive/refs/tags/Earlgrey-A2-Orchestrator-RC4.tar.gz"],
 )
 
-# Go Toolchain: Used for Go code
+# -------------------------------------------------------------------------
+# C++ Toolchain (LLVM)
+# -------------------------------------------------------------------------
+
+bazel_dep(name = "toolchains_llvm", version = "1.1.2")
+single_version_override(
+    module_name = "toolchains_llvm",
+    patch_strip = 0,
+    patches = ["third_party/bazel/toolchains_llvm_no_root_check.patch"],
+)
+
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+llvm.toolchain(
+    name = "llvm_toolchain_host",
+    llvm_versions = {"": "10.0.0"},
+)
+llvm.toolchain(
+    name = "llvm_toolchain_lint",
+    llvm_versions = {"": "14.0.0"},
+)
+use_repo(llvm, "llvm_toolchain_llvm", "llvm_toolchain_host", "llvm_toolchain_lint")
+register_toolchains("@llvm_toolchain_host//:all")
+
+# -------------------------------------------------------------------------
+# Go Toolchain & Dependencies
+# -------------------------------------------------------------------------
+
 bazel_dep(name = "rules_go", version = "0.52.0", repo_name = "io_bazel_rules_go")
 single_version_override(
     module_name = "rules_go",
     version = "0.52.0",
 )
 
-# Protobuf matchers for googletest
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-_MXE_BUILD_FILE = """
-package(default_visibility = ["//visibility:public"])
-filegroup(
-    name = "all",
-    srcs = glob(["**"], exclude = ["**/*.html", "**/*.pdf"]),
-)
-exports_files(glob(["bin/**"]))
-"""
-
-http_archive(
-    name = "gcc_mxe_mingw32_files",
-    build_file_content = _MXE_BUILD_FILE,
-    sha256 = "215b9dfa070687dafab29453b04a075e7955c2c7f3b8d16960207cfde730f126",
-    strip_prefix = "mxe",
-    urls = ["https://github.com/lowRISC/crt/releases/download/v0.4.14/mxe-binaries-win32.tar.xz"],
-)
-
-register_toolchains(
-    "//third_party/crt/toolchains/gcc_mxe_mingw32:cc_toolchain_pc-win32",
-)
-
-http_archive(
-    name = "com_github_protobuf_matchers",
-    build_file_content = 'package(default_visibility = ["//visibility:public"])',
-    patch_args = ["-p1"],
-    patches = ["third_party/google/protobuf_matchers_fix.patch"],
-    sha256 = "8314521014fb7b5e33f061d0f53a3c7222dbee1871df2f66198522a5687a71c1",
-    strip_prefix = "protobuf-matchers-7c8e15741bcea83db7819cc472c3e96301a95158",
-    urls = ["https://github.com/inazarenko/protobuf-matchers/archive/7c8e15741bcea83db7819cc472c3e96301a95158.zip"],
-)
+bazel_dep(name = "gazelle", version = "0.41.0", repo_name = "bazel_gazelle")
 
 go_sdk = use_extension("@io_bazel_rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.download(version = "1.24.0")
 use_repo(go_sdk, "go_default_sdk")
-
 register_toolchains("@go_default_sdk//:all")
 
-# Go Dependencies
 go_deps = use_extension("@bazel_gazelle//:extensions.bzl", "go_deps")
 go_deps.from_file(go_mod = "//:go.mod")
 use_repo(
@@ -161,51 +152,9 @@ use_repo(
     "org_modernc_sqlite",
 )
 
-# Rust Dependencies
-crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
-crate.from_cargo(
-    name = "provisioning_index",
-    cargo_lockfile = "@lowrisc_opentitan//third_party/rust:Cargo.lock",
-    manifests = ["@lowrisc_opentitan//third_party/rust:Cargo.toml"],
-    supported_platform_triples = ["x86_64-unknown-linux-gnu"],
-)
-use_repo(crate, "crate_index", "provisioning_index")
-
-# Dev dependencies:
-bazel_dep(
-    name = "buildifier_prebuilt",
-    version = "6.4.0",
-    dev_dependency = True,
-)
-bazel_dep(
-    name = "lowrisc_misc_linters",
-    dev_dependency = True,
-)
-archive_override(
-    module_name = "lowrisc_misc_linters",
-    integrity = "sha256-Nl/mfYFo/uGg/DrqS7gFiL9yHcT8g7QEY7CetQiXzaM=",
-    strip_prefix = "misc-linters-20240823_01",
-    urls = ["https://github.com/lowRISC/misc-linters/archive/refs/tags/20240823_01.tar.gz"],
-)
-
-# Depend on the version OpenTitan expects
-bazel_dep(name = "toolchains_llvm", version = "1.1.2")
-single_version_override(
-    module_name = "toolchains_llvm",
-    patch_strip = 0,
-    patches = ["third_party/bazel/toolchains_llvm_no_root_check.patch"],
-)
-
-# OpenTitan & Project Specific
-bazel_dep(name = "lowrisc_opentitan")
-archive_override(
-    module_name = "lowrisc_opentitan",
-    integrity = "sha256-dlAOmYr6B0VvdsvDoDQkM1GM3Fc9qYxgmEnXQG+d07k=",
-    patch_strip = 0,
-    patches = ["third_party/lowrisc/lowrisc_opentitan_libclang.patch"],
-    strip_prefix = "opentitan-Earlgrey-A2-Orchestrator-RC4",
-    urls = ["https://github.com/lowRISC/opentitan/archive/refs/tags/Earlgrey-A2-Orchestrator-RC4.tar.gz"],
-)
+# -------------------------------------------------------------------------
+# Python Toolchain
+# -------------------------------------------------------------------------
 
 bazel_dep(name = "rules_python", version = "1.2.0")
 single_version_override(
@@ -215,27 +164,31 @@ single_version_override(
     version = "1.2.0",
 )
 
-# Python toolchain:
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
-    # Required because CI containers currently run as the `root` user.
-    # We lose caching of `.pyc` files as a result.
-    # See <https://github.com/bazelbuild/rules_python/pull/713>.
     ignore_root_user_error = True,
     is_default = True,
     python_version = "3.9",
 )
 use_repo(python, "pythons_hub")
-
 register_toolchains("@pythons_hub//:all")
 
-# We occasionally access the toolchain repositories directly to use interpreters
 use_repo(python, python3 = "python_3_9", python3_host = "python_3_9_host")
 
-# OpenTitan Required Overrides
-# Dependency overrides are ignored in transitive dependencies
+# -------------------------------------------------------------------------
+# Rust Toolchain
+# -------------------------------------------------------------------------
 
-# Patch rules_rust_bindgen to allow header-only libs
+bazel_dep(name = "rules_rust", version = "0.59.2")
+single_version_override(
+    module_name = "rules_rust",
+    patch_strip = 0,
+    patches = [
+        "third_party/bazel/rules_rust.extra_rustc_toolchain_dirs.patch",
+    ],
+    version = "0.59.2",
+)
+
 single_version_override(
     module_name = "rules_rust_bindgen",
     patch_strip = 0,
@@ -247,46 +200,58 @@ single_version_override(
     version = "0.59.2",
 )
 
-# Patch rules_rust for toolchain paths
-single_version_override(
-    module_name = "rules_rust",
-    patch_strip = 0,
-    patches = [
-        "third_party/bazel/rules_rust.extra_rustc_toolchain_dirs.patch",
-    ],
-    version = "0.59.2",
+crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
+crate.from_cargo(
+    name = "provisioning_index",
+    cargo_lockfile = "@lowrisc_opentitan//third_party/rust:Cargo.lock",
+    manifests = ["@lowrisc_opentitan//third_party/rust:Cargo.toml"],
+    supported_platform_triples = ["x86_64-unknown-linux-gnu"],
 )
-
+use_repo(crate, "crate_index", "provisioning_index")
 register_toolchains("@lowrisc_opentitan//third_party/rust:bindgen_toolchain")
 
-# SoftHSM2: Software Hardware Security Module
-http_archive(
-    name = "softhsm2",
-    build_file = "//third_party/softhsm2:BUILD.softhsm2.bazel",
-    patch_args = ["-p1"],
-    patches = [
-        "//util/containers/softhsm2:0001-Disable-filename-logging.patch",
-        "//third_party/softhsm2:0002-Include-time.patch",
-    ],
-    sha256 = "72cf979ec4f74ca4555861dcae45cf7d1b667cc2e4f3ee3fb26e6ff1b99aec95",
-    strip_prefix = "SoftHSMv2-4975c0df4c7090e97a3860ae21079a9597cfedc6",
-    urls = ["https://github.com/opendnssec/SoftHSMv2/archive/4975c0df4c7090e97a3860ae21079a9597cfedc6.tar.gz"],
+# -------------------------------------------------------------------------
+# Dev Dependencies
+# -------------------------------------------------------------------------
+
+bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
+bazel_dep(name = "lowrisc_misc_linters", dev_dependency = True)
+archive_override(
+    module_name = "lowrisc_misc_linters",
+    integrity = "sha256-Nl/mfYFo/uGg/DrqS7gFiL9yHcT8g7QEY7CetQiXzaM=",
+    strip_prefix = "misc-linters-20240823_01",
+    urls = ["https://github.com/lowRISC/misc-linters/archive/refs/tags/20240823_01.tar.gz"],
 )
 
-# Docker Rules: For container builds (legacy, not yet fully Bzlmod)
+# -------------------------------------------------------------------------
+# Vendor & Local Extensions
+# -------------------------------------------------------------------------
+
+vendor_deps = use_extension("//rules:vendor.bzl", "vendor_deps")
+use_repo(vendor_deps, "vendor_repo")
+
+lint_deps = use_extension("//third_party/lint:extensions.bzl", "lint_deps")
+use_repo(lint_deps, "bazelbuild_buildtools", "clang-format", "protolint")
+
+# -------------------------------------------------------------------------
+# Container / Docker (Mixed Bzlmod & Legacy)
+# -------------------------------------------------------------------------
+
+docker = use_extension("//third_party/docker:extensions.bzl", "docker_extension")
+use_repo(docker, "container_k8s_pause", "container_softhsm2", "docker_config", "go_image_base", "go_image_static")
+register_toolchains("//config/containers:docker_toolchain")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+
 http_archive(
     name = "io_bazel_rules_docker",
     patch_args = ["-p1"],
-    patches = [
-        "//third_party/docker:rules_docker_fix.patch",
-    ],
+    patches = ["//third_party/docker:rules_docker_fix.patch"],
     sha256 = "f6dcb97e992f13bc9effd794e9bb300f06b0dadc88061f81ae68d8d5994be964",
     urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.26.0/rules_docker-v0.26.0.tar.gz"],
 )
 
-http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
-
-# Manually pulling in transitive dependencies for rules_docker
 http_file(
     name = "go_puller_linux_amd64",
     executable = True,
@@ -308,7 +273,56 @@ http_archive(
     urls = ["https://github.com/google/containerregistry/archive/v0.0.38.tar.gz"],
 )
 
-# Release tools
+# -------------------------------------------------------------------------
+# Legacy HTTP Archives & Cross Compilation
+# -------------------------------------------------------------------------
+
+# GCC MXE MinGW32 Toolchain
+_MXE_BUILD_FILE = """
+package(default_visibility = ["//visibility:public"])
+filegroup(
+    name = "all",
+    srcs = glob(["**"], exclude = ["**/*.html", "**/*.pdf"]),
+)
+exports_files(glob(["bin/**"]))
+"""
+
+http_archive(
+    name = "gcc_mxe_mingw32_files",
+    build_file_content = _MXE_BUILD_FILE,
+    sha256 = "215b9dfa070687dafab29453b04a075e7955c2c7f3b8d16960207cfde730f126",
+    strip_prefix = "mxe",
+    urls = ["https://github.com/lowRISC/crt/releases/download/v0.4.14/mxe-binaries-win32.tar.xz"],
+)
+
+register_toolchains("//third_party/crt/toolchains/gcc_mxe_mingw32:cc_toolchain_pc-win32")
+
+# Protobuf matchers
+http_archive(
+    name = "com_github_protobuf_matchers",
+    build_file_content = 'package(default_visibility = ["//visibility:public"])',
+    patch_args = ["-p1"],
+    patches = ["third_party/google/protobuf_matchers_fix.patch"],
+    sha256 = "8314521014fb7b5e33f061d0f53a3c7222dbee1871df2f66198522a5687a71c1",
+    strip_prefix = "protobuf-matchers-7c8e15741bcea83db7819cc472c3e96301a95158",
+    urls = ["https://github.com/inazarenko/protobuf-matchers/archive/7c8e15741bcea83db7819cc472c3e96301a95158.zip"],
+)
+
+# SoftHSM2
+http_archive(
+    name = "softhsm2",
+    build_file = "//third_party/softhsm2:BUILD.softhsm2.bazel",
+    patch_args = ["-p1"],
+    patches = [
+        "//util/containers/softhsm2:0001-Disable-filename-logging.patch",
+        "//third_party/softhsm2:0002-Include-time.patch",
+    ],
+    sha256 = "72cf979ec4f74ca4555861dcae45cf7d1b667cc2e4f3ee3fb26e6ff1b99aec95",
+    strip_prefix = "SoftHSMv2-4975c0df4c7090e97a3860ae21079a9597cfedc6",
+    urls = ["https://github.com/opendnssec/SoftHSMv2/archive/4975c0df4c7090e97a3860ae21079a9597cfedc6.tar.gz"],
+)
+
+# Release Tools
 http_archive(
     name = "lowrisc_bazel_release",
     sha256 = "c7b0cbdec0a1081a0b0a52eb1ebd942e7eaa218408008661fdb6e8ec3b441a4a",
@@ -323,18 +337,3 @@ http_archive(
     strip_prefix = "gh_2.20.2_linux_amd64",
     urls = ["https://github.com/cli/cli/releases/download/v2.20.2/gh_2.20.2_linux_amd64.tar.gz"],
 )
-
-docker = use_extension("//third_party/docker:extensions.bzl", "docker_extension")
-use_repo(docker, "container_k8s_pause", "container_softhsm2", "docker_config", "go_image_base", "go_image_static")
-
-register_toolchains("//config/containers:docker_toolchain")
-
-# -------------------------------------------------------------------------
-# Vendor Dependencies
-# -------------------------------------------------------------------------
-
-vendor_deps = use_extension("//rules:vendor.bzl", "vendor_deps")
-use_repo(vendor_deps, "vendor_repo")
-
-lint_deps = use_extension("//third_party/lint:extensions.bzl", "lint_deps")
-use_repo(lint_deps, "bazelbuild_buildtools", "clang-format", "protolint")
