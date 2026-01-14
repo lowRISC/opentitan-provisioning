@@ -8,6 +8,7 @@ syntax = "proto3";
 package crypto.cert;
 
 import "src/proto/crypto/ecdsa.proto";
+import "src/proto/crypto/mldsa.proto";
 
 option go_package = "cert_go_bp";
 
@@ -47,5 +48,7 @@ message SigningKeyParams {
   oneof key {
     // ECDSA key format.
     crypto.ecdsa.EcdsaParams ecdsa_params = 2;
+    // ML-DSA key format.
+    crypto.mldsa.MldsaParams mldsa_params = 3;
   }
 }

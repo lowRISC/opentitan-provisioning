@@ -15,6 +15,7 @@ proto_library(
     srcs = ["cert.proto"],
     deps = [
         ":ecdsa_proto",
+        ":mldsa_proto",
     ],
 )
 
@@ -24,6 +25,7 @@ go_proto_library(
     proto = ":cert_proto",
     deps = [
         ":ecdsa_go_pb",
+        ":mldsa_go_pb",
     ],
 )
 
@@ -63,6 +65,17 @@ go_proto_library(
     deps = [
         ":common_go_pb",
     ],
+)
+
+proto_library(
+    name = "mldsa_proto",
+    srcs = ["mldsa.proto"],
+)
+
+go_proto_library(
+    name = "mldsa_go_pb",
+    importpath = "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/mldsa_go_pb",
+    proto = ":mldsa_proto",
 )
 
 proto_library(
