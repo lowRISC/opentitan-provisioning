@@ -30,12 +30,33 @@ const (
 	WrappingMechanismAESGCM
 )
 
+// MldsaParameterSet specifies the ML-DSA parameter set.
+type MldsaParameterSet int
+
+const (
+	// MldsaParameterSetUnspecified indicates no specific ML-DSA instance.
+	MldsaParameterSetUnspecified MldsaParameterSet = 0
+	// MldsaParameterSet44 indicates ML-DSA-44.
+	MldsaParameterSet44 MldsaParameterSet = 1
+	// MldsaParameterSet65 indicates ML-DSA-65.
+	MldsaParameterSet65 MldsaParameterSet = 2
+	// MldsaParameterSet87 indicates ML-DSA-87.
+	MldsaParameterSet87 MldsaParameterSet = 3
+)
+
+// MldsaParams contains parameters for ML-DSA operations.
+type MldsaParams struct {
+	ParameterSets MldsaParameterSet
+}
+
 // Parameters for EndorseCert().
 type EndorseCertParams struct {
 	// Key label. Used to identify the key in the HSM.
 	KeyLabel string
-	// Signature algorithm to use.
-	SignatureAlgorithm x509.SignatureAlgorithm
+	// Signature algorithm to use (optional).
+	SignatureAlgorithm *x509.SignatureAlgorithm
+	// ML-DSA parameters (optional).
+	MldsaAlgorithm *MldsaParams
 	// Certificate chain to use for endorsement.
 	// This is typically the CA certificate chain that will be used to verify
 	// the signed certificate.

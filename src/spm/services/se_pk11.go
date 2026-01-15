@@ -415,29 +415,39 @@ func (h *HSM) EndorseCert(tbs []byte, params EndorseCertParams) ([]byte, error) 
 		return nil, fmt.Errorf("failed to find key object %q: %v", keyID, err)
 	}
 
-	hash, err := hashFromSignatureAlgorithm(params.SignatureAlgorithm)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get hash from signature algorithm: %v", err)
-	}
+	var sigBytes []byte
+	var sigType asn1.ObjectIdentifier
 
-	rb, sb, err := key.SignECDSA(hash, tbs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to sign: %v", err)
-	}
+	if params.SignatureAlgorithm != nil {
+		// ECDSA Signing
+		hash, err := hashFromSignatureAlgorithm(*params.SignatureAlgorithm)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get hash from signature algorithm: %v", err)
+		}
 
-	// Encode the signature as ASN.1 DER.
-	var sig struct{ R, S *big.Int }
-	sig.R, sig.S = new(big.Int), new(big.Int)
-	sig.R.SetBytes(rb)
-	sig.S.SetBytes(sb)
-	s, err := asn1.Marshal(sig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal signature: %v", err)
-	}
+		rb, sb, err := key.SignECDSA(hash, tbs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to sign: %v", err)
+		}
 
-	sigType, err := oidFromSignatureAlgorithm(params.SignatureAlgorithm)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get signature algorithm OID: %v", err)
+		// Encode the signature as ASN.1 DER.
+		var sig struct{ R, S *big.Int }
+		sig.R, sig.S = new(big.Int), new(big.Int)
+		sig.R.SetBytes(rb)
+		sig.S.SetBytes(sb)
+		sigBytes, err = asn1.Marshal(sig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal signature: %v", err)
+		}
+
+		sigType, err = oidFromSignatureAlgorithm(*params.SignatureAlgorithm)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get signature algorithm OID: %v", err)
+		}
+	} else if params.MldsaAlgorithm != nil {
+		return nil, fmt.Errorf("ML-DSA is not yet supported in this PKCS#11 wrapper")
+	} else {
+		return nil, fmt.Errorf("no signature algorithm specified")
 	}
 
 	certRaw := struct {
@@ -447,7 +457,7 @@ func (h *HSM) EndorseCert(tbs []byte, params EndorseCertParams) ([]byte, error) 
 	}{
 		TBSCertificate:     asn1.RawValue{FullBytes: tbs},
 		SignatureAlgorithm: pkix.AlgorithmIdentifier{Algorithm: sigType},
-		SignatureValue:     asn1.BitString{Bytes: s, BitLength: len(s) * 8},
+		SignatureValue:     asn1.BitString{Bytes: sigBytes, BitLength: len(sigBytes) * 8},
 	}
 	cert, err := asn1.Marshal(certRaw)
 	if err != nil {
@@ -494,43 +504,49 @@ func (h *HSM) EndorseData(data []byte, params EndorseCertParams) ([]byte, []byte
 		return nil, nil, fmt.Errorf("failed to find private key object %q: %v", keyID, err)
 	}
 
-	// Export the public key from the PKCS#11 private key object.
-	publicKeyHandle, err := privateKey.FindPublicKey()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find public key on SE: %v", err)
-	}
-	publicKey, err := publicKeyHandle.ExportKey()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to export public key from SE: %v", err)
-	}
-	asn1EcdsaPublicKey, err := x509.MarshalPKIXPublicKey(publicKey)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to marshal public key: %v", err)
-	}
+	if params.SignatureAlgorithm != nil {
+		// Export the public key from the PKCS#11 private key object.
+		publicKeyHandle, err := privateKey.FindPublicKey()
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to find public key on SE: %v", err)
+		}
+		publicKey, err := publicKeyHandle.ExportKey()
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to export public key from SE: %v", err)
+		}
+		asn1EcdsaPublicKey, err := x509.MarshalPKIXPublicKey(publicKey)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to marshal public key: %v", err)
+		}
 
-	// Hash the data payload.
-	hash, err := hashFromSignatureAlgorithm(params.SignatureAlgorithm)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get hash from signature algorithm: %v", err)
-	}
+		// Hash the data payload.
+		hash, err := hashFromSignatureAlgorithm(*params.SignatureAlgorithm)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get hash from signature algorithm: %v", err)
+		}
 
-	// Sign the hash of the data payload.
-	rb, sb, err := privateKey.SignECDSA(hash, data)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to sign: %v", err)
-	}
+		// Sign the hash of the data payload.
+		rb, sb, err := privateKey.SignECDSA(hash, data)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to sign: %v", err)
+		}
 
-	// Encode the signature as ASN.1 DER.
-	var sig struct{ R, S *big.Int }
-	sig.R, sig.S = new(big.Int), new(big.Int)
-	sig.R.SetBytes(rb)
-	sig.S.SetBytes(sb)
-	asn1Sig, err := asn1.Marshal(sig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to marshal signature: %v", err)
-	}
+		// Encode the signature as ASN.1 DER.
+		var sig struct{ R, S *big.Int }
+		sig.R, sig.S = new(big.Int), new(big.Int)
+		sig.R.SetBytes(rb)
+		sig.S.SetBytes(sb)
+		asn1Sig, err := asn1.Marshal(sig)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to marshal signature: %v", err)
+		}
 
-	return asn1EcdsaPublicKey, asn1Sig, nil
+		return asn1EcdsaPublicKey, asn1Sig, nil
+	} else if params.MldsaAlgorithm != nil {
+		return nil, nil, fmt.Errorf("ML-DSA is not yet supported in this PKCS#11 wrapper")
+	} else {
+		return nil, nil, fmt.Errorf("no signature algorithm specified")
+	}
 }
 
 func (h *HSM) VerifyWASSignature(params VerifyWASParams) error {

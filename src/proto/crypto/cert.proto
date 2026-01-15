@@ -48,7 +48,7 @@ message SigningKeyParams {
   oneof key {
     // ECDSA key format.
     crypto.ecdsa.EcdsaParams ecdsa_params = 2;
-    // ML-DSA key format.
+    // MLDSA key format.
     crypto.mldsa.MldsaParams mldsa_params = 3;
   }
 }

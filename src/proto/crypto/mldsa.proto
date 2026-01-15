@@ -10,13 +10,13 @@ package crypto.mldsa;
 option go_package = "mldsa_go_pb";
 
 enum MldsaParameterSets {
-  MLDSA_UNSPECIFIED = 0;
+  MLDSA_PARAMETER_SETS_MLDSA_UNSPECIFIED = 0;
   // ML-DSA-44 (security category 2)
-  MLDSA_44 = 1;
+  MLDSA_PARAMETER_SETS_MLDSA_44 = 1;
   // ML-DSA-65 (security category 3)
-  MLDSA_65 = 2;
+  MLDSA_PARAMETER_SETS_MLDSA_65 = 2;
   // ML-DSA-87 (security category 5)
-  MLDSA_87 = 3;
+  MLDSA_PARAMETER_SETS_MLDSA_87 = 3;
 }
 
 message MldsaParams {
