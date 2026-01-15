@@ -17,6 +17,7 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/bazelbuild/rules_go/go/tools/bazel"
@@ -289,9 +290,10 @@ func TestEndorseCert(t *testing.T) {
 	tbs := readFile(t, diceTBSPath)
 
 	log.Printf("Endorsing cert")
+	sigAlg := x509.ECDSAWithSHA256
 	certDER, err := hsm.EndorseCert(tbs, EndorseCertParams{
 		KeyLabel:           kcaPrivName,
-		SignatureAlgorithm: x509.ECDSAWithSHA256,
+		SignatureAlgorithm: &sigAlg,
 		Roots:              []*x509.Certificate{caCert},
 		Intermediates:      []*x509.Certificate{},
 	})
@@ -328,9 +330,10 @@ func TestEndorseData(t *testing.T) {
 
 	// Perform data signature operation.
 	log.Printf("Endorsing data")
+	sigAlg := x509.ECDSAWithSHA256
 	asn1PubKey, asn1Sig, err := hsm.EndorseData(data, EndorseCertParams{
 		KeyLabel:           kIdPrivName,
-		SignatureAlgorithm: x509.ECDSAWithSHA256,
+		SignatureAlgorithm: &sigAlg,
 	})
 	ts.Check(t, err)
 
@@ -440,4 +443,152 @@ func TestVerifyWASSignatureLogOnly(t *testing.T) {
 			t.Errorf("VerifyWASSignature() with incorrect signature and no LogOnly should have failed")
 		}
 	})
+}
+
+func TestEndorseCertMldsa(t *testing.T) {
+	hsm, _, _ := MakeHSM(t)
+
+	const kcaPrivName = "kca_priv"
+
+	// Import a dummy key so the key lookup succeeds
+	importCAKey := func() {
+		privateKeyDer := readFile(t, diceCAKeyPath)
+		privateKey, err := x509.ParsePKCS8PrivateKey(privateKeyDer)
+		ts.Check(t, err)
+
+		session, release := hsm.sessions.getHandle()
+		defer release()
+
+		privateKey = privateKey.(*ecdsa.PrivateKey)
+		ca, err := session.ImportKey(privateKey, &pk11.KeyOptions{
+			Extractable: true,
+			Token:       true,
+		})
+		ts.Check(t, err)
+		err = ca.SetLabel(kcaPrivName)
+		ts.Check(t, err)
+	}
+
+	importCAKey()
+
+	tbs := readFile(t, diceTBSPath)
+
+	_, err := hsm.EndorseCert(tbs, EndorseCertParams{
+		KeyLabel:      kcaPrivName,
+		MldsaAlgorithm:         &MldsaParams{ParameterSets: MldsaParameterSet44},
+		Roots:         []*x509.Certificate{},
+		Intermediates: []*x509.Certificate{},
+	})
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "ML-DSA is not yet supported") {
+		t.Fatalf("expected error containing 'ML-DSA is not yet supported', got %v", err)
+	}
+}
+
+func TestEndorseDataMldsa(t *testing.T) {
+	hsm, _, _ := MakeHSM(t)
+
+	// Mint ECDSA keys on HSM.
+	identityKeyPair, err := MintECDSAKeys(t, hsm)
+	ts.Check(t, err)
+
+	_, release := hsm.sessions.getHandle()
+	// Add labels to key objects in the HSM.
+	const kIdPrivName = "kid_priv"
+	const kIdPubName = "kid_pub"
+	err = identityKeyPair.PrivateKey.SetLabel(kIdPrivName)
+	ts.Check(t, err)
+	err = identityKeyPair.PublicKey.SetLabel(kIdPubName)
+	ts.Check(t, err)
+	release()
+
+	data := readFile(t, diceTBSPath)
+
+	_, _, err = hsm.EndorseData(data, EndorseCertParams{
+		KeyLabel: kIdPrivName,
+		MldsaAlgorithm:    &MldsaParams{ParameterSets: MldsaParameterSet44},
+	})
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "ML-DSA is not yet supported") {
+		t.Fatalf("expected error containing 'ML-DSA is not yet supported', got %v", err)
+	}
+}
+
+func TestEndorseCertNoAlg(t *testing.T) {
+	hsm, _, _ := MakeHSM(t)
+
+	const kcaPrivName = "kca_priv"
+
+	// Import a dummy key so the key lookup succeeds
+	importCAKey := func() {
+		privateKeyDer := readFile(t, diceCAKeyPath)
+		privateKey, err := x509.ParsePKCS8PrivateKey(privateKeyDer)
+		ts.Check(t, err)
+
+		session, release := hsm.sessions.getHandle()
+		defer release()
+
+		privateKey = privateKey.(*ecdsa.PrivateKey)
+		ca, err := session.ImportKey(privateKey, &pk11.KeyOptions{
+			Extractable: true,
+			Token:       true,
+		})
+		ts.Check(t, err)
+		err = ca.SetLabel(kcaPrivName)
+		ts.Check(t, err)
+	}
+
+	importCAKey()
+
+	tbs := readFile(t, diceTBSPath)
+
+	_, err := hsm.EndorseCert(tbs, EndorseCertParams{
+		KeyLabel:      kcaPrivName,
+		Roots:         []*x509.Certificate{},
+		Intermediates: []*x509.Certificate{},
+	})
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "no signature algorithm specified") {
+		t.Fatalf("expected error containing 'no signature algorithm specified', got %v", err)
+	}
+}
+
+func TestEndorseDataNoAlg(t *testing.T) {
+	hsm, _, _ := MakeHSM(t)
+
+	// Mint ECDSA keys on HSM.
+	identityKeyPair, err := MintECDSAKeys(t, hsm)
+	ts.Check(t, err)
+
+	_, release := hsm.sessions.getHandle()
+	// Add labels to key objects in the HSM.
+	const kIdPrivName = "kid_priv"
+	const kIdPubName = "kid_pub"
+	err = identityKeyPair.PrivateKey.SetLabel(kIdPrivName)
+	ts.Check(t, err)
+	err = identityKeyPair.PublicKey.SetLabel(kIdPubName)
+	ts.Check(t, err)
+	release()
+
+	data := readFile(t, diceTBSPath)
+
+	_, _, err = hsm.EndorseData(data, EndorseCertParams{
+		KeyLabel: kIdPrivName,
+	})
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "no signature algorithm specified") {
+		t.Fatalf("expected error containing 'no signature algorithm specified', got %v", err)
+	}
 }

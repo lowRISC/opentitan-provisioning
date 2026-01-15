@@ -32,6 +32,7 @@ import (
 	pbp "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
 	pbc "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/cert_go_pb"
 	pbcommon "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/common_go_pb"
+	pbm "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/mldsa_go_pb"
 	pbs "github.com/lowRISC/opentitan-provisioning/src/spm/proto/spm_go_pb"
 )
 
@@ -295,6 +296,19 @@ func ecdsaSignatureAlgorithmFromHashType(h pbcommon.HashType) x509.SignatureAlgo
 	}
 }
 
+func mldsaParameterSetFromProto(i pbm.MldsaParameterSets) se.MldsaParameterSet {
+	switch i {
+	case pbm.MldsaParameterSets_MLDSA_PARAMETER_SETS_MLDSA_44:
+		return se.MldsaParameterSet44
+	case pbm.MldsaParameterSets_MLDSA_PARAMETER_SETS_MLDSA_65:
+		return se.MldsaParameterSet65
+	case pbm.MldsaParameterSets_MLDSA_PARAMETER_SETS_MLDSA_87:
+		return se.MldsaParameterSet87
+	default:
+		return se.MldsaParameterSetUnspecified
+	}
+}
+
 // GetCaSubjectKeys retrieves the CA certificate(s) subject keys for a SKU.
 func (s *server) GetCaSubjectKeys(ctx context.Context, request *pbp.GetCaSubjectKeysRequest) (*pbp.GetCaSubjectKeysResponse, error) {
 	sku, ok := s.skuManager.GetSku(request.Sku)
@@ -443,9 +457,33 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 
 		switch key := bundle.KeyParams.Key.(type) {
 		case *pbc.SigningKeyParams_EcdsaParams:
+			sigAlg := ecdsaSignatureAlgorithmFromHashType(key.EcdsaParams.HashType)
 			params := se.EndorseCertParams{
 				KeyLabel:           keyLabel,
-				SignatureAlgorithm: ecdsaSignatureAlgorithmFromHashType(key.EcdsaParams.HashType),
+				SignatureAlgorithm: &sigAlg,
+				Intermediates: []*x509.Certificate{
+					caCert,
+				},
+				Roots: []*x509.Certificate{
+					rootCert,
+				},
+			}
+			cert, err := sku.SeHandle.EndorseCert(bundle.Tbs, params)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "could not endorse cert for %q: %v", bundle.KeyParams.KeyLabel, err)
+			}
+			certs = append(certs, &pbp.CertBundle{
+				KeyLabel: bundle.KeyParams.KeyLabel,
+				Cert: &pbc.Certificate{
+					Blob: cert,
+				},
+			})
+		case *pbc.SigningKeyParams_MldsaParams:
+			params := se.EndorseCertParams{
+				KeyLabel: keyLabel,
+				MldsaAlgorithm: &se.MldsaParams{
+					ParameterSets: mldsaParameterSetFromProto(key.MldsaParams.ParamSets),
+				},
 				Intermediates: []*x509.Certificate{
 					caCert,
 				},
@@ -489,9 +527,10 @@ func (s *server) EndorseData(ctx context.Context, request *pbs.EndorseDataReques
 	var asn1Pubkey, asn1Sig []byte
 	switch key := request.KeyParams.Key.(type) {
 	case *pbc.SigningKeyParams_EcdsaParams:
+		sigAlg := ecdsaSignatureAlgorithmFromHashType(key.EcdsaParams.HashType)
 		params := se.EndorseCertParams{
 			KeyLabel:           keyLabel,
-			SignatureAlgorithm: ecdsaSignatureAlgorithmFromHashType(key.EcdsaParams.HashType),
+			SignatureAlgorithm: &sigAlg,
 		}
 		asn1Pubkey, asn1Sig, err = sku.SeHandle.EndorseData(request.Data, params)
 		if err != nil {
@@ -517,6 +556,17 @@ func (s *server) EndorseData(ctx context.Context, request *pbs.EndorseDataReques
 		verified := ecdsa.Verify(ecdsaPubKey, dataHash[:], sig.R, sig.S)
 		if !verified {
 			return nil, status.Errorf(codes.Internal, "could not verify signature for hash %x", dataHash[:])
+		}
+	case *pbc.SigningKeyParams_MldsaParams:
+		params := se.EndorseCertParams{
+			KeyLabel: keyLabel,
+			MldsaAlgorithm: &se.MldsaParams{
+				ParameterSets: mldsaParameterSetFromProto(key.MldsaParams.ParamSets),
+			},
+		}
+		asn1Pubkey, asn1Sig, err = sku.SeHandle.EndorseData(request.Data, params)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "could not endorse data payload for sku %q: %v", request.Sku, err)
 		}
 	default:
 		return nil, status.Errorf(codes.Unimplemented, "unsupported key format")
