@@ -474,17 +474,17 @@ func TestEndorseCertMldsa(t *testing.T) {
 	tbs := readFile(t, diceTBSPath)
 
 	_, err := hsm.EndorseCert(tbs, EndorseCertParams{
-		KeyLabel:      kcaPrivName,
-		MldsaAlgorithm:         &MldsaParams{ParameterSets: MldsaParameterSet44},
-		Roots:         []*x509.Certificate{},
-		Intermediates: []*x509.Certificate{},
+		KeyLabel:       kcaPrivName,
+		MldsaAlgorithm: &MldsaParams{ParameterSets: MldsaParameterSet44},
+		Roots:          []*x509.Certificate{},
+		Intermediates:  []*x509.Certificate{},
 	})
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "ML-DSA is not yet supported") {
-		t.Fatalf("expected error containing 'ML-DSA is not yet supported', got %v", err)
+	if !strings.Contains(err.Error(), "SignMLDSA not implemented") {
+		t.Fatalf("expected error containing 'SignMLDSA not implemented', got %v", err)
 	}
 }
 
@@ -508,15 +508,15 @@ func TestEndorseDataMldsa(t *testing.T) {
 	data := readFile(t, diceTBSPath)
 
 	_, _, err = hsm.EndorseData(data, EndorseCertParams{
-		KeyLabel: kIdPrivName,
-		MldsaAlgorithm:    &MldsaParams{ParameterSets: MldsaParameterSet44},
+		KeyLabel:       kIdPrivName,
+		MldsaAlgorithm: &MldsaParams{ParameterSets: MldsaParameterSet44},
 	})
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "ML-DSA is not yet supported") {
-		t.Fatalf("expected error containing 'ML-DSA is not yet supported', got %v", err)
+	if !strings.Contains(err.Error(), "SignMLDSA not implemented") {
+		t.Fatalf("expected error containing 'SignMLDSA not implemented', got %v", err)
 	}
 }
 
