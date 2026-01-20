@@ -64,7 +64,7 @@ To run integration test cases:
 
 ```console
 $ ./integration/run_pa_loadtest.sh
-$ ./integration/run_client_tests.sh
+$ ./integration/run_ate_tests.sh
 ```
 
 To format the code before submitting changes:
