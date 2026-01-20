@@ -197,5 +197,5 @@ The following steps can be used to test the install from a development environme
 #   is required.
 # * --prod: Builds and deploys the test environment using the test configuration.
 #   This involves connecting to a physical HSM.
-./integration/run_pa_loadtest.sh
+./tests/run_pa_loadtest.sh
 ```

@@ -40,7 +40,7 @@ The following section describes how to run the SPM server in development mode.
 For SoftHSM2 initialization use `--local` option if more than one developer is
 using the system to avoid conflicts (no sudo is required).
 
-See `integration/run_pa_loadtest.sh` for an example of how to configure and run
+See `tests/run_pa_loadtest.sh` for an example of how to configure and run
 the SPM and PA servers.
 
 ### Configure SoftHSM2

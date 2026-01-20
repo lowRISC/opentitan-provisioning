@@ -63,8 +63,8 @@ $ bazelisk test //...
 To run integration test cases:
 
 ```console
-$ ./integration/run_pa_loadtest.sh
-$ ./integration/run_ate_tests.sh
+$ ./tests/run_pa_loadtest.sh
+$ ./tests/run_ate_test.sh
 ```
 
 To format the code before submitting changes:
