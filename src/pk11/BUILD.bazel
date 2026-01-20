@@ -13,6 +13,7 @@ go_library(
         "dump.go",
         "ecdsa.go",
         "gensec.go",
+        "mldsa.go",
         "object.go",
         "pk11.go",
         "rsa.go",

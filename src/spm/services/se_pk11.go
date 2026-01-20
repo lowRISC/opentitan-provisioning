@@ -369,6 +369,11 @@ var (
 	oidECDSAWithSHA256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 2}
 	oidECDSAWithSHA384 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 3}
 	oidECDSAWithSHA512 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 4}
+
+	// NIST FIPS 204 OIDs for ML-DSA
+	oidMldsa44 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 17}
+	oidMldsa65 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 18}
+	oidMldsa87 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
 )
 
 // oidFromSignatureAlgorithm returns the ASN.1 object identifier for the given
@@ -383,6 +388,19 @@ func oidFromSignatureAlgorithm(alg x509.SignatureAlgorithm) (asn1.ObjectIdentifi
 		return oidECDSAWithSHA512, nil
 	default:
 		return nil, fmt.Errorf("unsupported signature algorithm: %v", alg)
+	}
+}
+
+func oidFromMLDSAParameterSet(params MldsaParameterSet) (asn1.ObjectIdentifier, error) {
+	switch params {
+	case MldsaParameterSet44:
+		return oidMldsa44, nil
+	case MldsaParameterSet65:
+		return oidMldsa65, nil
+	case MldsaParameterSet87:
+		return oidMldsa87, nil
+	default:
+		return nil, fmt.Errorf("unsupported MLDSA parameter set: %v", params)
 	}
 }
 
@@ -445,7 +463,16 @@ func (h *HSM) EndorseCert(tbs []byte, params EndorseCertParams) ([]byte, error) 
 			return nil, fmt.Errorf("failed to get signature algorithm OID: %v", err)
 		}
 	} else if params.MldsaAlgorithm != nil {
-		return nil, fmt.Errorf("ML-DSA is not yet supported in this PKCS#11 wrapper")
+		// MLDSA Signing
+		sigBytes, err = key.SignMLDSA(tbs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to sign with MLDSA: %v", err)
+		}
+
+		sigType, err = oidFromMLDSAParameterSet(params.MldsaAlgorithm.ParameterSets)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get signature algorithm OID: %v", err)
+		}
 	} else {
 		return nil, fmt.Errorf("no signature algorithm specified")
 	}
@@ -472,20 +499,23 @@ func (h *HSM) EndorseCert(tbs []byte, params EndorseCertParams) ([]byte, error) 
 
 	certObj.UnhandledCriticalExtensions = nil
 
-	roots := x509.NewCertPool()
-	for _, ca := range params.Roots {
-		roots.AddCert(ca)
-	}
-	intermediates := x509.NewCertPool()
-	for _, ca := range params.Intermediates {
-		intermediates.AddCert(ca)
-	}
-	_, err = certObj.Verify(x509.VerifyOptions{
-		Roots:         roots,
-		Intermediates: intermediates,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to verify certificate chain: %v", err)
+	// Only verify if not MLDSA, as crypto/x509 does not support MLDSA verification.
+	if params.MldsaAlgorithm == nil {
+		roots := x509.NewCertPool()
+		for _, ca := range params.Roots {
+			roots.AddCert(ca)
+		}
+		intermediates := x509.NewCertPool()
+		for _, ca := range params.Intermediates {
+			intermediates.AddCert(ca)
+		}
+		_, err = certObj.Verify(x509.VerifyOptions{
+			Roots:         roots,
+			Intermediates: intermediates,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to verify certificate chain: %v", err)
+		}
 	}
 	return cert, nil
 }
@@ -543,7 +573,12 @@ func (h *HSM) EndorseData(data []byte, params EndorseCertParams) ([]byte, []byte
 
 		return asn1EcdsaPublicKey, asn1Sig, nil
 	} else if params.MldsaAlgorithm != nil {
-		return nil, nil, fmt.Errorf("ML-DSA is not yet supported in this PKCS#11 wrapper")
+		// MLDSA Signing
+		sigBytes, err := privateKey.SignMLDSA(data)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to sign with MLDSA: %v", err)
+		}
+		return nil, sigBytes, nil
 	} else {
 		return nil, nil, fmt.Errorf("no signature algorithm specified")
 	}
