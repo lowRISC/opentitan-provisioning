@@ -39,7 +39,10 @@ go_library(
 
 go_test(
     name = "pk11_test",
-    srcs = ["pk11_test.go"],
+    srcs = [
+        "mldsa_test.go",
+        "pk11_test.go",
+    ],
     deps = [
         ":pk11",
         ":test_support",

@@ -6,7 +6,6 @@ package pk11
 
 import (
 	"crypto"
-	"fmt"
 	"io"
 
 	"github.com/miekg/pkcs11"
@@ -14,9 +13,9 @@ import (
 
 // TODO: Replace with official PKCS#11 constants when available.
 const (
-	CKM_MLDSA              = pkcs11.CKM_VENDOR_DEFINED + 0x100
-	CKK_MLDSA              = pkcs11.CKK_VENDOR_DEFINED + 0x101
-	CKM_MLDSA_KEY_PAIR_GEN = pkcs11.CKM_VENDOR_DEFINED + 0x102
+	CKM_MLDSA              = 0x1D
+	CKK_MLDSA              = 0x4A
+	CKM_MLDSA_KEY_PAIR_GEN = 0x1C
 )
 
 // MldsaParameterSet specifies the ML-DSA parameter set.
@@ -31,13 +30,69 @@ const (
 
 // GenerateMLDSA generates an MLDSA key pair.
 func (s *Session) GenerateMLDSA(params MldsaParameterSet, opts *KeyOptions) (KeyPair, error) {
-	// TODO: Implement MLDSA key generation when HSM support is available.
-	return KeyPair{}, fmt.Errorf("GenerateMLDSA not implemented")
+	if opts == nil {
+		opts = &KeyOptions{}
+	}
+
+	mech := pkcs11.NewMechanism(CKM_MLDSA_KEY_PAIR_GEN, nil)
+
+	// CKA_PARAMETER_SET is 0x61D
+	const CKA_PARAMETER_SET = 0x61D
+
+	pubTpl := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(CKA_PARAMETER_SET, uint(params)),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, CKK_MLDSA),
+		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, true),
+		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, opts.Token),
+	}
+	privTpl := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, CKK_MLDSA),
+		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
+		pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, opts.Sensitive),
+		pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, opts.Extractable),
+		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, opts.Token),
+	}
+
+	s.tok.m.appendAttrKeyID(&pubTpl, &privTpl)
+
+	kpu, kpr, err := s.tok.m.Raw().GenerateKeyPair(
+		s.raw,
+		[]*pkcs11.Mechanism{mech},
+		pubTpl,
+		privTpl,
+	)
+	if err != nil {
+		return KeyPair{}, newError(err, "could not generate keys")
+	}
+
+	return KeyPair{PublicKey{object{s, kpu}}, PrivateKey{object{s, kpr}}}, nil
 }
 
 // SignMLDSA signs a message using MLDSA.
 func (k PrivateKey) SignMLDSA(message []byte) ([]byte, error) {
-	return nil, fmt.Errorf("SignMLDSA not implemented")
+	mech := []*pkcs11.Mechanism{pkcs11.NewMechanism(CKM_MLDSA, nil)}
+	if err := k.sess.tok.m.Raw().SignInit(k.sess.raw, mech, k.raw); err != nil {
+		return nil, newError(err, "could not begin signing operation")
+	}
+
+	data, err := k.sess.tok.m.Raw().Sign(k.sess.raw, message)
+	if err != nil {
+		return nil, newError(err, "could not complete signing operation")
+	}
+	return data, nil
+}
+
+// VerifyMLDSA verifies an MLDSA signature.
+func (k PublicKey) VerifyMLDSA(message, signature []byte) error {
+	mech := []*pkcs11.Mechanism{pkcs11.NewMechanism(CKM_MLDSA, nil)}
+	if err := k.sess.tok.m.Raw().VerifyInit(k.sess.raw, mech, k.raw); err != nil {
+		return newError(err, "could not begin verification operation")
+	}
+
+	if err := k.sess.tok.m.Raw().Verify(k.sess.raw, message, signature); err != nil {
+		return newError(err, "could not complete verification operation")
+	}
+	return nil
 }
 
 // MLDSASigner implements crypto.Signer for MLDSA.
