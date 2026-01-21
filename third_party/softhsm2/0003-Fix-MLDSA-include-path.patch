@@ -1,0 +1,11 @@
+--- a/src/lib/crypto/CMakeLists.txt	2026-01-20 18:22:45.864216033 -0800
++++ b/src/lib/crypto/CMakeLists.txt	2026-01-20 18:23:48.084060597 -0800
+@@ -4,6 +4,8 @@
+                  ${PROJECT_SOURCE_DIR}/../common
+                  ${PROJECT_SOURCE_DIR}/../data_mgr
+                  ${PROJECT_SOURCE_DIR}/../pkcs11
++                 ${PROJECT_SOURCE_DIR}/../slot_mgr
++                 ${PROJECT_SOURCE_DIR}/../object_store
+                  ${CRYPTO_INCLUDES}
+                  )
+ 

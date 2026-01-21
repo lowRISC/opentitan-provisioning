@@ -29,9 +29,10 @@ import (
 )
 
 const (
-	diceTBSPath    = "src/spm/services/testdata/tbs.der"
-	diceCAKeyPath  = "src/spm/services/testdata/sk.pkcs8.der"
-	diceCACertPath = "src/spm/services/testdata/dice_ca.pem"
+	diceTBSPath      = "src/spm/services/testdata/tbs.der"
+	diceMLDSATBSPath = "src/spm/services/testdata/mldsa_tbs.der"
+	diceCAKeyPath    = "src/spm/services/testdata/sk.pkcs8.der"
+	diceCACertPath   = "src/spm/services/testdata/dice_ca.pem"
 )
 
 // readFile reads a file from the runfiles directory.
@@ -450,28 +451,23 @@ func TestEndorseCertMldsa(t *testing.T) {
 
 	const kcaPrivName = "kca_priv"
 
-	// Import a dummy key so the key lookup succeeds
-	importCAKey := func() {
-		privateKeyDer := readFile(t, diceCAKeyPath)
-		privateKey, err := x509.ParsePKCS8PrivateKey(privateKeyDer)
-		ts.Check(t, err)
-
+	// Generate MLDSA key on HSM
+	genMldsaKey := func() {
 		session, release := hsm.sessions.getHandle()
 		defer release()
 
-		privateKey = privateKey.(*ecdsa.PrivateKey)
-		ca, err := session.ImportKey(privateKey, &pk11.KeyOptions{
+		kp, err := session.GenerateMLDSA(pk11.MldsaParameterSet44, &pk11.KeyOptions{
 			Extractable: true,
 			Token:       true,
 		})
 		ts.Check(t, err)
-		err = ca.SetLabel(kcaPrivName)
+		err = kp.PrivateKey.SetLabel(kcaPrivName)
 		ts.Check(t, err)
 	}
 
-	importCAKey()
+	genMldsaKey()
 
-	tbs := readFile(t, diceTBSPath)
+	tbs := readFile(t, diceMLDSATBSPath)
 
 	_, err := hsm.EndorseCert(tbs, EndorseCertParams{
 		KeyLabel:       kcaPrivName,
@@ -480,22 +476,20 @@ func TestEndorseCertMldsa(t *testing.T) {
 		Intermediates:  []*x509.Certificate{},
 	})
 
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "SignMLDSA not implemented") {
-		t.Fatalf("expected error containing 'SignMLDSA not implemented', got %v", err)
-	}
+	ts.Check(t, err)
 }
 
 func TestEndorseDataMldsa(t *testing.T) {
 	hsm, _, _ := MakeHSM(t)
 
-	// Mint ECDSA keys on HSM.
-	identityKeyPair, err := MintECDSAKeys(t, hsm)
+	// Generate MLDSA keys on HSM.
+	session, release := hsm.sessions.getHandle()
+	identityKeyPair, err := session.GenerateMLDSA(pk11.MldsaParameterSet44, &pk11.KeyOptions{
+		Extractable: true,
+		Token:       true,
+	})
 	ts.Check(t, err)
 
-	_, release := hsm.sessions.getHandle()
 	// Add labels to key objects in the HSM.
 	const kIdPrivName = "kid_priv"
 	const kIdPubName = "kid_pub"
@@ -512,12 +506,7 @@ func TestEndorseDataMldsa(t *testing.T) {
 		MldsaAlgorithm: &MldsaParams{ParameterSets: MldsaParameterSet44},
 	})
 
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "SignMLDSA not implemented") {
-		t.Fatalf("expected error containing 'SignMLDSA not implemented', got %v", err)
-	}
+	ts.Check(t, err)
 }
 
 func TestEndorseCertNoAlg(t *testing.T) {

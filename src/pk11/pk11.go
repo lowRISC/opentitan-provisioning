@@ -109,24 +109,24 @@ var (
 //
 // This function is necessary since not all versions of PKCS#11 require doing this.
 func (m *Mod) appendAttrKeyID(templates ...*[]*pkcs11.Attribute) {
-	// In PKCS#11 v2, CKA_ID is provided in a creation template; in
-	// v3, the HSM generates it for us.
-	if m.version.Major < 3 {
-		idBytes := make([]byte, 8)
-		// This doesn't need to be unpredictable; it just needs to be *a* value.
-		// Hence the use of fairly vanilla insecure randomness.
-		idRandMu.Lock()
-		id := idRand.Uint64()
-		idRandMu.Unlock()
+	// Always generate a random CKA_ID.
+	// Although PKCS#11 v3 says the HSM should generate it, SoftHSMv2 (even if reporting v3)
+	// might not do it automatically or reliably for all key types without explicit request.
+	// Providing it manually ensures we can find the key later.
+	idBytes := make([]byte, 8)
+	// This doesn't need to be unpredictable; it just needs to be *a* value.
+	// Hence the use of fairly vanilla insecure randomness.
+	idRandMu.Lock()
+	id := idRand.Uint64()
+	idRandMu.Unlock()
 
-		for i := range idBytes {
-			idBytes[i] = byte(id)
-			id >>= 8
-		}
+	for i := range idBytes {
+		idBytes[i] = byte(id)
+		id >>= 8
+	}
 
-		for _, t := range templates {
-			*t = append(*t, pkcs11.NewAttribute(pkcs11.CKA_ID, idBytes))
-		}
+	for _, t := range templates {
+		*t = append(*t, pkcs11.NewAttribute(pkcs11.CKA_ID, idBytes))
 	}
 }
 
