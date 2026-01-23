@@ -2,9 +2,9 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-# Docker container used to build and run SoftHSM2.
+# Use Debian Sid (Unstable) which ships with OpenSSL 3.4+
+FROM debian:sid-slim
 
-FROM ubuntu:22.04
 LABEL version="1.0"
 LABEL description="OpenTitan provisioning SoftHSM2 container."
 
@@ -32,11 +32,10 @@ ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
 
 # Clone SoftHSM2.
-# Note: this commit hash should be kept in sync with that in:
-# third_party/softhsm2/deps.bzl
-ARG SOFTHSM2_COMMIT_HASH=4975c0df4c7090e97a3860ae21079a9597cfedc6
+# Note: this commit hash should be kept in sync with that in MODULE.bazel
+ARG SOFTHSM2_COMMIT_HASH=5fe2207418cd066142d122ea2c0c67f7831b6a63
 RUN cd /opt && \
-      git clone https://github.com/opendnssec/SoftHSMv2.git && \
+      git clone https://github.com/antoinelochet/SoftHSMv2.git && \
       cd SoftHSMv2 && \
       git reset --hard ${SOFTHSM2_COMMIT_HASH}
 
@@ -49,7 +48,7 @@ RUN cd /opt/SoftHSMv2 && \
       ./autogen.sh && \
       ./configure \
           --enable-ecc \
-          --disable-p11-kit \
+          --enable-mldsa \
           --disable-p11-kit \
           --with-crypto-backend=openssl \
           --localstatedir=/opt/SoftHSMv2 \
