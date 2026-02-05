@@ -324,6 +324,15 @@ http_archive(
     urls = ["https://github.com/inazarenko/protobuf-matchers/archive/7c8e15741bcea83db7819cc472c3e96301a95158.zip"],
 )
 
+# OpenSSL 3.5.5
+http_archive(
+    name = "openssl",
+    build_file = "//third_party/openssl:BUILD.openssl.bazel",
+    sha256 = "4ca7d770686ae621c88c78ee20a49c11aaa984c354ed038137ba87850e5386b8",
+    strip_prefix = "openssl-openssl-3.5.5",
+    urls = ["https://github.com/openssl/openssl/archive/refs/tags/openssl-3.5.5.tar.gz"],
+)
+
 # SoftHSM2
 http_archive(
     name = "softhsm2",

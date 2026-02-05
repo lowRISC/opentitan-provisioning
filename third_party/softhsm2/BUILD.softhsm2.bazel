@@ -20,9 +20,7 @@ cmake(
         "ENABLE_ECC": "ON",
         "ENABLE_MLDSA": "ON",
         "WITH_CRYPTO_BACKEND": "openssl",
-
-        # This build is for tests only.
-        # "CMAKE_BUILD_TYPE": "Debug",
+        "OPENSSL_USE_STATIC_LIBS": "ON",
 
         # SoftHSM wants to dump a bunch of nonsense into /etc, which is
         # not relevant to our use-case. To discard it, we set all of these
@@ -30,8 +28,7 @@ cmake(
         # to the CMake build directory.
         "CMAKE_INSTALL_LOCALSTATEDIR": ".",
         "CMAKE_INSTALL_SYSCONFDIR": ".",
-        "PROJECT_BINARY_DIR": ".",
-        "CMAKE_CXX_FLAGS": "-DWITH_ML_DSA",
+        "CMAKE_CXX_FLAGS": "-DWITH_ML_DSA -DWITHOUT_OPENSSL_ENGINES",
     },
     # Set up SoftHSM to provide useful debug messages during testing.
     copts = [
@@ -39,14 +36,12 @@ cmake(
         # "-DDEBUG_LOG_STDERR",
         # "-DSOFTHSM_LOG_FUNCTION_NAME",
     ],
+    env = {
+        "OPENSSL_ROOT_DIR": "$$EXT_BUILD_DEPS/openssl",
+    },
     generate_args = ["-GNinja"],
     lib_source = ":all_srcs",
     out_binaries = ["softhsm2-util"],
     out_shared_libs = ["softhsm/libsofthsm2.so"],
-    # `install` is not smart enough to figure out that it needs to build
-    # everything, so we specify "" here explicitly.
-    targets = [
-        "",
-        "libsofthsm2.so",
-    ],
+    deps = ["@openssl"],
 )

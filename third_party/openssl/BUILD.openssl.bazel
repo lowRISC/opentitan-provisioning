@@ -1,0 +1,49 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@rules_foreign_cc//foreign_cc:configure.bzl", "configure_make")
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "all_srcs",
+    srcs = glob(["**"]),
+)
+
+configure_make(
+    name = "openssl",
+    args = ["DESTDIR=$INSTALLDIR"],
+    configure_command = "Configure",
+    configure_options = [
+        "no-shared",
+        "no-tests",
+        "no-engine",
+        "no-dso",
+        "no-comp",
+        "no-idea",
+        "no-mdc2",
+        "no-rc5",
+        "no-ssl3",
+        "no-weak-ssl-ciphers",
+        "no-apps",
+        "-fPIC",
+        "--prefix=/",
+        "--openssldir=/ssl",
+        "--libdir=lib",
+    ],
+    env = select({
+        "@platforms//os:linux": {
+            "AR": "ar",
+        },
+        "//conditions:default": {},
+    }),
+    lib_source = ":all_srcs",
+    out_static_libs = [
+        "libssl.a",
+        "libcrypto.a",
+    ],
+    # OpenSSL's Configure script doesn't like some of the default flags
+    # passed by rules_foreign_cc, so we keep it simple.
+    targets = ["install_sw"],
+)
