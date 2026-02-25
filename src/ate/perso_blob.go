@@ -13,11 +13,11 @@ import (
 
 // Constants from ate_api.h
 const (
-	kCertificateMaxSize         = 2048
+	kCertificateMaxSize         = 8192
 	kCertificateKeyLabelMaxSize = 32
 	kDevSeedBytesSize           = 128
 	kWasHmacSignatureSize       = 32
-	kPersoBlobMaxSize           = 8192
+	kPersoBlobMaxSize           = 65536
 	kDeviceIDSize               = 32
 )
 
@@ -43,7 +43,7 @@ const (
 // Header field definitions from perso_tlv_data.h
 const (
 	objhSizeFieldShift = 0
-	objhSizeFieldWidth = 12
+	objhSizeFieldWidth = 13
 	objhSizeFieldMask  = (1 << objhSizeFieldWidth) - 1
 	objhTypeFieldShift = objhSizeFieldWidth
 	objhTypeFieldWidth = 16 - objhSizeFieldWidth

@@ -7,7 +7,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 package(default_visibility = ["//visibility:public"])
 
 go_library(
-    name = "tbsgen",
+    name = "tbsgen_lib",
     testonly = True,
     srcs = ["tbsgen.go"],
     importpath = "github.com/lowRISC/opentitan-provisioning/src/spm/services/testutils/tbsgen",

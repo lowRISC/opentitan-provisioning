@@ -584,6 +584,28 @@ func (h *HSM) EndorseData(data []byte, params EndorseCertParams) ([]byte, []byte
 	}
 }
 
+func (h *HSM) VerifyMLDSASignature(keyLabel string, data, signature []byte) error {
+	session, release := h.sessions.getHandle()
+	defer release()
+
+	keyID, err := GetKeyIDByLabel(session, pk11.ClassPrivateKey, keyLabel)
+	if err != nil {
+		return fmt.Errorf("fail to find key with label: %q, error: %v", keyLabel, err)
+	}
+
+	privKey, err := session.FindPrivateKey(keyID)
+	if err != nil {
+		return fmt.Errorf("failed to find key object %q: %v", keyID, err)
+	}
+
+	pubKey, err := privKey.FindPublicKey()
+	if err != nil {
+		return fmt.Errorf("failed to find public key for %q: %v", keyLabel, err)
+	}
+
+	return pubKey.VerifyMLDSA(data, signature)
+}
+
 func (h *HSM) VerifyWASSignature(params VerifyWASParams) error {
 	session, release := h.sessions.getHandle()
 	defer release()
