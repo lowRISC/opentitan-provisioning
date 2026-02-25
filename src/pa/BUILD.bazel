@@ -54,6 +54,7 @@ go_binary(
         "//src/proto/crypto:cert_go_pb",
         "//src/proto/crypto:common_go_pb",
         "//src/proto/crypto:ecdsa_go_pb",
+        "//src/proto/crypto:mldsa_go_pb",
         "//src/spm/proto:spm_go_pb",
         "//src/spm/services/skumgr",
         "//src/spm/services/testutils:tbsgen",

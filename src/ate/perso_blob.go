@@ -13,11 +13,11 @@ import (
 
 // Constants from ate_api.h
 const (
-	kCertificateMaxSize         = 2048
+	kCertificateMaxSize         = 8192
 	kCertificateKeyLabelMaxSize = 32
 	kDevSeedBytesSize           = 128
 	kWasHmacSignatureSize       = 32
-	kPersoBlobMaxSize           = 8192
+	kPersoBlobMaxSize           = 65536
 	kDeviceIDSize               = 32
 )
 
