@@ -448,8 +448,10 @@ CertGenInfo = provider(
     """,
     fields = {
         "key": "Key to endorse in the certificate.",
+        "key_type": "The cryptographic type of the key (e.g. ecdsa, mldsa).",
         "config": "Certificate template.",
         "ca_key": "Key to sign the certificate.",
+        "ca_key_type": "The cryptographic type of the signing key.",
         "root_cert": "Set to true to generate a root (i.e. self-signed) certificate.",
     },
 )
@@ -465,13 +467,17 @@ def _hsm_certgen(ctx):
 
     if ctx.attr.ca_key:
         ca_key = ctx.attr.ca_key[KeyTemplateInfo].label_priv
+        ca_key_type = ctx.attr.ca_key[KeyTemplateInfo].type
     else:
         ca_key = ctx.attr.key[KeyTemplateInfo].label_priv
+        ca_key_type = ctx.attr.key[KeyTemplateInfo].type
 
     return CertGenInfo(
         key = ctx.attr.key[KeyTemplateInfo].label_priv,
+        key_type = ctx.attr.key[KeyTemplateInfo].type,
         config = ctx.file.config.basename,
         ca_key = ca_key,
+        ca_key_type = ca_key_type,
         root_cert = ctx.attr.root_cert,
     )
 
@@ -671,7 +677,7 @@ def _certgen_params(ctx):
     Args:
         ctx: The rule context.
     """
-    templates, keys, endorsing_keys = [], [], []
+    templates, keys, endorsing_keys, key_types, endorsing_key_types = [], [], [], [], []
 
     # First pass: Add root certs.
     for cg in ctx.attr.certs:
@@ -681,6 +687,8 @@ def _certgen_params(ctx):
         templates.append(shell.quote(cg.config))
         keys.append(shell.quote(cg.key))
         endorsing_keys.append(shell.quote(cg.ca_key))
+        key_types.append(shell.quote(cg.key_type))
+        endorsing_key_types.append(shell.quote(cg.ca_key_type))
 
     # Second pass: Add non-root certs.
     for cg in ctx.attr.certs:
@@ -690,8 +698,10 @@ def _certgen_params(ctx):
         templates.append(shell.quote(cg.config))
         keys.append(shell.quote(cg.key))
         endorsing_keys.append(shell.quote(cg.ca_key))
+        key_types.append(shell.quote(cg.key_type))
+        endorsing_key_types.append(shell.quote(cg.ca_key_type))
 
-    return templates, keys, endorsing_keys
+    return templates, keys, endorsing_keys, key_types, endorsing_key_types
 
 def _hsm_certgen_script_impl(ctx):
     """Generates the certificate generation script.
@@ -700,12 +710,14 @@ def _hsm_certgen_script_impl(ctx):
         ctx: The rule context.
     """
     out_file = ctx.actions.declare_file(ctx.label.name + ".bash")
-    templates, keys, endorsing_keys = _certgen_params(ctx)
+    templates, keys, endorsing_keys, key_types, endorsing_key_types = _certgen_params(ctx)
 
     substitutions = {
         "@@CERTGEN_TEMPLATES@@": " ".join(templates),
         "@@CERTGEN_KEYS@@": " ".join(keys),
         "@@CERTGEN_ENDORSING_KEYS@@": " ".join(endorsing_keys),
+        "@@CERTGEN_KEY_TYPES@@": " ".join(key_types),
+        "@@CERTGEN_ENDORSING_KEY_TYPES@@": " ".join(endorsing_key_types),
     }
 
     ctx.actions.expand_template(

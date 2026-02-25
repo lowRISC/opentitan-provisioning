@@ -297,16 +297,17 @@ int main(int argc, char** argv) {
                     /*timeout_ms=*/1000);
 
   // Receive the TBS certs and other provisioning data from the DUT.
-  constexpr size_t kMaxNumPbSpiFrames = 10;
-  dut_spi_frame_t pb_spi_frames[kMaxNumPbSpiFrames];
+  constexpr size_t kMaxNumPbSpiFrames = 100;
+  std::unique_ptr<dut_spi_frame_t[]> pb_spi_frames(
+      new dut_spi_frame_t[kMaxNumPbSpiFrames]);
   size_t num_pb_spi_frames = kMaxNumPbSpiFrames;
-  dut->DutConsoleRx("Exporting TBS certificates ...", pb_spi_frames,
+  dut->DutConsoleRx("Exporting TBS certificates ...", pb_spi_frames.get(),
                     &num_pb_spi_frames,
                     /*skip_crc_check=*/true,
                     /*quiet=*/true,
                     /*timeout_ms=*/10000);
   perso_blob_t perso_blob_from_dut = {0};
-  if (PersoBlobFromJson(pb_spi_frames, num_pb_spi_frames,
+  if (PersoBlobFromJson(pb_spi_frames.get(), num_pb_spi_frames,
                         &perso_blob_from_dut)) {
     LOG(ERROR) << "PersoBlobFromJson failed.";
     return -1;
@@ -325,6 +326,9 @@ int main(int argc, char** argv) {
   constexpr size_t kMaxSeeds = 5;
   seed_t seeds[kMaxSeeds];
   size_t num_seeds = kMaxSeeds;
+  bool is_legacy_v0 =
+      IsLegacyV0Blob(perso_blob_from_dut.body, perso_blob_from_dut.next_free);
+
   if (UnpackPersoBlob(&perso_blob_from_dut, &device_id, &tbs_was_hmac,
                       &perso_fw_hash, tbs_certs, &num_tbs_certs,
                       dut_endorsed_certs, &num_dut_endorsed_certs, seeds,
@@ -390,15 +394,17 @@ int main(int argc, char** argv) {
 
   // Send the endorsed certs back to the device.
   perso_blob_t perso_blob_from_ate = {0};
-  constexpr size_t kNumPersoBlobMaxNumSpiFrames = 50;
-  dut_spi_frame_t perso_blob_from_ate_spi_frames[kNumPersoBlobMaxNumSpiFrames];
+  constexpr size_t kNumPersoBlobMaxNumSpiFrames = 1200;
+  std::unique_ptr<dut_spi_frame_t[]> perso_blob_from_ate_spi_frames(
+      new dut_spi_frame_t[kNumPersoBlobMaxNumSpiFrames]);
   size_t num_perso_blob_spi_frames = kNumPersoBlobMaxNumSpiFrames;
   if (PackPersoBlob(num_tbs_certs, pa_endorsed_certs, num_ca_certs, ca_certs,
-                    &perso_blob_from_ate) != 0) {
+                    is_legacy_v0, &perso_blob_from_ate) != 0) {
     LOG(ERROR) << "Failed to repack the perso blob.";
     return -1;
   }
-  if (PersoBlobToJson(&perso_blob_from_ate, perso_blob_from_ate_spi_frames,
+  if (PersoBlobToJson(&perso_blob_from_ate,
+                      perso_blob_from_ate_spi_frames.get(),
                       &num_perso_blob_spi_frames) != 0) {
     LOG(ERROR) << "PersoBlobToJson failed.";
     return -1;
@@ -446,7 +452,8 @@ int main(int argc, char** argv) {
   perso_blob_t perso_blob_for_registry;
   if (PackRegistryPersoTlvData(dut_endorsed_certs, num_dut_endorsed_certs,
                                pa_endorsed_certs, num_tbs_certs, seeds,
-                               num_seeds, &perso_blob_for_registry) != 0) {
+                               num_seeds, is_legacy_v0,
+                               &perso_blob_for_registry) != 0) {
     LOG(ERROR) << "PackRegistryPersoTlvData failed.";
     return -1;
   }

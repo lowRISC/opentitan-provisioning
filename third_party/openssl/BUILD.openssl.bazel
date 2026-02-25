@@ -27,6 +27,7 @@ configure_make(
         "no-ssl3",
         "no-weak-ssl-ciphers",
         "no-apps",
+        "no-asm",
         "-fPIC",
         "--prefix=/",
         "--openssldir=/ssl",

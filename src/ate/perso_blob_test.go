@@ -42,7 +42,7 @@ func TestUnpackPersoBlobSuccess(t *testing.T) {
 		X509TbsCerts: []EndorseCertRequest{testTbsCert},
 		X509Certs:    []EndorseCertResponse{testCert},
 	}
-	blobBytes, err := BuildPersoBlob(testPersoBlob)
+	blobBytes, err := BuildPersoBlob(testPersoBlob, true)
 	if err != nil {
 		t.Fatalf("BuildPersoBlob() failed: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestUnpackPersoBlobErrors(t *testing.T) {
 		{
 			name:      "incomplete header",
 			blob:      []byte{0x01},
-			expectErr: "remaining buffer too small for object header",
+			expectErr: "unknown or invalid blob version",
 		},
 		{
 			name: "object size exceeds buffer",

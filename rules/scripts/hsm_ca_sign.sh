@@ -25,6 +25,8 @@ readonly OUTDIR_CA="ca"
 readonly CERTGEN_TEMPLATES=(@@CERTGEN_TEMPLATES@@)
 readonly CERTGEN_KEYS=(@@CERTGEN_KEYS@@)
 readonly CERTGEN_ENDORSING_KEYS=(@@CERTGEN_ENDORSING_KEYS@@)
+readonly CERTGEN_KEY_TYPES=(@@CERTGEN_KEY_TYPES@@)
+readonly CERTGEN_ENDORSING_KEY_TYPES=(@@CERTGEN_ENDORSING_KEY_TYPES@@)
 
 FLAGS_HSMTOOL_MODULE=""
 FLAGS_HSMTOOL_TOKEN=""
@@ -184,6 +186,8 @@ certgen () {
   config_basename="${1%.conf}"
   ca_key="${2}"
   endorsing_key="${3}"
+  key_type="${4}"
+  endorsing_key_type="${5}"
 
   certvars=()
   if [[ -n "${FLAGS_SOFTHSM_CONFIG}" ]]; then
@@ -213,11 +217,30 @@ certgen () {
     # Generate a CSR for the CA key. This can be either a root CA or an
     # intermediate CA.
     echo "Generating CSR for ${ca_key}"
-    env "${certvars[@]}" \
-    openssl req -new -engine "${ENGINE}" -keyform engine \
-        -config "${CONFIG_FILE}" \
-        -out "${CSR_FILE}" \
-        -key "${KEY}"
+    if [[ "${key_type}" != "mldsa" ]]; then
+        env "${certvars[@]}" \
+        openssl req -new -engine "${ENGINE}" -keyform engine \
+            -config "${CONFIG_FILE}" \
+            -out "${CSR_FILE}" \
+            -key "${KEY}"
+    else
+        # Use hsmtool for MLDSA CSR generation.
+        # Parse DN from config file.
+        C=$(grep "^C=" "${CONFIG_FILE}" | cut -d= -f2 | tr -d '\r')
+        ST=$(grep "^ST=" "${CONFIG_FILE}" | cut -d= -f2 | tr -d '\r')
+        O=$(grep "^O=" "${CONFIG_FILE}" | cut -d= -f2 | tr -d '\r')
+        OU=$(grep "^OU=" "${CONFIG_FILE}" | cut -d= -f2 | tr -d '\r')
+        CN=$(grep "^CN=" "${CONFIG_FILE}" | cut -d= -f2 | tr -d '\r')
+        SUBJ="C=${C},ST=${ST},O=${O},OU=${OU},CN=${CN}"
+
+        HSMTOOL_CMD="${HSMTOOL_BIN:-hsmtool}"
+        if ! command -v "${HSMTOOL_CMD}" > /dev/null && [[ -x "./hsmtool" ]]; then
+          HSMTOOL_CMD="./hsmtool"
+        fi
+
+        env "${certvars[@]}" "${HSMTOOL_CMD}" --module "${FLAGS_HSMTOOL_MODULE}" --token "${FLAGS_HSMTOOL_TOKEN}" --pin "${FLAGS_HSMTOOL_PIN}" \
+            mldsa export-csr --label "${ca_key}" --subject "${SUBJ}" --output "${CSR_FILE}"
+    fi
   else
     # Running in sign only mode means that the CSR is already present in the
     # input tarball and/or ca directory. Only need to check if the CSR file
@@ -233,23 +256,25 @@ certgen () {
     return
   fi
 
-  ENDORSING_KEY="pkcs11:pin-value=${HSMTOOL_PIN};object=${endorsing_key};token=${FLAGS_HSMTOOL_TOKEN}"
+  ENDORSING_KEY="pkcs11:pin-value=${FLAGS_HSMTOOL_PIN};object=${endorsing_key};token=${FLAGS_HSMTOOL_TOKEN}"
   if [ "${OTPROV_USE_GEM_ENGINE}" == true ]; then
     ENDORSING_KEY="${endorsing_key}"
   fi
 
-  if [[ "${ca_key}" == "${endorsing_key}" ]]; then
-    echo "Generating root CA certificate for ${ca_key}"
-    env "${certvars[@]}" \
-    openssl x509 -req -engine "${ENGINE}" -keyform engine \
-      -in "${CSR_FILE}" \
-      -out "${CERT_FILE}" \
-      -days 7300 \
-      -extfile "${CONFIG_FILE}" \
-      -extensions v3_ca \
-      -signkey "${ENDORSING_KEY}"
-  else
-    echo "Generating certificate for ${ca_key} signed by ${endorsing_key}"
+  if [[ "${endorsing_key_type}" != "mldsa" ]]; then
+    # Use OpenSSL for others (ECDSA/RSA)
+    if [[ "${ca_key}" == "${endorsing_key}" ]]; then
+        echo "Generating root CA certificate for ${ca_key}"
+        env "${certvars[@]}" \
+        openssl x509 -req -engine "${ENGINE}" -keyform engine \
+        -in "${CSR_FILE}" \
+        -out "${CERT_FILE}" \
+        -days 7300 \
+        -extfile "${CONFIG_FILE}" \
+        -extensions v3_ca \
+        -signkey "${ENDORSING_KEY}"
+    else
+        echo "Generating certificate for ${ca_key} signed by ${endorsing_key}"
 
     CA_ENDORSING_CERT_FILE="${OUTDIR_CA}/${endorsing_key}.pem"
     if [[ ! -f "${CA_ENDORSING_CERT_FILE}" ]]; then
@@ -267,6 +292,7 @@ certgen () {
       -CA "${CA_ENDORSING_CERT_FILE}" \
       -CAkeyform engine \
       -CAkey "${ENDORSING_KEY}"
+    fi
   fi
 
   echo "Converting certificate for ${ca_key} to DER"
@@ -277,9 +303,11 @@ for i in "${!CERTGEN_TEMPLATES[@]}"; do
   template="${CERTGEN_TEMPLATES[$i]}"
   key="${CERTGEN_KEYS[$i]}"
   endorsing_key="${CERTGEN_ENDORSING_KEYS[$i]}"
+  key_type="${CERTGEN_KEY_TYPES[$i]}"
+  endorsing_key_type="${CERTGEN_ENDORSING_KEY_TYPES[$i]}"
 
   echo "Generating certificate for ${template}"
-  certgen "${template}" "${key}" "${endorsing_key}"
+  certgen "${template}" "${key}" "${endorsing_key}" "${key_type}" "${endorsing_key_type}"
 done
 
 if [[ -n "${FLAGS_OUT_TAR}" ]]; then
