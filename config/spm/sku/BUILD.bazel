@@ -33,20 +33,32 @@ hsm_spm_identity_key_mldsa(
 
 hsm_config_tar(
     name = "spm_init",
-    hsmtool_sequence = {
-        ":spm-rsa-wrap-v0": "keygen",
-        ":spm-hsm-id-v0": "keygen",
-        ":spm-hsm-id-mldsa-v0": "keygen",
-    },
+    hsmtool_sequence = select({
+        "//:prod_env": {
+            ":spm-rsa-wrap-v0": "keygen",
+            ":spm-hsm-id-v0": "keygen",
+        },
+        "//conditions:default": {
+            ":spm-rsa-wrap-v0": "keygen",
+            ":spm-hsm-id-v0": "keygen",
+            ":spm-hsm-id-mldsa-v0": "keygen",
+        },
+    }),
 )
 
 hsm_config_tar(
     name = "spm_export",
-    hsmtool_sequence = {
-        ":spm-rsa-wrap-v0": "export",
-        ":spm-hsm-id-v0": "export",
-        ":spm-hsm-id-mldsa-v0": "export",
-    },
+    hsmtool_sequence = select({
+        "//:prod_env": {
+            ":spm-rsa-wrap-v0": "export",
+            ":spm-hsm-id-v0": "export",
+        },
+        "//conditions:default": {
+            ":spm-rsa-wrap-v0": "export",
+            ":spm-hsm-id-v0": "export",
+            ":spm-hsm-id-mldsa-v0": "export",
+        },
+    }),
 )
 
 filegroup(
@@ -56,6 +68,10 @@ filegroup(
         ":spm_init",
         "//config/spm/sku/eg:eg_release",
         "//config/spm/sku/sival:release",
-        "//config/spm/sku/test_mldsa:release",
-    ],
+    ] + select({
+        "//:prod_env": [],
+        "//conditions:default": [
+            "//config/spm/sku/test_mldsa:release",
+        ],
+    }),
 )

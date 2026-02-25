@@ -94,15 +94,25 @@ hsm_certgen(
 
 hsm_config_tar(
     name = "offline_init",
-    hsmtool_sequence = {
-        ":opentitan-ca-root-v0": "keygen",
-        ":pi01-ca-root-v0": "keygen",
-        ":test_mldsa-root-key-mldsa-v0": "keygen",
-        ":eg-aes-wrap-v0": "keygen",
-        ":eg-kdf-hisec-v0": "keygen",
-        ":eg-kdf-losec-v0": "keygen",
-        ":sku-eg-rsa-rma-v0": "keygen",
-    },
+    hsmtool_sequence = select({
+        "//:prod_env": {
+            ":opentitan-ca-root-v0": "keygen",
+            ":pi01-ca-root-v0": "keygen",
+            ":eg-aes-wrap-v0": "keygen",
+            ":eg-kdf-hisec-v0": "keygen",
+            ":eg-kdf-losec-v0": "keygen",
+            ":sku-eg-rsa-rma-v0": "keygen",
+        },
+        "//conditions:default": {
+            ":opentitan-ca-root-v0": "keygen",
+            ":pi01-ca-root-v0": "keygen",
+            ":test_mldsa-root-key-mldsa-v0": "keygen",
+            ":eg-aes-wrap-v0": "keygen",
+            ":eg-kdf-hisec-v0": "keygen",
+            ":eg-kdf-losec-v0": "keygen",
+            ":sku-eg-rsa-rma-v0": "keygen",
+        },
+    }),
 )
 
 hsm_config_tar(
@@ -133,8 +143,12 @@ hsm_certgen_tar(
     certs = [
         ":ca_root",
         ":pi01_ca_root",
-        ":ca_root_mldsa",
-    ],
+    ] + select({
+        "//:prod_env": [],
+        "//conditions:default": [
+            ":ca_root_mldsa",
+        ],
+    }),
 )
 
 filegroup(
@@ -142,10 +156,14 @@ filegroup(
     srcs = [
         ":ca_root.conf",
         ":ca_root_certgen",
-        ":ca_root_mldsa.conf",
         ":offline_export",
         ":offline_init",
         ":pi01_ca_root.conf",
         ":spm_sku_init",
-    ],
+    ] + select({
+        "//:prod_env": [],
+        "//conditions:default": [
+            ":ca_root_mldsa.conf",
+        ],
+    }),
 )
