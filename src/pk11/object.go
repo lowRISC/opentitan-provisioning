@@ -456,6 +456,8 @@ func (k PrivateKey) Signer() (crypto.Signer, error) {
 	case pkcs11.CKK_ECDSA:
 		// Defined in ecdsa.go
 		return NewECDSASigner(k)
+	case CKK_MLDSA:
+		return MLDSASigner{k}, nil
 	default:
 		return nil, fmt.Errorf("not a known private key type: %x", kType)
 	}
