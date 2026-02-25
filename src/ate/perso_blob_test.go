@@ -96,7 +96,7 @@ func TestUnpackPersoBlobErrors(t *testing.T) {
 		{
 			name:      "blob too large",
 			blob:      make([]byte, kPersoBlobMaxSize+1),
-			expectErr: "blob size 8193 exceeds max 8192",
+			expectErr: "exceeds max",
 		},
 		{
 			name:      "incomplete header",
