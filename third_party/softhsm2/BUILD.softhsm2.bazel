@@ -28,6 +28,7 @@ cmake(
         # to the CMake build directory.
         "CMAKE_INSTALL_LOCALSTATEDIR": ".",
         "CMAKE_INSTALL_SYSCONFDIR": ".",
+        "PROJECT_BINARY_DIR": ".",
         "CMAKE_CXX_FLAGS": "-DWITH_ML_DSA -DWITHOUT_OPENSSL_ENGINES",
     },
     # Set up SoftHSM to provide useful debug messages during testing.
@@ -44,4 +45,16 @@ cmake(
     out_binaries = ["softhsm2-util"],
     out_shared_libs = ["softhsm/libsofthsm2.so"],
     deps = ["@openssl"],
+)
+
+filegroup(
+    name = "gen_dir",
+    srcs = [":softhsm2"],
+)
+
+genrule(
+    name = "softhsm_lib",
+    srcs = [":softhsm2"],
+    outs = ["libsofthsm2.so"],
+    cmd = "find $(locations :softhsm2) -name libsofthsm2.so -exec cp {} $@ \\; -quit",
 )
