@@ -50,49 +50,46 @@ class AtePersoBlobTest : public ::testing::Test {
     uint8_t* buf = blob->body;
     size_t offset = 0;
 
+    // Add version object
+    uint16_t ver_hdr = (kPersoObjectTypeBlobVersion << 12) | 4;
+    *reinterpret_cast<uint16_t*>(buf) = __builtin_bswap16(ver_hdr);
+    *reinterpret_cast<uint16_t*>(buf + 2) = __builtin_bswap16(2);
+    offset += 4;
+    buf += 4;
+
     // Add device ID object
-    perso_tlv_object_header_t* obj_hdr =
-        reinterpret_cast<perso_tlv_object_header_t*>(buf);
-    uint16_t obj_size =
-        sizeof(test_device_id_.raw) + sizeof(perso_tlv_object_header_t);
-    PERSO_TLV_SET_FIELD(Objh, Size, *obj_hdr, obj_size);
-    PERSO_TLV_SET_FIELD(Objh, Type, *obj_hdr, kPersoObjectTypeDeviceId);
-    memcpy(buf + sizeof(perso_tlv_object_header_t), &test_device_id_.raw,
-           sizeof(test_device_id_.raw));
+    uint32_t obj_size = sizeof(test_device_id_.raw) + 4;
+    uint32_t hdr =
+        (((uint32_t)kPersoObjectTypeDeviceId) << 24) | (obj_size & 0xFFFFFF);
+    *reinterpret_cast<uint32_t*>(buf) = __builtin_bswap32(hdr);
+    memcpy(buf + 4, &test_device_id_.raw, sizeof(test_device_id_.raw));
 
     offset += obj_size;
     buf += obj_size;
 
     // Add signature object
-
-    obj_hdr = reinterpret_cast<perso_tlv_object_header_t*>(buf);
-    obj_size = sizeof(test_signature_.raw) + sizeof(perso_tlv_object_header_t);
-    PERSO_TLV_SET_FIELD(Objh, Size, *obj_hdr, obj_size);
-    PERSO_TLV_SET_FIELD(Objh, Type, *obj_hdr, kPersoObjectTypeWasTbsHmac);
-    memcpy(buf + sizeof(perso_tlv_object_header_t), &test_signature_.raw,
-           sizeof(test_signature_.raw));
+    obj_size = sizeof(test_signature_.raw) + 4;
+    hdr =
+        (((uint32_t)kPersoObjectTypeWasTbsHmac) << 24) | (obj_size & 0xFFFFFF);
+    *reinterpret_cast<uint32_t*>(buf) = __builtin_bswap32(hdr);
+    memcpy(buf + 4, &test_signature_.raw, sizeof(test_signature_.raw));
 
     offset += obj_size;
     buf += obj_size;
 
     // Add TBS certificate object
-    obj_hdr = reinterpret_cast<perso_tlv_object_header_t*>(buf);
-    size_t cert_entry_size = sizeof(perso_tlv_cert_header_t) +
-                             test_request_.key_label_size +
-                             test_request_.tbs_size;  // header + name + cert
-    obj_size = sizeof(perso_tlv_object_header_t) + cert_entry_size;
-    PERSO_TLV_SET_FIELD(Objh, Size, *obj_hdr, obj_size);
-    PERSO_TLV_SET_FIELD(Objh, Type, *obj_hdr, kPersoObjectTypeX509Tbs);
+    size_t cert_entry_size =
+        4 + test_request_.key_label_size + test_request_.tbs_size;
+    obj_size = 4 + cert_entry_size;
+    hdr = (((uint32_t)kPersoObjectTypeX509Tbs) << 24) | (obj_size & 0xFFFFFF);
+    *reinterpret_cast<uint32_t*>(buf) = __builtin_bswap32(hdr);
 
-    perso_tlv_cert_header_t* cert_hdr =
-        reinterpret_cast<perso_tlv_cert_header_t*>(
-            buf + sizeof(perso_tlv_object_header_t));
-    PERSO_TLV_SET_FIELD(Crth, Size, *cert_hdr, cert_entry_size);
-    PERSO_TLV_SET_FIELD(Crth, NameSize, *cert_hdr,
-                        test_request_.key_label_size);
+    uint32_t cert_hdr =
+        (((uint32_t)test_request_.key_label_size & 0xFF) << 24) |
+        (cert_entry_size & 0xFFFFFF);
+    *reinterpret_cast<uint32_t*>(buf + 4) = __builtin_bswap32(cert_hdr);
 
-    uint8_t* cert_data = buf + sizeof(perso_tlv_object_header_t) +
-                         sizeof(perso_tlv_cert_header_t);
+    uint8_t* cert_data = buf + 8;
     memcpy(cert_data, test_request_.key_label, test_request_.key_label_size);
 
     cert_data += test_request_.key_label_size;
@@ -100,6 +97,7 @@ class AtePersoBlobTest : public ::testing::Test {
 
     offset += obj_size;
     blob->next_free = offset;
+    blob->num_objects = 4;
   }
 
   device_id_bytes_t test_device_id_;
@@ -174,12 +172,14 @@ TEST_F(AtePersoBlobTest, UnpackPersoBlobNullInputs) {
 
 TEST_F(AtePersoBlobTest, PackPersoBlobSuccess) {
   perso_blob_t output_blob;
-  EXPECT_EQ(PackPersoBlob(1, &test_response_, 0, nullptr, &output_blob), 0);
+  EXPECT_EQ(PackPersoBlob(1, &test_response_, 0, nullptr, false, &output_blob),
+            0);
 
   // Verify the blob size is correct
-  size_t expected_size =
-      sizeof(perso_tlv_object_header_t) + sizeof(perso_tlv_cert_header_t) +
-      test_response_.key_label_size + test_response_.cert_size;
+  size_t expected_size = 4 + 2 + 2 + sizeof(perso_tlv_object_header_t) +
+                         sizeof(perso_tlv_cert_header_t) +
+                         test_response_.key_label_size +
+                         test_response_.cert_size;
   EXPECT_EQ(output_blob.next_free, expected_size);
 }
 
@@ -187,13 +187,14 @@ TEST_F(AtePersoBlobTest, PackPersoBlobNullInputs) {
   perso_blob_t output_blob;
 
   // Test null blob
-  EXPECT_EQ(PackPersoBlob(1, &test_response_, 0, nullptr, nullptr), -1);
+  EXPECT_EQ(PackPersoBlob(1, &test_response_, 0, nullptr, false, nullptr), -1);
 
   // Test null certs
-  EXPECT_EQ(PackPersoBlob(1, nullptr, 0, nullptr, &output_blob), -1);
+  EXPECT_EQ(PackPersoBlob(1, nullptr, 0, nullptr, false, &output_blob), -1);
 
   // Test zero cert count
-  EXPECT_EQ(PackPersoBlob(0, &test_response_, 0, nullptr, &output_blob), -1);
+  EXPECT_EQ(PackPersoBlob(0, &test_response_, 0, nullptr, false, &output_blob),
+            -1);
 }
 
 TEST_F(AtePersoBlobTest, PackPersoBlobOverflow) {
@@ -205,7 +206,7 @@ TEST_F(AtePersoBlobTest, PackPersoBlobOverflow) {
   large_cert.key_label_size = 8;
   memcpy(large_cert.key_label, "testkey1", 8);
 
-  EXPECT_EQ(PackPersoBlob(1, &large_cert, 0, nullptr, &output_blob), -1);
+  EXPECT_EQ(PackPersoBlob(1, &large_cert, 0, nullptr, false, &output_blob), -1);
 }
 
 }  // namespace

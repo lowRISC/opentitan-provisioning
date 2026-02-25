@@ -30,6 +30,7 @@ cmake(
         "CMAKE_INSTALL_SYSCONFDIR": ".",
         "PROJECT_BINARY_DIR": ".",
         "CMAKE_CXX_FLAGS": "-DWITH_ML_DSA -DWITHOUT_OPENSSL_ENGINES",
+        "CMAKE_SHARED_LINKER_FLAGS": "-Wl,-Bsymbolic",
     },
     # Set up SoftHSM to provide useful debug messages during testing.
     copts = [

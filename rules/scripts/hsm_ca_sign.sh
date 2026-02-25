@@ -25,6 +25,8 @@ readonly OUTDIR_CA="ca"
 readonly CERTGEN_TEMPLATES=(@@CERTGEN_TEMPLATES@@)
 readonly CERTGEN_KEYS=(@@CERTGEN_KEYS@@)
 readonly CERTGEN_ENDORSING_KEYS=(@@CERTGEN_ENDORSING_KEYS@@)
+readonly CERTGEN_KEY_TYPES=(@@CERTGEN_KEY_TYPES@@)
+readonly CERTGEN_ENDORSING_KEY_TYPES=(@@CERTGEN_ENDORSING_KEY_TYPES@@)
 
 FLAGS_HSMTOOL_MODULE=""
 FLAGS_HSMTOOL_TOKEN=""
@@ -178,17 +180,14 @@ if [ "${OTPROV_USE_GEM_ENGINE}" == true ]; then
 fi
 
 
-# Helper to check if key is MLDSA
-is_mldsa_key() {
-  [[ "$1" == *"-mldsa-"* ]]
-}
-
 # certgen generates a certificate for the given config file and signs it with
 # the given CA key.
 certgen () {
   config_basename="${1%.conf}"
   ca_key="${2}"
   endorsing_key="${3}"
+  key_type="${4}"
+  endorsing_key_type="${5}"
 
   certvars=()
   if [[ -n "${FLAGS_SOFTHSM_CONFIG}" ]]; then
@@ -216,7 +215,7 @@ certgen () {
     # Generate a CSR for the CA key. This can be either a root CA or an
     # intermediate CA.
     echo "Generating CSR for ${ca_key}"
-    if ! is_mldsa_key "${ca_key}"; then
+    if [[ "${key_type}" != "mldsa" ]]; then
         env "${certvars[@]}" \
         openssl req -new -engine "${ENGINE}" -keyform engine \
             -config "${CONFIG_FILE}" \
@@ -260,7 +259,7 @@ certgen () {
     ENDORSING_KEY="${endorsing_key}"
   fi
 
-  if ! is_mldsa_key "${endorsing_key}"; then
+  if [[ "${endorsing_key_type}" != "mldsa" ]]; then
     # Use OpenSSL for others (ECDSA/RSA)
     if [[ "${ca_key}" == "${endorsing_key}" ]]; then
         echo "Generating root CA certificate for ${ca_key}"
@@ -349,9 +348,11 @@ for i in "${!CERTGEN_TEMPLATES[@]}"; do
   template="${CERTGEN_TEMPLATES[$i]}"
   key="${CERTGEN_KEYS[$i]}"
   endorsing_key="${CERTGEN_ENDORSING_KEYS[$i]}"
+  key_type="${CERTGEN_KEY_TYPES[$i]}"
+  endorsing_key_type="${CERTGEN_ENDORSING_KEY_TYPES[$i]}"
 
   echo "Generating certificate for ${template}"
-  certgen "${template}" "${key}" "${endorsing_key}"
+  certgen "${template}" "${key}" "${endorsing_key}" "${key_type}" "${endorsing_key_type}"
 done
 
 if [[ -n "${FLAGS_OUT_TAR}" ]]; then

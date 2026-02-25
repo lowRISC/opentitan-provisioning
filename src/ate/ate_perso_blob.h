@@ -25,14 +25,18 @@ typedef enum perso_tlv_object_type {
   kPersoObjectTypeDeviceId = 5,
   kPersoObjectTypeGenericSeed = 6,
   kPersoObjectTypePersoSha256Hash = 7,
+  kPersoObjectTypeBlobVersion = 15,
 } perso_tlv_object_type_t;
 
 // Header types
 typedef uint16_t perso_tlv_object_header_t;
+typedef uint32_t perso_tlv_object_header_v2_t;
 typedef uint16_t perso_tlv_cert_header_t;
 
 // Header field definitions
 typedef enum perso_tlv_obj_header_fields {
+  // V1 (Legacy) 16-bit Header: 3-bit Type, 13-bit Size (Recent compromise)
+  // or 4-bit Type, 12-bit Size (Legacy hardware).
   kObjhSizeFieldShift = 0,
   kObjhSizeFieldWidth = 13,
   kObjhSizeFieldMask = (1 << kObjhSizeFieldWidth) - 1,
@@ -40,6 +44,12 @@ typedef enum perso_tlv_obj_header_fields {
   kObjhTypeFieldWidth =
       sizeof(perso_tlv_object_header_t) * 8 - kObjhSizeFieldWidth,
   kObjhTypeFieldMask = (1 << kObjhTypeFieldWidth) - 1,
+
+  // V2 32-bit Header: 8-bit Type, 24-bit Size
+  kObjhV2SizeFieldShift = 0,
+  kObjhV2SizeFieldWidth = 24,
+  kObjhV2TypeFieldShift = 24,
+  kObjhV2TypeFieldWidth = 8,
 } perso_tlv_obj_header_fields_t;
 
 typedef enum perso_tlv_cert_header_fields {

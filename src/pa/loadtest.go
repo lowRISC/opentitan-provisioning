@@ -360,7 +360,9 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 	}
 
 	// Build and send the perso blob back to the DUT.
-	persoBlobToDut, err := ate.BuildPersoBlob(&ate.PersoBlob{X509Certs: endorsedCertsForDut})
+	// We dynamically determine the format to reply with based on the format the DUT sent us.
+	isLegacy := ate.IsLegacyV1Blob(blobBytes)
+	persoBlobToDut, err := ate.BuildPersoBlob(&ate.PersoBlob{X509Certs: endorsedCertsForDut}, isLegacy)
 	if err != nil {
 		return fmt.Errorf("failed to build perso blob for DUT: %w", err)
 	}
