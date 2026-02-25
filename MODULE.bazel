@@ -4,6 +4,8 @@
 
 module(name = "lowrisc_opentitan_provisioning")
 
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 # -------------------------------------------------------------------------
 # Standard Libraries & Utilities
 # -------------------------------------------------------------------------
@@ -24,7 +26,6 @@ bazel_dep(name = "rules_swift", version = "2.1.1", repo_name = "build_bazel_rule
 bazel_dep(name = "rules_cc", version = "0.1.2")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
 bazel_dep(name = "rules_proto", version = "7.0.2")
-
 bazel_dep(name = "aspect_rules_lint", version = "1.0.8")
 
 bazel_dep(name = "rules_foreign_cc", version = "0.9.0")
@@ -76,6 +77,18 @@ archive_override(
     urls = ["https://github.com/lowRISC/opentitan/archive/refs/tags/Earlgrey-A2-Orchestrator-RC4.tar.gz"],
 )
 
+# OpenTitan at HEAD for hsmtool
+http_archive(
+    name = "lowrisc_opentitan_head",
+    integrity = "sha256-FDGAr+6VAVnlMet3TA9f0gX3Ho/0zkogaIpXD/GMFgg=",
+    patch_cmds = [
+        "find . -type f \\( -name BUILD -o -name \"*.bazel\" -o -name \"*.bzl\" \\) -exec sed -i 's|@crate_index|@hsmtool_head_index|g' {} +",
+        "sed -i '1s/^/#![feature(let_chains)]\\n/' sw/host/hsmtool/src/lib.rs",
+    ],
+    strip_prefix = "opentitan-9d860390d78396493feaf5649d4237c11cb26310",
+    urls = ["https://github.com/lowRISC/opentitan/archive/9d860390d78396493feaf5649d4237c11cb26310.tar.gz"],
+)
+
 # -------------------------------------------------------------------------
 # C++ Toolchain (LLVM)
 # -------------------------------------------------------------------------
@@ -97,6 +110,7 @@ llvm.toolchain(
     llvm_versions = {"": "14.0.0"},
 )
 use_repo(llvm, "llvm_toolchain_llvm", "llvm_toolchain_host", "llvm_toolchain_lint")
+
 register_toolchains("@llvm_toolchain_host//:all")
 
 # -------------------------------------------------------------------------
@@ -114,6 +128,7 @@ bazel_dep(name = "gazelle", version = "0.41.0", repo_name = "bazel_gazelle")
 go_sdk = use_extension("@io_bazel_rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.download(version = "1.24.0")
 use_repo(go_sdk, "go_default_sdk")
+
 register_toolchains("@go_default_sdk//:all")
 
 go_deps = use_extension("@bazel_gazelle//:extensions.bzl", "go_deps")
@@ -187,6 +202,7 @@ python.toolchain(
     python_version = "3.9",
 )
 use_repo(python, "pythons_hub")
+
 register_toolchains("@pythons_hub//:all")
 
 use_repo(python, python3 = "python_3_9", python3_host = "python_3_9_host")
@@ -196,6 +212,8 @@ use_repo(python, python3 = "python_3_9", python3_host = "python_3_9_host")
 # -------------------------------------------------------------------------
 
 bazel_dep(name = "rules_rust", version = "0.59.2")
+bazel_dep(name = "rules_rust_bindgen", version = "0.59.2")
+
 single_version_override(
     module_name = "rules_rust",
     patch_strip = 0,
@@ -223,7 +241,43 @@ crate.from_cargo(
     manifests = ["@lowrisc_opentitan//third_party/rust:Cargo.toml"],
     supported_platform_triples = ["x86_64-unknown-linux-gnu"],
 )
-use_repo(crate, "crate_index", "provisioning_index")
+crate.from_cargo(
+    name = "hsmtool_head_index",
+    cargo_lockfile = "@lowrisc_opentitan_head//third_party/rust:Cargo.lock",
+    manifests = ["@lowrisc_opentitan_head//third_party/rust:Cargo.toml"],
+    supported_platform_triples = ["x86_64-unknown-linux-gnu"],
+)
+crate.annotation(
+    crate = "cryptoki",
+    repositories = ["hsmtool_head_index"],
+)
+crate.annotation(
+    additive_build_file_content = """
+        filegroup(
+            name = "cryptoki-sys-binding-srcs",
+            srcs = [
+                "src/bindings/x86_64-unknown-linux-gnu.rs",
+            ],
+            visibility = ["//visibility:public"],
+        )
+    """,
+    crate = "cryptoki-sys",
+    extra_aliased_targets = {
+        "cryptoki-sys-binding-srcs": "cryptoki-sys-binding-srcs",
+    },
+    repositories = ["hsmtool_head_index"],
+)
+crate.annotation(
+    build_script_env = {
+        "PKG_CONFIG_PATH": "$(OPENSSL_PKG_CONFIG_PATH)",
+        "OPENSSL_STATIC": "1",
+    },
+    build_script_toolchains = ["@lowrisc_opentitan_head//third_party/rust:openssl_pkg_config_path"],
+    crate = "openssl-sys",
+    repositories = ["hsmtool_head_index"],
+)
+use_repo(crate, "crate_index", "hsmtool_head_index", "provisioning_index")
+
 register_toolchains("@lowrisc_opentitan//third_party/rust:bindgen_toolchain")
 
 # -------------------------------------------------------------------------
@@ -255,9 +309,9 @@ use_repo(lint_deps, "bazelbuild_buildtools", "clang-format", "protolint")
 
 docker = use_extension("//third_party/docker:extensions.bzl", "docker_extension")
 use_repo(docker, "container_k8s_pause", "container_softhsm2", "docker_config", "go_image_base", "go_image_static")
+
 register_toolchains("//config/containers:docker_toolchain")
 
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 
 http_archive(
@@ -363,4 +417,28 @@ http_archive(
     sha256 = "3bc7cd3b2fd9082218b8246595673f55badb351db1b9e627eec121beb8b26450",
     strip_prefix = "gh_2.20.2_linux_amd64",
     urls = ["https://github.com/cli/cli/releases/download/v2.20.2/gh_2.20.2_linux_amd64.tar.gz"],
+)
+
+# -------------------------------------------------------------------------
+# Sphincs+ (Vendored)
+# -------------------------------------------------------------------------
+
+sphincsplus = use_extension("@lowrisc_opentitan//third_party/sphincsplus:extensions.bzl", "sphincsplus")
+use_repo(
+    sphincsplus,
+    "sphincsplus_fips205_ipd",
+    "sphincsplus_sha256_kat",
+    "sphincsplus_shake256_kat",
+)
+
+# -------------------------------------------------------------------------
+# Rust Extensions
+# -------------------------------------------------------------------------
+
+http_archive(
+    name = "lowrisc_serde_annotate",
+    integrity = "sha256-pT+WAj/aVJADXzwHjNmKXIDh+7yWiy8ti8dENmDb7z4=",
+    patch_cmds = ["find . -type f \\( -name BUILD -o -name \"*.bazel\" -o -name \"*.bzl\" \\) -exec sed -i 's|@crate_index|@hsmtool_head_index|g' {} +"],
+    strip_prefix = "serde-annotate-0.0.13",
+    url = "https://github.com/lowRISC/serde-annotate/archive/refs/tags/v0.0.13.tar.gz",
 )
