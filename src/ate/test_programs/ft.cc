@@ -54,6 +54,7 @@ ABSL_FLAG(std::string, load_balancing_policy, "",
 ABSL_FLAG(std::string, sku, "", "SKU string to initialize the PA session.");
 ABSL_FLAG(std::string, sku_auth_pw, "",
           "SKU authorization password string to initialize the PA session.");
+ABSL_FLAG(bool, enable_mldsa, false, "Enable additional MLDSA endorsement.");
 
 /**
  * mTLS configuration flags.
@@ -251,14 +252,19 @@ int main(int argc, char** argv) {
   }
 
   // Generate CA subject keys.
-  constexpr size_t kNumIcas = 2;
-  const char* kIcaCertLabels[] = {
+  std::vector<const char*> ica_cert_labels = {
       "UDS",
       "EXT",
   };
-  ca_subject_key_t key_ids[kNumIcas];
+  if (absl::GetFlag(FLAGS_enable_mldsa)) {
+    ica_cert_labels.push_back("UDS_MLDSA");
+    ica_cert_labels.push_back("EXT_MLDSA");
+  }
+
+  std::vector<ca_subject_key_t> key_ids(ica_cert_labels.size());
   if (GetCaSubjectKeys(ate_client, absl::GetFlag(FLAGS_sku).c_str(),
-                       /*count=*/kNumIcas, kIcaCertLabels, key_ids) != 0) {
+                       ica_cert_labels.size(), ica_cert_labels.data(),
+                       key_ids.data()) != 0) {
     LOG(ERROR) << "GetCaSubjectKeys failed.";
     return -1;
   }
@@ -364,7 +370,8 @@ int main(int argc, char** argv) {
         "dice",
     };
     if (GetCaCerts(ate_client, absl::GetFlag(FLAGS_sku).c_str(),
-                   /*count=*/kNumIcas, kDiceCaCertLabels, dice_ca_certs) != 0) {
+                   /*count=*/kNumDiceCaCerts, kDiceCaCertLabels,
+                   dice_ca_certs) != 0) {
       LOG(ERROR) << "GetCaCerts failed.";
       return -1;
     }
