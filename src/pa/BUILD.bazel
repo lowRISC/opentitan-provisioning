@@ -57,7 +57,7 @@ go_binary(
         "//src/proto/crypto:mldsa_go_pb",
         "//src/spm/proto:spm_go_pb",
         "//src/spm/services/skumgr",
-        "//src/spm/services/testutils:tbsgen_lib",
+        "//src/spm/services/testutils:tbsgen",
         "//src/transport:grpconn",
         "//src/utils:devid",
         "@io_bazel_rules_go//go/tools/bazel",
