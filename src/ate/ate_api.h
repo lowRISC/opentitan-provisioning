@@ -97,7 +97,7 @@ enum {
   kDiversificationStringSize = 48,
 
   /** Maximum size of a certificiate buffer in bytes. */
-  kCertificateMaxSize = 2048,
+  kCertificateMaxSize = 8192,
 
   /** Maximum key label size in bytes including the nul terminator. */
   kCertificateKeyLabelMaxSize = 32,
@@ -107,7 +107,7 @@ enum {
    * bytes; Must be equal-to or larger than the value definited in
    * provisioning_data.h in the lowRISC/opentitan repo.
    */
-  kPersoBlobMaxSize = 8192,
+  kPersoBlobMaxSize = 65536,
 
   /** Maximum length of an endpoint address string. */
   kEndpointAddressMaxSize = 256,
@@ -517,7 +517,7 @@ typedef struct register_device_request {
   /** Encrypted RMA unlock token. */
   uint32_t wrapped_rma_unlock_token[4];
   /** Personalization TLV data. */
-  uint8_t perso_tlv_data[8192];
+  uint8_t perso_tlv_data[65536];
   /** Personalization firmware SHA256 hash. */
   uint32_t perso_fw_sha256_hash[8];
 } register_device_request_t;

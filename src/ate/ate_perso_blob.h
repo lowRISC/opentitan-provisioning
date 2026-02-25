@@ -34,7 +34,7 @@ typedef uint16_t perso_tlv_cert_header_t;
 // Header field definitions
 typedef enum perso_tlv_obj_header_fields {
   kObjhSizeFieldShift = 0,
-  kObjhSizeFieldWidth = 12,
+  kObjhSizeFieldWidth = 13,
   kObjhSizeFieldMask = (1 << kObjhSizeFieldWidth) - 1,
   kObjhTypeFieldShift = kObjhSizeFieldWidth,
   kObjhTypeFieldWidth =
