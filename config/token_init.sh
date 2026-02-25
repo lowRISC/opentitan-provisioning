@@ -24,6 +24,7 @@ usage () {
 
   echo "Available SKUs:"
   echo "  - sival: Sival SKU"
+  echo "  - test_mldsa: Test MLDSA SKU"
   echo "  - cr: CR SKU"
   echo "  - pi: PI SKU"
   echo "  - ti: TI SKU"
@@ -105,6 +106,7 @@ SPM_SKU_EG_DIR="${SPM_SKU_DIR}/eg"
 
 # Supported SKU directories.
 SIVAL_DIR="${SPM_SKU_DIR}/sival"
+TEST_MLDSA_DIR="${SPM_SKU_DIR}/test_mldsa"
 EG_COMMON_DIR="${SPM_SKU_EG_DIR}/common"
 EG_CR_DIR="${SPM_SKU_EG_DIR}/cr"
 EG_PI_DIR="${SPM_SKU_EG_DIR}/pi"
@@ -122,6 +124,7 @@ HSM_CA_ROOT_CERTS_TAR_GZ="hsm_ca_root_certs.tar.gz"
 
 declare -A SKU_TO_DIR=(
   ["sival"]="${SIVAL_DIR}"
+  ["test_mldsa"]="${TEST_MLDSA_DIR}"
   ["cr01"]="${EG_CR_DIR}"
   ["pi01"]="${EG_PI_DIR}"
   ["ti01"]="${EG_TI_DIR}"
@@ -129,6 +132,7 @@ declare -A SKU_TO_DIR=(
 
 declare -A SKU_TO_KEYGEN_SCRIPT=(
   ["sival"]="spm_ca_keygen.bash"
+  ["test_mldsa"]="spm_ca_keygen.bash"
   ["cr01"]="cr01_spm_ca_keygen.bash"
   ["pi01"]="pi01_spm_ca_keygen.bash"
   ["ti01"]="ti01_spm_ca_keygen.bash"
@@ -136,6 +140,7 @@ declare -A SKU_TO_KEYGEN_SCRIPT=(
 
 declare -A SKU_TO_CERTGEN_SCRIPT=(
   ["sival"]="ca_intermediate_certgen.bash"
+  ["test_mldsa"]="ca_intermediate_certgen.bash"
   ["cr01"]="cr01_ca_intermediate_certgen.bash"
   ["pi01"]="pi01_ca_intermediate_certgen.bash"
   ["ti01"]="ti01_ca_intermediate_certgen.bash"

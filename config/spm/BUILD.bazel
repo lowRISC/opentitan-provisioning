@@ -31,6 +31,11 @@ envsubst_template(
     template = ":sku_ti01.yml.tmpl",
 )
 
+envsubst_template(
+    name = "sku_test_mldsa",
+    template = ":sku_test_mldsa.yml.tmpl",
+)
+
 filegroup(
     name = "release",
     srcs = [
@@ -38,6 +43,7 @@ filegroup(
         ":sku_cr01",
         ":sku_pi01",
         ":sku_sival",
+        ":sku_test_mldsa",
         ":sku_ti01",
         "//config/spm/sku:release",
     ],

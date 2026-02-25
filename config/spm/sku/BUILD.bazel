@@ -6,6 +6,7 @@ load(
     "//rules:hsm.bzl",
     "hsm_config_tar",
     "hsm_spm_identity_key",
+    "hsm_spm_identity_key_mldsa",
     "hsm_spm_wrapping_key",
 )
 load(
@@ -26,11 +27,16 @@ hsm_spm_identity_key(
     curve = HSMTOOL_CONST.ECC_CURVE.PRIME256V1,
 )
 
+hsm_spm_identity_key_mldsa(
+    name = "spm-hsm-id-mldsa-v0",
+)
+
 hsm_config_tar(
     name = "spm_init",
     hsmtool_sequence = {
         ":spm-rsa-wrap-v0": "keygen",
         ":spm-hsm-id-v0": "keygen",
+        ":spm-hsm-id-mldsa-v0": "keygen",
     },
 )
 
@@ -39,6 +45,7 @@ hsm_config_tar(
     hsmtool_sequence = {
         ":spm-rsa-wrap-v0": "export",
         ":spm-hsm-id-v0": "export",
+        ":spm-hsm-id-mldsa-v0": "export",
     },
 )
 
@@ -49,5 +56,6 @@ filegroup(
         ":spm_init",
         "//config/spm/sku/eg:eg_release",
         "//config/spm/sku/sival:release",
+        "//config/spm/sku/test_mldsa:release",
     ],
 )
