@@ -249,11 +249,11 @@ TEST_F(AteJsonTest, PersoBlob) {
   }
   blob.next_free = sizeof(blob.body);
 
-  constexpr size_t kNum256ByteFrames = 150;
+  constexpr size_t kNum256ByteFrames = 1200;
   dut_spi_frame_t ate_to_dut_frames[kNum256ByteFrames] = {0};
   size_t num_frames = kNum256ByteFrames;
   EXPECT_EQ(PersoBlobToJson(&blob, ate_to_dut_frames, &num_frames), 0);
-  EXPECT_EQ(num_frames, 129);
+  EXPECT_EQ(num_frames, 1025);
 
   // Translate the RX buffer into a TX buffer.
   const size_t kNum2020ByteFrames =
@@ -275,7 +275,7 @@ TEST_F(AteJsonTest, PersoBlob) {
   EXPECT_EQ(PersoBlobFromJson(dut_to_ate_frames, kNum2020ByteFrames, &blob_got),
             0);
   EXPECT_EQ(blob_got.num_objects, 1);
-  EXPECT_EQ(blob_got.next_free, 8192);
+  EXPECT_EQ(blob_got.next_free, 65536);
   EXPECT_THAT(blob_got.body,
               testing::ElementsAreArray(blob.body, sizeof(blob.body)));
 }
