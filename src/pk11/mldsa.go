@@ -70,7 +70,8 @@ func (s *Session) GenerateMLDSA(params MldsaParameterSet, opts *KeyOptions) (Key
 
 // SignMLDSA signs a message using MLDSA.
 func (k PrivateKey) SignMLDSA(message []byte) ([]byte, error) {
-	mech := []*pkcs11.Mechanism{pkcs11.NewMechanism(CKM_MLDSA, nil)}
+	// Some PKCS#11 implementations might require a non-NULL parameter pointer even if length is 0.
+	mech := []*pkcs11.Mechanism{pkcs11.NewMechanism(CKM_MLDSA, make([]byte, 0))}
 	if err := k.sess.tok.m.Raw().SignInit(k.sess.raw, mech, k.raw); err != nil {
 		return nil, newError(err, "could not begin signing operation")
 	}
@@ -84,13 +85,13 @@ func (k PrivateKey) SignMLDSA(message []byte) ([]byte, error) {
 
 // VerifyMLDSA verifies an MLDSA signature.
 func (k PublicKey) VerifyMLDSA(message, signature []byte) error {
-	mech := []*pkcs11.Mechanism{pkcs11.NewMechanism(CKM_MLDSA, nil)}
+	mech := []*pkcs11.Mechanism{pkcs11.NewMechanism(CKM_MLDSA, make([]byte, 0))}
 	if err := k.sess.tok.m.Raw().VerifyInit(k.sess.raw, mech, k.raw); err != nil {
 		return newError(err, "could not begin verification operation")
 	}
 
 	if err := k.sess.tok.m.Raw().Verify(k.sess.raw, message, signature); err != nil {
-		return newError(err, "could not complete verification operation")
+		return newError(err, "signature verification failed")
 	}
 	return nil
 }

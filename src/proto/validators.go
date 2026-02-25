@@ -19,7 +19,7 @@ import (
 const (
 	DeviceIdSkuSpecificLenInBytes = 16
 	WrappedRmaTokenLenInBytes     = 27 // 16 bytes of token + 11 PKCS#1v1.5 padding
-	MaxPersoTlvDataLenInBytes     = 8192
+	MaxPersoTlvDataLenInBytes     = 32768
 )
 
 // Checks that a uint32 fits into 16 bits.
