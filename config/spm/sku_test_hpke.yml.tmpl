@@ -1,0 +1,40 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+sku: "test_hpke"
+slotId: 0
+numSessions: 3
+certCountX509: 3
+certCountCWT: 0
+symmetricKeys:
+  - name: eg-kdf-hisec-v0
+  - name: eg-kdf-losec-v0
+certs:
+  - name: RootCA
+    path: sku/eg/common/ca/opentitan-ca-root-v0.priv.der
+  - name: SigningKey/Dice/v0
+    path: sku/eg/ti/ca/ti01-ica-dice-key-p256-v0.priv.der
+privateKeys:
+    - name: ti01-ica-dice-key-p256-v0.priv
+    - name: spm-hsm-id-v0.priv
+publicKeys:
+    - name: sku-eg-rsa-rma-v0.pub
+attributes:
+    SeedSecHi: eg-kdf-hisec-v0
+    SeedSecLo: eg-kdf-losec-v0
+    WASKeyLabel: eg-kdf-hisec-v0
+    WASDisable: false
+    WrappingMechanism: ${OTPROV_WrappingMechanism}
+    WrappingKeyLabel: sku-eg-rsa-rma-v0.pub
+    SecondLayerWrappingMechanism: Hpke
+    HPKEPQPublicKeyPath: sku/test_hpke/ca/hpke_mlkem.pub
+    HPKEClassicalPublicKeyPath: sku/test_hpke/ca/hpke_ecdsa.pub.der
+    SigningKey/Dice/v0: ti01-ica-dice-key-p256-v0.priv
+    SigningKey/Identity/v0: spm-hsm-id-v0.priv
+    CertChainDiceLeaf: CDI_1
+    OwnerFirmwareBootMessage: "test_hpke_mfg"
+x509CertHashOrder:
+    - UDS
+    - CDI_0
+    - CDI_1

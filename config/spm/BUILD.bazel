@@ -32,6 +32,11 @@ envsubst_template(
 )
 
 envsubst_template(
+    name = "sku_test_hpke",
+    template = ":sku_test_hpke.yml.tmpl",
+)
+
+envsubst_template(
     name = "sku_sival_mldsa",
     template = ":sku_sival_mldsa.yml.tmpl",
 )
@@ -43,6 +48,7 @@ filegroup(
         ":sku_cr01",
         ":sku_pi01",
         ":sku_sival",
+        ":sku_test_hpke",
         ":sku_ti01",
         "//config/spm/sku:release",
     ] + select({
