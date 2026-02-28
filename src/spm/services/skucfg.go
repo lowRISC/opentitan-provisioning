@@ -21,6 +21,9 @@ const (
 	AttrNameWASDisable                        = "WASDisable"
 	AttrNameCertChainDiceLeaf                 = "CertChainDiceLeaf"
 	AttrNameOwnerFirmwareBootMessage          = "OwnerFirmwareBootMessage"
+	AttrNameHPKEPQPublicKeyPath               = "HPKEPQPublicKeyPath"
+	AttrNameHPKEClassicalPublicKeyPath        = "HPKEClassicalPublicKeyPath"
+	AttrNameSecondLayerWrappingMechanism      = "SecondLayerWrappingMechanism"
 )
 
 // WrappingMechanism provides the wrapping method for symmetric keys.
@@ -32,6 +35,14 @@ const (
 	WrappingMechanismAESKWP                     = "AesKwp"
 	WrappingMechanismRSAOAEP                    = "RsaOaep"
 	WrappingMechanismRSAPKCS1                   = "RsaPkcs"
+)
+
+// SecondLayerWrappingMechanism provides the wrapping method for the second layer of encryption.
+type SecondLayerWrappingMechanism string
+
+const (
+	SecondLayerWrappingMechanismNone SecondLayerWrappingMechanism = "none"
+	SecondLayerWrappingMechanismHPKE                              = "Hpke"
 )
 
 type Config struct {
