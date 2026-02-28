@@ -9,6 +9,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"crypto/ecdh"
+	"crypto/hpke"
+	"crypto/mlkem"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
@@ -16,6 +19,7 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"google.golang.org/grpc/codes"
@@ -270,9 +274,81 @@ func (s *server) DeriveTokens(ctx context.Context, request *pbp.DeriveTokensRequ
 
 	tokens := make([]*pbp.Token, len(res))
 	for i, r := range res {
+		wrappedKey := r.WrappedKey
+
+		// Check for second layer of wrapping.
+		secondLayer, err := sku.Config.GetAttribute(skucfg.AttrNameSecondLayerWrappingMechanism)
+		if err == nil && secondLayer == string(skucfg.SecondLayerWrappingMechanismHPKE) {
+			pqPath, err := sku.Config.GetAttribute(skucfg.AttrNameHPKEPQPublicKeyPath)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "could not get HPKEPQPublicKeyPath for sku %q: %v", request.Sku, err)
+			}
+			classicalPath, err := sku.Config.GetAttribute(skucfg.AttrNameHPKEClassicalPublicKeyPath)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "could not get HPKEClassicalPublicKeyPath for sku %q: %v", request.Sku, err)
+			}
+
+			pqBytes, err := os.ReadFile(filepath.Join(s.configDir, pqPath))
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "could not read PQ key: %v", err)
+			}
+			classicalBytes, err := os.ReadFile(filepath.Join(s.configDir, classicalPath))
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "could not read classical key: %v", err)
+			}
+
+			// Parse Classical Key
+			pub, err := x509.ParsePKIXPublicKey(classicalBytes)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "could not parse classical PKIX public key: %v", err)
+			}
+			
+			var ecdhPub *ecdh.PublicKey
+			switch pk := pub.(type) {
+			case *ecdsa.PublicKey:
+				ecdhPub, err = pk.ECDH()
+				if err != nil {
+					return nil, status.Errorf(codes.Internal, "could not convert ECDSA to ECDH: %v", err)
+				}
+			case *ecdh.PublicKey:
+				ecdhPub = pk
+			case *rsa.PublicKey:
+				return nil, status.Errorf(codes.InvalidArgument, "RSA keys are not supported for HPKE hybrid wrapping")
+			default:
+				return nil, status.Errorf(codes.InvalidArgument, "unsupported classical key type for HPKE: %T", pub)
+			}
+
+			// Parse PQ Key
+			var pqEnc crypto.Encapsulator
+			pqPub, err := x509.ParsePKIXPublicKey(pqBytes)
+			if err == nil {
+				var ok bool
+				pqEnc, ok = pqPub.(crypto.Encapsulator)
+				if !ok {
+					return nil, status.Errorf(codes.Internal, "PQ public key does not implement crypto.Encapsulator")
+				}
+			} else {
+				// Fallback for raw ML-KEM-768 key
+				pqEnc, err = mlkem.NewEncapsulationKey768(pqBytes)
+				if err != nil {
+					return nil, status.Errorf(codes.Internal, "could not parse raw PQ public key (assumed ML-KEM-768): %v", err)
+				}
+			}
+
+			hpkeHybridPub, err := hpke.NewHybridPublicKey(pqEnc, ecdhPub)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "could not create HPKE hybrid public key: %v", err)
+			}
+
+			wrappedKey, err = hpke.Seal(hpkeHybridPub, hpke.HKDFSHA256(), hpke.AES256GCM(), []byte("token-seed-wrap"), wrappedKey)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "could not HPKE seal the token seed: %v", err)
+			}
+		}
+
 		tokens[i] = &pbp.Token{
 			Token:       r.Token,
-			WrappedSeed: r.WrappedKey,
+			WrappedSeed: wrappedKey,
 		}
 	}
 
