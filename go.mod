@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 module github.com/lowRISC/opentitan-provisioning
 
-go 1.24.0
+go 1.26.0
 
 // This file is used to manage dependencies for the OpenTitan Provisioning
 // project. It is used by the Go toolchain to fetch dependencies and their
