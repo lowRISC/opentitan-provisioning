@@ -14,9 +14,9 @@ certs:
   - name: RootCA
     path: sku/eg/common/ca/opentitan-ca-root-v0.priv.der
   - name: SigningKey/Dice/v0
-    path: sku/eg/ti/ca/ti01-ica-dice-key-p256-v0.priv.der
+    path: sku/test_hpke/ca/test_hpke-dice-key-p256-v0.priv.der
 privateKeys:
-    - name: ti01-ica-dice-key-p256-v0.priv
+    - name: test_hpke-dice-key-p256-v0.priv
     - name: spm-hsm-id-v0.priv
 publicKeys:
     - name: sku-eg-rsa-rma-v0.pub
@@ -30,7 +30,7 @@ attributes:
     SecondLayerWrappingMechanism: Hpke
     HPKEPQPublicKeyPath: sku/test_hpke/ca/hpke_mlkem.pub
     HPKEClassicalPublicKeyPath: sku/test_hpke/ca/hpke_ecdsa.pub.der
-    SigningKey/Dice/v0: ti01-ica-dice-key-p256-v0.priv
+    SigningKey/Dice/v0: test_hpke-dice-key-p256-v0.priv
     SigningKey/Identity/v0: spm-hsm-id-v0.priv
     CertChainDiceLeaf: CDI_1
     OwnerFirmwareBootMessage: "test_hpke_mfg"
