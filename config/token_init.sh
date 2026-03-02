@@ -112,6 +112,7 @@ EG_COMMON_DIR="${SPM_SKU_EG_DIR}/common"
 EG_CR_DIR="${SPM_SKU_EG_DIR}/cr"
 EG_PI_DIR="${SPM_SKU_EG_DIR}/pi"
 EG_TI_DIR="${SPM_SKU_EG_DIR}/ti"
+TEST_HPKE_DIR="${SPM_SKU_DIR}/test_hpke"
 
 if [[ ! -d "${SPM_SKU_DIR}" ]]; then
   echo "Error: SPM SKU directory '${SPM_SKU_DIR}' does not exist."
@@ -129,7 +130,7 @@ declare -A SKU_TO_DIR=(
   ["cr01"]="${EG_CR_DIR}"
   ["pi01"]="${EG_PI_DIR}"
   ["ti01"]="${EG_TI_DIR}"
-  ["test_hpke"]="${SIVAL_DIR}"
+  ["test_hpke"]="${TEST_HPKE_DIR}"
 )
 
 declare -A SKU_TO_KEYGEN_SCRIPT=(

@@ -19,7 +19,7 @@ SKU_NAMES="test_hpke"
 
 # Run the PA HPKE loadtest.
 echo "Running PA HPKE loadtest ..."
-bazelisk run //src/pa:mldsa_loadtest -- \
+bazelisk run //src/pa:loadtest -- \
    --ca_root_certs=${DEPLOYMENT_DIR}/certs/out/ca-cert.pem \
    --client_cert="${DEPLOYMENT_DIR}/certs/out/ate-client-cert.pem" \
    --client_key="${DEPLOYMENT_DIR}/certs/out/ate-client-key.pem" \

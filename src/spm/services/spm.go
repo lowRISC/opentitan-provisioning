@@ -8,10 +8,12 @@ package spm
 import (
 	"bytes"
 	"context"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/ecdh"
 	"crypto/hpke"
 	"crypto/mlkem"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
