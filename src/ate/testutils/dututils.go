@@ -447,7 +447,11 @@ func (d *Dut) GeneratePersoBlob() ([]byte, error) {
 		X509Certs:    []ate.EndorseCertResponse{}, // No endorsed certs yet.
 		Seeds:        []ate.Seed{},                // No seeds for now.
 	}
-	blobBytes, err := ate.BuildPersoBlob(d.persoBlob, !d.SupportsMLDSA())
+	blobVersion := ate.PersoBlobVersionV1
+	if !d.SupportsMLDSA() {
+		blobVersion = ate.PersoBlobVersionV0
+	}
+	blobBytes, err := ate.BuildPersoBlob(d.persoBlob, blobVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -521,7 +525,11 @@ func (d *Dut) GeneratePersoTlv() ([]byte, uint32, error) {
 	}
 
 	if d.certChainDiceLeaf == "UDS" {
-		blobBytes, err := ate.BuildPersoBlob(persoBlob, !d.SupportsMLDSA())
+		blobVersion := ate.PersoBlobVersionV1
+	if !d.SupportsMLDSA() {
+		blobVersion = ate.PersoBlobVersionV0
+	}
+	blobBytes, err := ate.BuildPersoBlob(persoBlob, blobVersion)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -561,7 +569,11 @@ func (d *Dut) GeneratePersoTlv() ([]byte, uint32, error) {
 
 	// If the certificate chain is CDI_0, we don't need to create CDI_1.
 	if d.certChainDiceLeaf == "CDI_0" {
-		blobBytes, err := ate.BuildPersoBlob(persoBlob, !d.SupportsMLDSA())
+		blobVersion := ate.PersoBlobVersionV1
+	if !d.SupportsMLDSA() {
+		blobVersion = ate.PersoBlobVersionV0
+	}
+	blobBytes, err := ate.BuildPersoBlob(persoBlob, blobVersion)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -599,7 +611,11 @@ func (d *Dut) GeneratePersoTlv() ([]byte, uint32, error) {
 		Cert:     cdi1CertBytes,
 	})
 
-	blobBytes, err := ate.BuildPersoBlob(persoBlob, !d.SupportsMLDSA())
+	blobVersion := ate.PersoBlobVersionV1
+	if !d.SupportsMLDSA() {
+		blobVersion = ate.PersoBlobVersionV0
+	}
+	blobBytes, err := ate.BuildPersoBlob(persoBlob, blobVersion)
 	if err != nil {
 		return nil, 0, err
 	}
