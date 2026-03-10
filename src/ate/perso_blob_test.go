@@ -42,7 +42,7 @@ func TestUnpackPersoBlobSuccess(t *testing.T) {
 		X509TbsCerts: []EndorseCertRequest{testTbsCert},
 		X509Certs:    []EndorseCertResponse{testCert},
 	}
-	blobBytes, err := BuildPersoBlob(testPersoBlob, true)
+	blobBytes, err := BuildPersoBlob(testPersoBlob, PersoBlobVersionV0)
 	if err != nil {
 		t.Fatalf("BuildPersoBlob() failed: %v", err)
 	}
