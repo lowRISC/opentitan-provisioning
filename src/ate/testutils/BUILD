@@ -19,7 +19,7 @@ go_library(
         "//src/proto:device_testdata",
         "//src/spm/services:skucfg",
         "//src/spm/services/skumgr",
-        "//src/spm/services/testutils:tbsgen",
+        "//src/spm/services/testutils:tbsgen_lib",
         "//src/utils:devid",
     ],
 )
