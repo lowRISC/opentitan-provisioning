@@ -19,6 +19,11 @@ load(
     "hsmtool_generic_export",
     "hsmtool_generic_import",
     "hsmtool_generic_keygen",
+    "hsmtool_mldsa_export_priv",
+    "hsmtool_mldsa_export_pub",
+    "hsmtool_mldsa_import_priv",
+    "hsmtool_mldsa_import_pub",
+    "hsmtool_mldsa_keygen",
     "hsmtool_object_destroy",
     "hsmtool_object_show",
     "hsmtool_pk11_attrs",
@@ -266,6 +271,80 @@ def _hsm_key_template_ecdsa(ctx, keygen_params, import_template_private = {}, im
         hsmtool_cmds = hsmtool_cmds,
     )
 
+def _hsm_key_template_mldsa(ctx, keygen_params, import_template_private = {}, import_template_public = {}):
+    """Creates a key template for MLDSA keys.
+
+    Args:
+        ctx: The rule context.
+        keygen_params: The key generation parameters.
+        import_template_private: The private import template.
+        import_template_public: The public import template.
+    """
+    label = _key_label(keygen_params)
+    label_pub = _key_label_pub(keygen_params)
+    label_priv = _key_label_priv(keygen_params)
+
+    for param in [
+        "extractable",
+        "private_template",
+        "public_template",
+        "wrapping",
+    ]:
+        if param not in keygen_params:
+            fail("Key generation parameters must contain a %s." % param)
+
+    hsmtool_cmds = {
+        "keygen": hsmtool_mldsa_keygen(
+            label = label,
+            extractable = keygen_params["extractable"],
+            private_template = keygen_params["private_template"],
+            public_template = keygen_params["public_template"],
+            wrapping = keygen_params["wrapping"],
+        ),
+        "import_pub": hsmtool_mldsa_import_pub(
+            label = label_pub,
+            public_template = import_template_public,
+        ),
+        "export_pub": hsmtool_mldsa_export_pub(label_pub),
+        "destroy": [
+            hsmtool_object_destroy(label),
+            hsmtool_object_destroy(label_pub),
+            hsmtool_object_destroy(label_priv),
+        ],
+        "show": [
+            hsmtool_object_show(label_pub),
+            hsmtool_object_show(label_priv),
+        ],
+    }
+
+    if not ctx.attr.export_public_only:
+        hsmtool_cmds["import_priv"] = hsmtool_mldsa_import_priv(
+            label = label_priv,
+            unwrap = ctx.attr.wrapping_key[KeyTemplateInfo].label_priv,
+            unwrap_mechanism = ctx.attr.wrapping_mechanism,
+            private_template = import_template_private,
+        )
+        hsmtool_cmds["export_priv"] = hsmtool_mldsa_export_priv(
+            label = label_priv,
+            wrap = ctx.attr.wrapping_key[KeyTemplateInfo].label_pub,
+            wrap_mechanism = ctx.attr.wrapping_mechanism,
+        )
+
+    return KeyTemplateInfo(
+        type = "mldsa",
+        label = label,
+        label_pub = label_pub,
+        label_priv = label_priv,
+        keygen_params = keygen_params,
+        export_public_only = ctx.attr.export_public_only,
+        wrapping_mechanism = ctx.attr.wrapping_mechanism,
+        wrapping_key = ctx.attr.wrapping_key,
+        import_template = {},
+        import_template_private = import_template_private,
+        import_template_public = import_template_public,
+        hsmtool_cmds = hsmtool_cmds,
+    )
+
 def _hsm_key_template_rsa(ctx, keygen_params, import_template_private = {}, import_template_public = {}):
     """Creates a key template for RSA keys.
 
@@ -400,6 +479,13 @@ def _hsm_key_template(ctx):
             import_template_private,
             import_template_public,
         )
+    elif ctx.attr.type == "mldsa":
+        return _hsm_key_template_mldsa(
+            ctx,
+            keygen_params,
+            import_template_private,
+            import_template_public,
+        )
     elif ctx.attr.type == "rsa":
         return _hsm_key_template_rsa(
             ctx,
@@ -415,7 +501,7 @@ hsm_key_template = rule(
     attrs = {
         "type": attr.string(
             mandatory = True,
-            values = ["aes", "generic", "ecdsa", "rsa"],
+            values = ["aes", "generic", "ecdsa", "mldsa", "rsa"],
         ),
         "export_public_only": attr.bool(
             default = False,
@@ -562,13 +648,13 @@ def _hsmtool_genscripts(ctx):
                 show_dict.append(json.decode(scmd))
 
         # Update up command sequence.
-        if command == "import" and key.type in ["ecdsa", "rsa"]:
+        if command == "import" and key.type in ["ecdsa", "mldsa", "rsa"]:
             if "import_pub" in key.hsmtool_cmds:
                 up_dict.append(_process_command(key, "import_pub"))
             if "import_priv" in key.hsmtool_cmds:
                 up_dict.append(_process_command(key, "import_priv"))
 
-        elif command == "export" and key.type in ["ecdsa", "rsa"]:
+        elif command == "export" and key.type in ["ecdsa", "mldsa", "rsa"]:
             if "export_pub" in key.hsmtool_cmds:
                 up_dict.append(_process_command(key, "export_pub"))
             if "export_priv" in key.hsmtool_cmds:
@@ -634,7 +720,7 @@ hsm_config_script = rule(
             allow_single_file = True,
         ),
         "_hsmtool": attr.label(
-            default = "@lowrisc_opentitan//sw/host/hsmtool",
+            default = "@lowrisc_opentitan_head//sw/host/hsmtool",
             allow_single_file = True,
             cfg = "exec",
             executable = True,
@@ -718,6 +804,7 @@ def _hsm_certgen_script_impl(ctx):
         "@@CERTGEN_ENDORSING_KEYS@@": " ".join(endorsing_keys),
         "@@CERTGEN_KEY_TYPES@@": " ".join(key_types),
         "@@CERTGEN_ENDORSING_KEY_TYPES@@": " ".join(endorsing_key_types),
+        "@@TBSGEN_BIN@@": shell.quote(ctx.executable._tbsgen.basename),
     }
 
     ctx.actions.expand_template(
@@ -727,7 +814,13 @@ def _hsm_certgen_script_impl(ctx):
         is_executable = True,
     )
 
+    outfiles = [
+        ctx.executable._hsmtool,
+        ctx.executable._tbsgen,
+    ]
+
     return DefaultInfo(
+        runfiles = ctx.runfiles(files = outfiles),
         executable = out_file,
     )
 
@@ -741,6 +834,18 @@ hsm_certgen_script = rule(
         "_runner_ca_sign": attr.label(
             default = "//rules/scripts:hsm_ca_sign.sh",
             allow_single_file = True,
+        ),
+        "_hsmtool": attr.label(
+            default = "@lowrisc_opentitan_head//sw/host/hsmtool",
+            allow_single_file = True,
+            cfg = "exec",
+            executable = True,
+        ),
+        "_tbsgen": attr.label(
+            default = "//src/spm/services/testutils:tbsgen",
+            allow_single_file = True,
+            cfg = "exec",
+            executable = True,
         ),
     },
     executable = True,
@@ -840,6 +945,38 @@ def hsm_spm_identity_key(name, curve):
             wrapping = False,
         ),
         type = "ecdsa",
+    )
+
+def hsm_spm_identity_key_mldsa(name):
+    """Creates an MLDSA identity key for SPM.
+
+    Args:
+        name: The name of the identity key.
+    """
+    hsm_key_template(
+        name = name,
+        export_public_only = True,
+        import_template_public = hsmtool_pk11_attrs({
+            "CKA_VERIFY": True,
+            "CKA_TOKEN": True,
+        }),
+        keygen_params = hsmtool_mldsa_keygen(
+            extractable = False,
+            label = name,
+            private_template = {
+                "CKA_LABEL": name + ".priv",
+                "CKA_SIGN": True,
+                "CKA_TOKEN": True,
+                "CKA_EXTRACTABLE": False,
+            },
+            public_template = {
+                "CKA_LABEL": name + ".pub",
+                "CKA_VERIFY": True,
+                "CKA_TOKEN": True,
+            },
+            wrapping = False,
+        ),
+        type = "mldsa",
     )
 
 def hsm_sku_wrapping_key(name, wrapping_key, wrapping_mechanism):
@@ -952,6 +1089,35 @@ def hsm_certificate_authority_root(name, curve):
         type = "ecdsa",
     )
 
+def hsm_certificate_authority_root_mldsa(name):
+    """Creates a root certificate authority key for MLDSA.
+
+    Args:
+        name: The name of the certificate authority key.
+    """
+    hsm_key_template(
+        name = name,
+        export_public_only = True,
+        keygen_params = hsmtool_mldsa_keygen(
+            extractable = False,
+            label = name,
+            private_template = {
+                "CKA_LABEL": name + ".priv",
+                "CKA_SIGN": True,
+                "CKA_TOKEN": True,
+                "CKA_EXTRACTABLE": False,
+                "CKA_SENSITIVE": True,
+            },
+            public_template = {
+                "CKA_LABEL": name + ".pub",
+                "CKA_VERIFY": True,
+                "CKA_TOKEN": True,
+            },
+            wrapping = False,
+        ),
+        type = "mldsa",
+    )
+
 def hsm_certificate_authority_intermediate(name, curve):
     hsm_key_template(
         name = name,
@@ -979,6 +1145,34 @@ def hsm_certificate_authority_intermediate(name, curve):
             wrapping = False,
         ),
         type = "ecdsa",
+    )
+
+def hsm_certificate_authority_intermediate_mldsa(name):
+    hsm_key_template(
+        name = name,
+        export_public_only = True,
+        import_template_public = hsmtool_pk11_attrs({
+            "CKA_VERIFY": True,
+            "CKA_TOKEN": True,
+        }),
+        keygen_params = hsmtool_mldsa_keygen(
+            extractable = False,
+            label = name,
+            private_template = {
+                "CKA_LABEL": name + ".priv",
+                "CKA_SIGN": True,
+                "CKA_TOKEN": True,
+                "CKA_EXTRACTABLE": False,
+                "CKA_SENSITIVE": True,
+            },
+            public_template = {
+                "CKA_LABEL": name + ".pub",
+                "CKA_VERIFY": True,
+                "CKA_TOKEN": True,
+            },
+            wrapping = False,
+        ),
+        type = "mldsa",
     )
 
 def hsm_generic_secret(name, wrapping_key, wrapping_mechanism):

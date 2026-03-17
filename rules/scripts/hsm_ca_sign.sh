@@ -179,7 +179,6 @@ if [ "${OTPROV_USE_GEM_ENGINE}" == true ]; then
   CA_GEM_ENGINE_INIT=true
 fi
 
-
 # certgen generates a certificate for the given config file and signs it with
 # the given CA key.
 certgen () {
@@ -210,8 +209,6 @@ certgen () {
   CONFIG_FILE="${config_basename}.conf"
   CSR_FILE="${OUTDIR_CA}/${ca_key}.csr"
   CERT_FILE="${OUTDIR_CA}/${ca_key}.pem"
-
-
 
   if [[ "${FLAGS_SIGN_ONLY}" == false ]]; then
     # Generate a CSR for the CA key. This can be either a root CA or an
@@ -276,23 +273,70 @@ certgen () {
     else
         echo "Generating certificate for ${ca_key} signed by ${endorsing_key}"
 
-    CA_ENDORSING_CERT_FILE="${OUTDIR_CA}/${endorsing_key}.pem"
-    if [[ ! -f "${CA_ENDORSING_CERT_FILE}" ]]; then
-      echo "Error: CA endorsing certificate file ${CA_ENDORSING_CERT_FILE} does not exist."
-      exit 1
+        CA_ENDORSING_CERT_FILE="${OUTDIR_CA}/${endorsing_key}.pem"
+        if [[ ! -f "${CA_ENDORSING_CERT_FILE}" ]]; then
+          echo "Error: CA endorsing certificate file ${CA_ENDORSING_CERT_FILE} does not exist."
+          exit 1
+        fi
+
+        env "${certvars[@]}" \
+        openssl x509 -req -engine "${ENGINE}" -keyform engine \
+        -in "${CSR_FILE}" \
+        -out "${CERT_FILE}" \
+        -days 7300 \
+        -extfile "${CONFIG_FILE}" \
+        -extensions v3_ca \
+        -CA "${CA_ENDORSING_CERT_FILE}" \
+        -CAkeyform engine \
+        -CAkey "${ENDORSING_KEY}"
+    fi
+  else
+    # Find hsmtool
+    HSMTOOL_CMD="${HSMTOOL_BIN:-hsmtool}"
+    if ! command -v "${HSMTOOL_CMD}" > /dev/null && [[ -x "./hsmtool" ]]; then
+      HSMTOOL_CMD="./hsmtool"
     fi
 
-    env "${certvars[@]}" \
-    openssl x509 -req -engine "${ENGINE}" -keyform engine \
-      -in "${CSR_FILE}" \
-      -out "${CERT_FILE}" \
-      -days 7300 \
-      -extfile "${CONFIG_FILE}" \
-      -extensions v3_ca \
-      -CA "${CA_ENDORSING_CERT_FILE}" \
-      -CAkeyform engine \
-      -CAkey "${ENDORSING_KEY}"
+    # Find tbsgen
+    TBSGEN_CMD="${TBSGEN_BIN:-@@TBSGEN_BIN@@}"
+    if ! command -v "${TBSGEN_CMD}" > /dev/null && [[ -x "./${TBSGEN_CMD}" ]]; then
+      TBSGEN_CMD="./${TBSGEN_CMD}"
     fi
+
+    if ! command -v "${TBSGEN_CMD}" > /dev/null; then
+       echo "Error: tbsgen not found. Please set TBSGEN_BIN or ensure it is in the PATH."
+       exit 1
+    fi
+
+    TBS_FILE="${CERT_FILE}.tbs"
+    SIG_FILE="${CERT_FILE}.sig"
+
+    # 1. Generate TBS
+    TBS_ARGS=(tbs --csr "${CSR_FILE}" --output "${TBS_FILE}" --days 7300)
+    if [[ "${ca_key}" != "${endorsing_key}" ]]; then
+        CA_ENDORSING_CERT_FILE="${OUTDIR_CA}/${endorsing_key}.pem"
+        if [[ ! -f "${CA_ENDORSING_CERT_FILE}" ]]; then
+          echo "Error: CA endorsing certificate file ${CA_ENDORSING_CERT_FILE} does not exist."
+          exit 1
+        fi
+        TBS_ARGS+=(--ca-cert "${CA_ENDORSING_CERT_FILE}")
+        echo "Generating TBS for ${ca_key} signed by ${endorsing_key}"
+    else
+        echo "Generating self-signed TBS for root CA ${ca_key}"
+    fi
+    "${TBSGEN_CMD}" "${TBS_ARGS[@]}"
+
+    # 2. Sign TBS using HSM
+    echo "Signing TBS for ${ca_key} using HSM key ${endorsing_key}"
+    env "${certvars[@]}" "${HSMTOOL_CMD}" --module "${FLAGS_HSMTOOL_MODULE}" --token "${FLAGS_HSMTOOL_TOKEN}" --pin "${FLAGS_HSMTOOL_PIN}" \
+        mldsa sign --label "${endorsing_key}" --format raw "${TBS_FILE}" --output "${SIG_FILE}"
+
+    # 3. Assemble final certificate
+    echo "Assembling final certificate for ${ca_key}"
+    "${TBSGEN_CMD}" assemble --tbs "${TBS_FILE}" --signature "${SIG_FILE}" --output "${CERT_FILE}"
+
+    # Cleanup temporary files
+    rm "${TBS_FILE}" "${SIG_FILE}"
   fi
 
   echo "Converting certificate for ${ca_key} to DER"
@@ -314,4 +358,3 @@ if [[ -n "${FLAGS_OUT_TAR}" ]]; then
   echo "Exporting HSM data to ${FLAGS_OUT_TAR}"
   tar -czvf "${FLAGS_OUT_TAR}" "${OUTDIR_CA}"
 fi
-
