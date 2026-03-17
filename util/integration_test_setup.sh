@@ -85,6 +85,10 @@ shutdown_callback() {
 }
 trap shutdown_callback EXIT
 
+# Build tbsgen and set it in the environment
+bazelisk build //src/spm/services/testutils:tbsgen
+export TBSGEN_BIN="$(pwd)/bazel-bin/src/spm/services/testutils/tbsgen_/tbsgen"
+
 # Build and deploy containers. The ${OT_PROV_PROD_EN} envar is checked
 # by `deploy_test_k8_pod.sh`.
 ./util/containers/deploy_test_k8_pod.sh

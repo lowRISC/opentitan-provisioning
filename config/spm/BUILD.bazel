@@ -31,6 +31,11 @@ envsubst_template(
     template = ":sku_ti01.yml.tmpl",
 )
 
+envsubst_template(
+    name = "sku_test_mldsa",
+    template = ":sku_test_mldsa.yml.tmpl",
+)
+
 filegroup(
     name = "release",
     srcs = [
@@ -40,6 +45,11 @@ filegroup(
         ":sku_sival",
         ":sku_ti01",
         "//config/spm/sku:release",
-    ],
+    ] + select({
+        "//:prod_env": [],
+        "//conditions:default": [
+            ":sku_test_mldsa",
+        ],
+    }),
     visibility = ["//visibility:public"],
 )

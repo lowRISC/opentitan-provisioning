@@ -1,0 +1,53 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+sku: "test_mldsa"
+slotId: 0
+numSessions: 3
+certCountX509: 6
+certCountCWT: 0
+symmetricKeys:
+  - name: eg-kdf-hisec-v0
+  - name: eg-kdf-losec-v0
+certs:
+  - name: RootCA
+    path: sku/eg/common/ca/opentitan-ca-root-v0.priv.der
+  - name: RootCAMldsa
+    path: sku/eg/common/ca/test_mldsa-root-key-mldsa-v0.priv.der
+  - name: SigningKey/Dice/v0
+    path: sku/sival/ca/sival-dice-key-p256-v0.priv.der
+  - name: SigningKey/Dice/Mldsa/v0
+    path: sku/test_mldsa/ca/test_mldsa-dice-key-mldsa-v0.priv.der
+  - name: SigningKey/Ext/v0
+    path: sku/test_mldsa/ca/test_mldsa-ext-key-p256-v0.priv.der
+  - name: SigningKey/Ext/Mldsa/v0
+    path: sku/test_mldsa/ca/test_mldsa-ext-key-mldsa-v0.priv.der
+privateKeys:
+    - name: sival-dice-key-p256-v0.priv
+    - name: spm-hsm-id-v0.priv
+    - name: test_mldsa-dice-key-mldsa-v0.priv
+    - name: spm-hsm-id-mldsa-v0.priv
+    - name: test_mldsa-ext-key-p256-v0.priv
+    - name: test_mldsa-ext-key-mldsa-v0.priv
+publicKeys:
+    - name: sku-eg-rsa-rma-v0.pub
+attributes:
+    SeedSecHi: eg-kdf-hisec-v0
+    SeedSecLo: eg-kdf-losec-v0
+    WASKeyLabel: eg-kdf-hisec-v0
+    WASDisable: false
+    WrappingMechanism: ${OTPROV_WrappingMechanism}
+    WrappingKeyLabel: sku-eg-rsa-rma-v0.pub
+    SigningKey/Dice/v0: sival-dice-key-p256-v0.priv
+    SigningKey/Dice/Mldsa/v0: test_mldsa-dice-key-mldsa-v0.priv
+    SigningKey/Ext/v0: test_mldsa-ext-key-p256-v0.priv
+    SigningKey/Ext/Mldsa/v0: test_mldsa-ext-key-mldsa-v0.priv
+    SigningKey/Identity/v0: spm-hsm-id-v0.priv
+    SigningKey/Identity/Mldsa/v0: spm-hsm-id-mldsa-v0.priv
+    CertChainDiceLeaf: CDI_1
+    OwnerFirmwareBootMessage: "ownership: OWND"
+x509CertHashOrder:
+    - UDS
+    - CDI_0
+    - CDI_1

@@ -7,6 +7,7 @@ load(
     "hsm_certgen",
     "hsm_certgen_tar",
     "hsm_certificate_authority_root",
+    "hsm_certificate_authority_root_mldsa",
     "hsm_config_tar",
     "hsm_generic_secret",
     "hsm_sku_rma_key",
@@ -45,6 +46,11 @@ hsm_certificate_authority_root(
     curve = HSMTOOL_CONST.ECC_CURVE.PRIME256V1,
 )
 
+# test_mldsa SKU has own MLDSA root CA.
+hsm_certificate_authority_root_mldsa(
+    name = "test_mldsa-root-key-mldsa-v0",
+)
+
 hsm_generic_secret(
     name = "eg-kdf-hisec-v0",
     wrapping_key = ":eg-aes-wrap-v0",
@@ -79,16 +85,34 @@ hsm_certgen(
     root_cert = True,
 )
 
+hsm_certgen(
+    name = "ca_root_mldsa",
+    config = ":ca_root_mldsa.conf",
+    key = ":test_mldsa-root-key-mldsa-v0",
+    root_cert = True,
+)
+
 hsm_config_tar(
     name = "offline_init",
-    hsmtool_sequence = {
-        ":opentitan-ca-root-v0": "keygen",
-        ":pi01-ca-root-v0": "keygen",
-        ":eg-aes-wrap-v0": "keygen",
-        ":eg-kdf-hisec-v0": "keygen",
-        ":eg-kdf-losec-v0": "keygen",
-        ":sku-eg-rsa-rma-v0": "keygen",
-    },
+    hsmtool_sequence = select({
+        "//:prod_env": {
+            ":opentitan-ca-root-v0": "keygen",
+            ":pi01-ca-root-v0": "keygen",
+            ":eg-aes-wrap-v0": "keygen",
+            ":eg-kdf-hisec-v0": "keygen",
+            ":eg-kdf-losec-v0": "keygen",
+            ":sku-eg-rsa-rma-v0": "keygen",
+        },
+        "//conditions:default": {
+            ":opentitan-ca-root-v0": "keygen",
+            ":pi01-ca-root-v0": "keygen",
+            ":test_mldsa-root-key-mldsa-v0": "keygen",
+            ":eg-aes-wrap-v0": "keygen",
+            ":eg-kdf-hisec-v0": "keygen",
+            ":eg-kdf-losec-v0": "keygen",
+            ":sku-eg-rsa-rma-v0": "keygen",
+        },
+    }),
 )
 
 hsm_config_tar(
@@ -119,7 +143,12 @@ hsm_certgen_tar(
     certs = [
         ":ca_root",
         ":pi01_ca_root",
-    ],
+    ] + select({
+        "//:prod_env": [],
+        "//conditions:default": [
+            ":ca_root_mldsa",
+        ],
+    }),
 )
 
 filegroup(
@@ -131,5 +160,10 @@ filegroup(
         ":offline_init",
         ":pi01_ca_root.conf",
         ":spm_sku_init",
-    ],
+    ] + select({
+        "//:prod_env": [],
+        "//conditions:default": [
+            ":ca_root_mldsa.conf",
+        ],
+    }),
 )
