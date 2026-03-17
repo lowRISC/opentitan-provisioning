@@ -50,7 +50,8 @@ def _vendor_repo_impl(rctx):
 
     files = result.stdout.splitlines()
     for f in files:
-        rctx.symlink(path.get_child(f), f)
+        if f not in ["BUILD.bazel", "WORKSPACE", "WORKSPACE.bazel"]:
+            rctx.symlink(path.get_child(f), f)
 
 vendor_repo = repository_rule(
     implementation = _vendor_repo_impl,

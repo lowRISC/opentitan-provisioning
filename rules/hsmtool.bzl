@@ -260,6 +260,92 @@ def hsmtool_rsa_import_pub(label, public_attrs = {}):
         "public_attrs": public_attrs,
     })
 
+def hsmtool_mldsa_keygen(label, wrapping, extractable, public_template = {}, private_template = {}):
+    """Creates a key generation template for MLDSA keys.
+
+    Args:
+        label: The label for the key.
+        wrapping: Whether the key is used for wrapping.
+        extractable: Whether the key is extractable.
+        public_template: The public template for the key.
+        private_template: The private template for the key.
+    """
+    return json.encode_indent({
+        "command": "mldsa-generate",
+        "label": label,
+        "domain": "Pure",
+        "wrapping": wrapping,
+        "extractable": extractable,
+        "public_template": public_template,
+        "private_template": private_template,
+    })
+
+def hsmtool_mldsa_export_pub(label):
+    """Creates a public key export template for MLDSA keys.
+
+    Args:
+        label: The label for the key.
+    """
+    return json.encode_indent({
+        "command": "mldsa-export",
+        "label": label,
+        "private": False,
+        "format": "Pem",
+        "filename": _filename_key_pub(label),
+    })
+
+def hsmtool_mldsa_export_priv(label, wrap, wrap_mechanism):
+    """Creates a private key export template for MLDSA keys.
+
+    Args:
+        label: The label for the key.
+        wrap: Wrapping key label.
+        wrap_mechanism: The mechanism used for wrapping.
+    """
+    return json.encode_indent({
+        "command": "mldsa-export",
+        "label": label,
+        "private": True,
+        "format": "Der",
+        "wrap": wrap,
+        "wrap_mechanism": wrap_mechanism,
+        "filename": _filename_wrapped_key(label),
+    })
+
+def hsmtool_mldsa_import_priv(label, unwrap, unwrap_mechanism, private_template = {}):
+    """Creates an import template for MLDSA keys.
+
+    Args:
+        label: The label for the key.
+        unwrap: Unwrap key label.
+        unwrap_mechanism: The mechanism used for unwrapping.
+        private_template: The private attributes for the key.
+    """
+    return json.encode_indent({
+        "command": "mldsa-import",
+        "label": label,
+        "private": True,
+        "unwrap": unwrap,
+        "unwrap_mechanism": unwrap_mechanism,
+        "private_template": private_template,
+        "filename": _filename_wrapped_key(label),
+    })
+
+def hsmtool_mldsa_import_pub(label, public_template = {}):
+    """Creates a public key import template for MLDSA keys.
+
+    Args:
+        label: The label for the key.
+        public_template: The public attributes for the key.
+    """
+    return json.encode_indent({
+        "command": "mldsa-import",
+        "label": label,
+        "private": False,
+        "filename": _filename_key_pub(label),
+        "public_template": public_template,
+    })
+
 def hsmtool_object_destroy(label):
     """Creates a command to destroy an object in the HSM.
 
