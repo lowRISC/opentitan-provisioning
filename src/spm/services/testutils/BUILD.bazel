@@ -2,13 +2,12 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 package(default_visibility = ["//visibility:public"])
 
 go_library(
-    name = "tbsgen",
-    testonly = True,
+    name = "tbsgen_lib",
     srcs = ["tbsgen.go"],
     importpath = "github.com/lowRISC/opentitan-provisioning/src/spm/services/testutils/tbsgen",
     deps = [
@@ -16,5 +15,13 @@ go_library(
         "//src/spm/services:se",
         "//src/spm/services/skumgr",
         "//src/utils",
+    ],
+)
+
+go_binary(
+    name = "tbsgen",
+    srcs = ["tbsgen/main.go"],
+    deps = [
+        ":tbsgen_lib",
     ],
 )
