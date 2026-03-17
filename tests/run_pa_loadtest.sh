@@ -16,6 +16,9 @@ cd "$(dirname "$0")/.."
 source util/integration_test_setup.sh
 
 SKU_NAMES="sival,cr01,pi01,ti01"
+if [[ "${DEPLOY_ENV}" == "dev" ]]; then
+  SKU_NAMES="${SKU_NAMES},test_mldsa"
+fi
 
 # Run the PA loadtest.
 echo "Running PA loadtest ..."
@@ -24,6 +27,7 @@ bazelisk run //src/pa:loadtest -- \
    --client_cert="${DEPLOYMENT_DIR}/certs/out/ate-client-cert.pem" \
    --client_key="${DEPLOYMENT_DIR}/certs/out/ate-client-key.pem" \
    --enable_tls=true \
+   --enable_mldsa=true \
    --hsm_so="${HSMTOOL_MODULE}" \
    --pa_address="${OTPROV_DNS_PA}:${OTPROV_PORT_PA}" \
    --parallel_clients=5 \

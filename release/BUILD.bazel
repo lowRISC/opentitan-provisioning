@@ -79,7 +79,7 @@ pkg_tar(
 pkg_tar(
     name = "hsmutils",
     srcs = [
-        "@lowrisc_opentitan//sw/host/hsmtool",
+        "@lowrisc_opentitan_head//sw/host/hsmtool",
     ],
     extension = "tar.xz",
 )
