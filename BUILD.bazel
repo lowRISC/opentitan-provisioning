@@ -32,6 +32,11 @@ config_setting(
     define_values = {"env": "prod"},
 )
 
+config_setting(
+    name = "pq_env",
+    define_values = {"pq": "true"},
+)
+
 nogo(
     name = "vet",
     vet = True,
