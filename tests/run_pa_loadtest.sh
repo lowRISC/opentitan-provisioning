@@ -17,7 +17,7 @@ source util/integration_test_setup.sh
 
 SKU_NAMES="sival,cr01,pi01,ti01"
 if [[ "${DEPLOY_ENV}" == "dev" ]]; then
-  SKU_NAMES="${SKU_NAMES},test_mldsa"
+  SKU_NAMES="${SKU_NAMES},sival_mldsa"
 fi
 
 # Run the PA loadtest.

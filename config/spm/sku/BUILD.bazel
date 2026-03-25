@@ -71,7 +71,7 @@ filegroup(
     ] + select({
         "//:prod_env": [],
         "//conditions:default": [
-            "//config/spm/sku/test_mldsa:release",
+            "//config/spm/sku/sival_mldsa:release",
         ],
     }),
 )

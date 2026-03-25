@@ -32,8 +32,8 @@ envsubst_template(
 )
 
 envsubst_template(
-    name = "sku_test_mldsa",
-    template = ":sku_test_mldsa.yml.tmpl",
+    name = "sku_sival_mldsa",
+    template = ":sku_sival_mldsa.yml.tmpl",
 )
 
 filegroup(
@@ -48,7 +48,7 @@ filegroup(
     ] + select({
         "//:prod_env": [],
         "//conditions:default": [
-            ":sku_test_mldsa",
+            ":sku_sival_mldsa",
         ],
     }),
     visibility = ["//visibility:public"],
