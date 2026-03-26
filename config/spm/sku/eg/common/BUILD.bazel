@@ -48,7 +48,7 @@ hsm_certificate_authority_root(
 
 # sival_mldsa SKU has own MLDSA root CA.
 hsm_certificate_authority_root_mldsa(
-    name = "sival_mldsa-root-key-mldsa-v0",
+    name = "opentitan-mldsa-ca-root-v0",
 )
 
 hsm_generic_secret(
@@ -88,7 +88,7 @@ hsm_certgen(
 hsm_certgen(
     name = "ca_root_mldsa",
     config = ":ca_root_mldsa.conf",
-    key = ":sival_mldsa-root-key-mldsa-v0",
+    key = ":opentitan-mldsa-ca-root-v0",
     root_cert = True,
 )
 
@@ -98,7 +98,7 @@ hsm_config_tar(
         "//:pq_enabled": {
             ":opentitan-ca-root-v0": "keygen",
             ":pi01-ca-root-v0": "keygen",
-            ":sival_mldsa-root-key-mldsa-v0": "keygen",
+            ":opentitan-mldsa-ca-root-v0": "keygen",
             ":eg-aes-wrap-v0": "keygen",
             ":eg-kdf-hisec-v0": "keygen",
             ":eg-kdf-losec-v0": "keygen",
