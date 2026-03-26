@@ -34,14 +34,14 @@ hsm_spm_identity_key_mldsa(
 hsm_config_tar(
     name = "spm_init",
     hsmtool_sequence = select({
-        "//:prod_env": {
+        "//:pq_enabled": {
             ":spm-rsa-wrap-v0": "keygen",
             ":spm-hsm-id-v0": "keygen",
+            ":spm-hsm-id-mldsa-v0": "keygen",
         },
         "//conditions:default": {
             ":spm-rsa-wrap-v0": "keygen",
             ":spm-hsm-id-v0": "keygen",
-            ":spm-hsm-id-mldsa-v0": "keygen",
         },
     }),
 )
@@ -49,14 +49,14 @@ hsm_config_tar(
 hsm_config_tar(
     name = "spm_export",
     hsmtool_sequence = select({
-        "//:prod_env": {
+        "//:pq_enabled": {
             ":spm-rsa-wrap-v0": "export",
             ":spm-hsm-id-v0": "export",
+            ":spm-hsm-id-mldsa-v0": "export",
         },
         "//conditions:default": {
             ":spm-rsa-wrap-v0": "export",
             ":spm-hsm-id-v0": "export",
-            ":spm-hsm-id-mldsa-v0": "export",
         },
     }),
 )
@@ -69,9 +69,9 @@ filegroup(
         "//config/spm/sku/eg:eg_release",
         "//config/spm/sku/sival:release",
     ] + select({
-        "//:prod_env": [],
-        "//conditions:default": [
+        "//:pq_enabled": [
             "//config/spm/sku/sival_mldsa:release",
         ],
+        "//conditions:default": [],
     }),
 )
