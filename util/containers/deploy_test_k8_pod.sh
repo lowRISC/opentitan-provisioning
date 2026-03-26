@@ -18,14 +18,18 @@ if [[ -n "${OT_PROV_PROD_EN}" ]]; then
 fi
 
 if [[ ! -n "${RELEASE_DIR}" ]]; then
-   echo "No release tarball provided. Building release bundle ..."
-   REPO_TOP=$(git rev-parse --show-toplevel)
-   bazelisk build //release:release_bundle --define "env=${DEPLOY_ENV}"
-   bazelisk build //release:fakeregistry_containers_tar
-   bazelisk build //release:provisioning_appliance_containers_tar
-   bazelisk build //release:proxybuffer_containers_tar
-   bazelisk build //release:softhsm_dev
-   RELEASE_DIR=${REPO_TOP}/bazel-bin/release
+    echo "No release tarball provided. Building release bundle ..."
+    REPO_TOP=$(git rev-parse --show-toplevel)
+    BAZEL_FLAGS="--define env=${DEPLOY_ENV}"
+    if [[ -n "${OT_PROV_PQ_EN}" ]]; then
+        BAZEL_FLAGS="${BAZEL_FLAGS} --define pq=true"
+    fi
+    bazelisk build //release:release_bundle ${BAZEL_FLAGS}
+    bazelisk build //release:fakeregistry_containers_tar
+    bazelisk build //release:provisioning_appliance_containers_tar
+    bazelisk build //release:proxybuffer_containers_tar
+    bazelisk build //release:softhsm_dev
+    RELEASE_DIR=${REPO_TOP}/bazel-bin/release
 fi
 
 # Remove the deployment directory if it exists.
@@ -51,7 +55,7 @@ TOKEN_INIT_SCRIPT="${OPENTITAN_VAR_DIR}/config/token_init.sh"
 if [ -f "${TOKEN_INIT_SCRIPT}" ]; then
     export DEPLOY_ENV="${DEPLOY_ENV}"
     SKUS="--sku sival --sku cr01 --sku pi01 --sku ti01"
-    if [[ "${DEPLOY_ENV}" == "dev" ]]; then
+    if [[ -n "${OT_PROV_PQ_EN}" ]]; then
         SKUS="${SKUS} --sku sival_mldsa"
     fi
 

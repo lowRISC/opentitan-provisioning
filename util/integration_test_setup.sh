@@ -16,6 +16,10 @@ for i in "$@"; do
     export OT_PROV_PROD_EN="yes"
     shift
     ;;
+  --pq)
+    export OT_PROV_PQ_EN="yes"
+    shift
+    ;;
   *)
     echo "Unknown option $i"
     exit 1

@@ -33,7 +33,7 @@ config_setting(
 )
 
 config_setting(
-    name = "pq_env",
+    name = "pq_enabled",
     define_values = {"pq": "true"},
 )
 

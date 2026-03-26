@@ -60,6 +60,8 @@ jobs:
         run: git lfs pull
       - name: Run provisioning appliance load test
         run: OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./tests/run_pa_loadtest.sh --prod
+      - name: Run provisioning appliance load test (PQ)
+        run: OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev-pq ./tests/run_pa_loadtest.sh --pq
       - name: Run TLS test
         run: OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./tests/run_tls_test.sh --prod
       - name: Run integration tests (SoftHSM2)

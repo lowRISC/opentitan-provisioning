@@ -46,10 +46,10 @@ filegroup(
         ":sku_ti01",
         "//config/spm/sku:release",
     ] + select({
-        "//:prod_env": [],
-        "//conditions:default": [
+        "//:pq_enabled": [
             ":sku_sival_mldsa",
         ],
+        "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
 )
