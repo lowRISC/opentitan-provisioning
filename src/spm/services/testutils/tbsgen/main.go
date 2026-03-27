@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // tbsgen is a tool to generate TBS certificates and assemble final certificates.
+// This tool was added because OpenSSL does not yet support MLDSA.
 package main
 
 import (
