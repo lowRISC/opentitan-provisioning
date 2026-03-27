@@ -21,15 +21,6 @@ hsm_certificate_authority_intermediate_mldsa(
     name = "sival_mldsa-dice-key-mldsa-v0",
 )
 
-hsm_certificate_authority_intermediate(
-    name = "sival_mldsa-ext-key-p256-v0",
-    curve = HSMTOOL_CONST.ECC_CURVE.PRIME256V1,
-)
-
-hsm_certificate_authority_intermediate_mldsa(
-    name = "sival_mldsa-ext-key-mldsa-v0",
-)
-
 hsm_certgen(
     name = "ca_int_dice",
     ca_key = "//config/spm/sku/eg/common:opentitan-mldsa-ca-root-v0",
@@ -37,26 +28,10 @@ hsm_certgen(
     key = ":sival_mldsa-dice-key-mldsa-v0",
 )
 
-hsm_certgen(
-    name = "ca_int_ext",
-    ca_key = "//config/spm/sku/eg/common:opentitan-ca-root-v0",
-    config = ":ca_int_ext.conf",
-    key = ":sival_mldsa-ext-key-p256-v0",
-)
-
-hsm_certgen(
-    name = "ca_int_ext_mldsa",
-    ca_key = "//config/spm/sku/eg/common:opentitan-mldsa-ca-root-v0",
-    config = ":ca_int_ext.conf",
-    key = ":sival_mldsa-ext-key-mldsa-v0",
-)
-
 hsm_config_tar(
     name = "spm_ca_keygen",
     hsmtool_sequence = {
         ":sival_mldsa-dice-key-mldsa-v0": "keygen",
-        ":sival_mldsa-ext-key-p256-v0": "keygen",
-        ":sival_mldsa-ext-key-mldsa-v0": "keygen",
     },
 )
 
@@ -64,8 +39,6 @@ hsm_certgen_tar(
     name = "ca_intermediate_certgen",
     certs = [
         ":ca_int_dice",
-        ":ca_int_ext",
-        ":ca_int_ext_mldsa",
     ],
 )
 
@@ -73,7 +46,6 @@ filegroup(
     name = "release",
     srcs = [
         ":ca_int_dice.conf",
-        ":ca_int_ext.conf",
         ":ca_intermediate_certgen",
         ":spm_ca_keygen",
     ],

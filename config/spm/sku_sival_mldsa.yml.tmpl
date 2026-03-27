@@ -5,7 +5,7 @@
 sku: "sival_mldsa"
 slotId: 0
 numSessions: 3
-certCountX509: 6
+certCountX509: 4
 certCountCWT: 0
 symmetricKeys:
   - name: eg-kdf-hisec-v0
@@ -19,17 +19,11 @@ certs:
     path: sku/sival/ca/sival-dice-key-p256-v0.priv.der
   - name: SigningKey/Dice/Mldsa/v0
     path: sku/sival_mldsa/ca/sival_mldsa-dice-key-mldsa-v0.priv.der
-  - name: SigningKey/Ext/v0
-    path: sku/sival_mldsa/ca/sival_mldsa-ext-key-p256-v0.priv.der
-  - name: SigningKey/Ext/Mldsa/v0
-    path: sku/sival_mldsa/ca/sival_mldsa-ext-key-mldsa-v0.priv.der
 privateKeys:
     - name: sival-dice-key-p256-v0.priv
     - name: spm-hsm-id-v0.priv
     - name: sival_mldsa-dice-key-mldsa-v0.priv
     - name: spm-hsm-id-mldsa-v0.priv
-    - name: sival_mldsa-ext-key-p256-v0.priv
-    - name: sival_mldsa-ext-key-mldsa-v0.priv
 publicKeys:
     - name: sku-eg-rsa-rma-v0.pub
 attributes:
@@ -41,8 +35,6 @@ attributes:
     WrappingKeyLabel: sku-eg-rsa-rma-v0.pub
     SigningKey/Dice/v0: sival-dice-key-p256-v0.priv
     SigningKey/Dice/Mldsa/v0: sival_mldsa-dice-key-mldsa-v0.priv
-    SigningKey/Ext/v0: sival_mldsa-ext-key-p256-v0.priv
-    SigningKey/Ext/Mldsa/v0: sival_mldsa-ext-key-mldsa-v0.priv
     SigningKey/Identity/v0: spm-hsm-id-v0.priv
     SigningKey/Identity/Mldsa/v0: spm-hsm-id-mldsa-v0.priv
     CertChainDiceLeaf: CDI_1
