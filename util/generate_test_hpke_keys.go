@@ -12,9 +12,15 @@ import (
 	"crypto/x509"
 	"log"
 	"os"
+	"path/filepath"
 )
 
 func main() {
+	if len(os.Args) < 2 {
+		log.Fatal("Usage: go run generate_test_hpke_keys.go <output_directory>")
+	}
+	outDir := os.Args[1]
+
 	// Generate ECDSA P-256 Key
 	ecdsaPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -24,7 +30,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = os.WriteFile("config/spm/sku/test_hpke/ca/hpke_ecdsa.pub.der", ecdsaPubBytes, 0644)
+	err = os.WriteFile(filepath.Join(outDir, "hpke_ecdsa.pub.der"), ecdsaPubBytes, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -36,7 +42,7 @@ func main() {
 	}
 	mlkemPub := mlkemPriv.EncapsulationKey()
 	mlkemPubBytes := mlkemPub.Bytes()
-	err = os.WriteFile("config/spm/sku/test_hpke/ca/hpke_mlkem.pub", mlkemPubBytes, 0644)
+	err = os.WriteFile(filepath.Join(outDir, "hpke_mlkem.pub"), mlkemPubBytes, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}

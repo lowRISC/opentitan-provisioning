@@ -132,6 +132,12 @@ cp "${BUILD_BIN_DIR}"/third_party/openocd/build_openocd/bin/openocd "${DEPLOYMEN
 chmod +x "${DEPLOYMENT_BIN_DIR}"/openocd
 
 
+if [[ -n "${OT_PROV_PQ_EN}" ]]; then
+  echo "Generating test HPKE keys..."
+  mkdir -p "${DEPLOYMENT_DIR}/spm/sku/sival_pqc/ca/"
+  bazelisk run //util:generate_test_hpke_keys -- "${DEPLOYMENT_DIR}/spm/sku/sival_pqc/ca/"
+fi
+
 # Spawn the SPM server as a process and store its process ID.
 echo "Launching SPM server outside of container"
 bazelisk run //src/spm:spm_server -- \

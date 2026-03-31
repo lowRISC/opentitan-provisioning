@@ -2,10 +2,10 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-sku: "test_hpke"
+sku: "sival_pqc"
 slotId: 0
 numSessions: 3
-certCountX509: 3
+certCountX509: 4
 certCountCWT: 0
 symmetricKeys:
   - name: eg-kdf-hisec-v0
@@ -13,11 +13,17 @@ symmetricKeys:
 certs:
   - name: RootCA
     path: sku/eg/common/ca/opentitan-ca-root-v0.priv.der
+  - name: RootCAMldsa
+    path: sku/eg/common/ca/opentitan-mldsa-ca-root-v0.priv.der
   - name: SigningKey/Dice/v0
-    path: sku/test_hpke/ca/test_hpke-dice-key-p256-v0.priv.der
+    path: sku/sival/ca/sival-dice-key-p256-v0.priv.der
+  - name: SigningKey/Dice/Mldsa/v0
+    path: sku/sival_pqc/ca/sival_pqc-dice-key-mldsa-v0.priv.der
 privateKeys:
-    - name: test_hpke-dice-key-p256-v0.priv
+    - name: sival-dice-key-p256-v0.priv
     - name: spm-hsm-id-v0.priv
+    - name: sival_pqc-dice-key-mldsa-v0.priv
+    - name: spm-hsm-id-mldsa-v0.priv
 publicKeys:
     - name: sku-eg-rsa-rma-v0.pub
 attributes:
@@ -28,12 +34,14 @@ attributes:
     WrappingMechanism: ${OTPROV_WrappingMechanism}
     WrappingKeyLabel: sku-eg-rsa-rma-v0.pub
     SecondLayerWrappingMechanism: Hpke
-    HPKEPQPublicKeyPath: sku/test_hpke/ca/hpke_mlkem.pub
-    HPKEClassicalPublicKeyPath: sku/test_hpke/ca/hpke_ecdsa.pub.der
-    SigningKey/Dice/v0: test_hpke-dice-key-p256-v0.priv
+    HPKEPQPublicKeyPath: sku/sival_pqc/ca/hpke_mlkem.pub
+    HPKEClassicalPublicKeyPath: sku/sival_pqc/ca/hpke_ecdsa.pub.der
+    SigningKey/Dice/v0: sival-dice-key-p256-v0.priv
+    SigningKey/Dice/Mldsa/v0: sival_pqc-dice-key-mldsa-v0.priv
     SigningKey/Identity/v0: spm-hsm-id-v0.priv
+    SigningKey/Identity/Mldsa/v0: spm-hsm-id-mldsa-v0.priv
     CertChainDiceLeaf: CDI_1
-    OwnerFirmwareBootMessage: "test_hpke_mfg"
+    OwnerFirmwareBootMessage: "ownership: OWND"
 x509CertHashOrder:
     - UDS
     - CDI_0

@@ -340,7 +340,7 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 
 	// Get CA certificates.
 	var caCertLabels []string
-	if skuName == "sival" || skuName == "ti01" || skuName == "test_hpke" || skuName == "sival_mldsa" {
+	if skuName == "sival" || skuName == "ti01" || skuName == "sival_pqc" {
 		caCertLabels = []string{"dice", "root"}
 	} else {
 		caCertLabels = []string{"dice", "ext", "root"}
@@ -348,7 +348,7 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 	if *enableMLDSA && dut.SupportsMLDSA() {
 		caCertLabels = append(caCertLabels, "root_mldsa")
 		caCertLabels = append(caCertLabels, "dice_mldsa")
-		if skuName != "sival_mldsa" {
+		if skuName != "sival_pqc" {
 			caCertLabels = append(caCertLabels, "ext_mldsa")
 		}
 	}
