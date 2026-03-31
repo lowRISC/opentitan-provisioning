@@ -46,7 +46,7 @@ hsm_certificate_authority_root(
     curve = HSMTOOL_CONST.ECC_CURVE.PRIME256V1,
 )
 
-# sival_mldsa SKU has own MLDSA root CA.
+# sival_pqc SKU has own MLDSA root CA.
 hsm_certificate_authority_root_mldsa(
     name = "opentitan-mldsa-ca-root-v0",
 )

@@ -38,6 +38,16 @@ const (
 )
 
 // SecondLayerWrappingMechanism provides the wrapping method for the second layer of encryption.
+// This mechanism is applied to keys that have already been wrapped by the primary
+// mechanism (e.g., by the Secure Element).
+//
+// Supported mechanisms:
+//   - "none": No second layer of wrapping is applied.
+//   - "Hpke": Uses Hybrid Public Key Encryption (HPKE) with a hybrid public key
+//     composed of a Post-Quantum (PQ) key (ML-KEM-768) and a classical key (ECDH).
+//     The HPKE suite used is typically KDF: HKDF-SHA256, AEAD: AES-256-GCM.
+//     The keys are loaded from paths specified by HPKEPQPublicKeyPath and
+//     HPKEClassicalPublicKeyPath.
 type SecondLayerWrappingMechanism string
 
 const (

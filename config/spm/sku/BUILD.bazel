@@ -70,8 +70,7 @@ filegroup(
         "//config/spm/sku/sival:release",
     ] + select({
         "//:pq_enabled": [
-            "//config/spm/sku/sival_mldsa:release",
-            "//config/spm/sku/test_hpke:release",
+            "//config/spm/sku/sival_pqc:release",
         ],
         "//conditions:default": [],
     }),

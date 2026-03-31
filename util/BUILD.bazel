@@ -2,7 +2,14 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+
 # TODO(#41): make this a proper py_binary target
 exports_files([
     "fix_include_guard.py",
 ])
+
+go_binary(
+    name = "generate_test_hpke_keys",
+    srcs = ["generate_test_hpke_keys.go"],
+)

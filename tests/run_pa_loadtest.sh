@@ -17,9 +17,11 @@ source util/integration_test_setup.sh
 
 SKU_NAMES="sival,cr01,pi01,ti01"
 ENABLE_MLDSA_FLAG="false"
+ENABLE_MLKEM_FLAG="false"
 if [[ -n "${OT_PROV_PQ_EN}" ]]; then
-  SKU_NAMES="${SKU_NAMES},sival_mldsa"
+  SKU_NAMES="${SKU_NAMES},sival_pqc"
   ENABLE_MLDSA_FLAG="true"
+  ENABLE_MLKEM_FLAG="true"
 fi
 
 # Run the PA loadtest.
@@ -29,6 +31,7 @@ bazelisk run //src/pa:loadtest -- \
    --client_cert="${DEPLOYMENT_DIR}/certs/out/ate-client-cert.pem" \
    --client_key="${DEPLOYMENT_DIR}/certs/out/ate-client-key.pem" \
    --enable_tls=true \
+   --enable_mlkem=${ENABLE_MLKEM_FLAG} \
    --enable_mldsa=${ENABLE_MLDSA_FLAG} \
    --hsm_so="${HSMTOOL_MODULE}" \
    --pa_address="${OTPROV_DNS_PA}:${OTPROV_PORT_PA}" \
