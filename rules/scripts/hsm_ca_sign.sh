@@ -179,12 +179,6 @@ if [ "${OTPROV_USE_GEM_ENGINE}" == true ]; then
   CA_GEM_ENGINE_INIT=true
 fi
 
-# Set default values for Root CA DN fields.
-export OTPROV_CA_ROOT_C=${OTPROV_CA_ROOT_C:-IL}
-export OTPROV_CA_ROOT_O="${OTPROV_CA_ROOT_O:-Nuvoton Technology Corporation}"
-export OTPROV_CA_ROOT_OU="${OTPROV_CA_ROOT_OU:-Engineering}"
-export OTPROV_CA_ROOT_CN="${OTPROV_CA_ROOT_CN:-Nuvoton Technology OpenTitan Root CA}"
-
 # certgen generates a certificate for the given config file and signs it with
 # the given CA key.
 certgen () {
@@ -200,10 +194,6 @@ certgen () {
   fi
   certvars+=(
     PKCS11_MODULE_PATH="${FLAGS_HSMTOOL_MODULE}"
-    OTPROV_CA_ROOT_C="${OTPROV_CA_ROOT_C}"
-    OTPROV_CA_ROOT_O="${OTPROV_CA_ROOT_O}"
-    OTPROV_CA_ROOT_OU="${OTPROV_CA_ROOT_OU}"
-    OTPROV_CA_ROOT_CN="${OTPROV_CA_ROOT_CN}"
   )
 
   ENGINE="pkcs11"
@@ -233,25 +223,11 @@ certgen () {
     else
         # Use hsmtool for MLDSA CSR generation.
         # Parse DN from config file.
-        # If the config file uses environment variables, we use the exported
-        # values.
         C=$(grep "^C=" "${CONFIG_FILE}" | cut -d= -f2 | tr -d '\r')
-        if [[ "${C}" == '${ENV::OTPROV_CA_ROOT_C}' ]]; then
-            C="${OTPROV_CA_ROOT_C}"
-        fi
         ST=$(grep "^ST=" "${CONFIG_FILE}" | cut -d= -f2 | tr -d '\r')
         O=$(grep "^O=" "${CONFIG_FILE}" | cut -d= -f2 | tr -d '\r')
-        if [[ "${O}" == '${ENV::OTPROV_CA_ROOT_O}' ]]; then
-            O="${OTPROV_CA_ROOT_O}"
-        fi
         OU=$(grep "^OU=" "${CONFIG_FILE}" | cut -d= -f2 | tr -d '\r')
-        if [[ "${OU}" == '${ENV::OTPROV_CA_ROOT_OU}' ]]; then
-            OU="${OTPROV_CA_ROOT_OU}"
-        fi
         CN=$(grep "^CN=" "${CONFIG_FILE}" | cut -d= -f2 | tr -d '\r')
-        if [[ "${CN}" == '${ENV::OTPROV_CA_ROOT_CN}' ]]; then
-            CN="${OTPROV_CA_ROOT_CN}"
-        fi
         SUBJ="C=${C},ST=${ST},O=${O},OU=${OU},CN=${CN}"
 
         HSMTOOL_CMD="${HSMTOOL_BIN:-hsmtool}"
