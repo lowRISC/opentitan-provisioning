@@ -18,7 +18,7 @@ jobs:
       - name: Run linter checks
         run: bazelisk test //quality/... --test_output=errors
 
-  # Build and test everything in the codebase (except the FPGA tests).
+  # EXISTING MACHINE: Build and test everything (Original Flow)
   build_and_test:
     runs-on: ot-provisioning-self-hosted
     timeout-minutes: 80
@@ -43,7 +43,44 @@ jobs:
         # Skip running lint tests as those are run in a previous stage.
         run: bazelisk test --test_tag_filters=-lint,-fpga //...
 
-  # Run integration tests.
+  # NEW NIX MACHINE: Build and test everything using Nix
+  build_and_test_nix:
+    runs-on: ot-provisioning-nix-runner
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Build everything (Nix)
+        run: |
+          nix develop --command bazelisk build \
+            --action_env=LD_LIBRARY_PATH \
+            --host_action_env=LD_LIBRARY_PATH \
+            //...
+          nix develop --command bazelisk build \
+            --action_env=LD_LIBRARY_PATH \
+            --host_action_env=LD_LIBRARY_PATH \
+            --//src/pa/services:use_vendor_shim //src/pa/services:pa
+          nix develop --command bazelisk run \
+            --action_env=LD_LIBRARY_PATH \
+            --host_action_env=LD_LIBRARY_PATH \
+            //release:release -- \
+              --norelease \
+              --copy "${PWD}/artifacts-nix" \
+              "no_tag_not_a_release"
+      - name: Upload build artifacts (Nix)
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-nix
+          path: artifacts-nix/*
+      - name: Test everything (Nix)
+        run: |
+          nix develop --command bazelisk test \
+            --action_env=LD_LIBRARY_PATH \
+            --host_action_env=LD_LIBRARY_PATH \
+            --test_tag_filters=-lint,-fpga //...
+
+  # EXISTING MACHINE: Run integration tests (Original Flow)
   integration_tests:
     runs-on: ot-provisioning-self-hosted
     timeout-minutes: 60
@@ -54,8 +91,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
-      # TODO(timothytrippel): It is unclear why the `lfs: true` configuration
-      # above is not sufficient on self hosted runners.
       - name: Initialize LFS objects
         run: git lfs pull
       - name: Run provisioning appliance load test
@@ -68,3 +103,23 @@ jobs:
         run: OT_PROV_ORCHESTRATOR_PATH="${OT_PROV_ORCHESTRATOR_PATH}" OT_PROV_ORCHESTRATOR_UNPACK="${OT_PROV_ORCHESTRATOR_UNPACK}" OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./tests/run_ate_test.sh
       - name: Run integration tests (Thales HSM)
         run: OT_PROV_ORCHESTRATOR_PATH="${OT_PROV_ORCHESTRATOR_PATH}" OT_PROV_ORCHESTRATOR_UNPACK="${OT_PROV_ORCHESTRATOR_UNPACK}" OPENTITAN_VAR_DIR=$(pwd)/.otvar-prod ./tests/run_ate_test.sh --prod
+
+  # NEW NIX MACHINE: Run integration tests using Nix
+  integration_tests_nix:
+    runs-on: ot-provisioning-nix-runner
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Initialize LFS objects
+        run: git lfs pull
+      - name: Run provisioning appliance load test (Nix)
+        run: nix develop --command env OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./tests/run_pa_loadtest.sh
+      - name: Run provisioning appliance load test (PQ) (Nix)
+        run: nix develop --command env OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev-pq ./tests/run_pa_loadtest.sh --pq
+      - name: Run TLS test (Nix)
+        run: nix develop --command env OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./tests/run_tls_test.sh
+      - name: Run integration tests (SoftHSM2) (Nix)
+        run: nix develop --command env FPGA=skip OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./tests/run_ate_test.sh
+

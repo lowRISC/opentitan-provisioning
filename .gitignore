@@ -5,3 +5,7 @@
 .otprod
 bazel-*
 *.swp
+
+# Nix configuration artifacts
+.bazelrc-nix
+.nix-libs/
