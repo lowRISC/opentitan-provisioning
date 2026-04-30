@@ -393,12 +393,10 @@ http_archive(
         "//third_party/softhsm2:0002-Include-time.patch",
         "//third_party/softhsm2:0003-Fix-MLDSA-include-path.patch",
     ],
-    # TODO revert back to https://github.com/opendnssec/SoftHSMv2 once ML-DSA support is upstreamed.
-    sha256 = "f7c08dc4ba6c91e33b968dc1a69fa18f9ce47114db3ce9186843f29e14190777",
-    strip_prefix = "SoftHSMv2-5fe2207418cd066142d122ea2c0c67f7831b6a63",
-    urls = ["https://github.com/antoinelochet/SoftHSMv2/archive/5fe2207418cd066142d122ea2c0c67f7831b6a63.tar.gz"],
+    sha256 = "35b3131364a1af4578868f98916e7a0b74c13520214c147888a728d39bb2a9ee",
+    strip_prefix = "SoftHSMv2-6319797ff0d11578375965d3a5b2bba7a81e03f0",
+    urls = ["https://github.com/opendnssec/SoftHSMv2/archive/6319797ff0d11578375965d3a5b2bba7a81e03f0.tar.gz"],
 )
-
 # Release Tools
 http_archive(
     name = "lowrisc_bazel_release",
