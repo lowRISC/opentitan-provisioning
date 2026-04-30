@@ -33,9 +33,9 @@ ENV LANGUAGE en_US:en
 
 # Clone SoftHSM2.
 # Note: this commit hash should be kept in sync with that in MODULE.bazel
-ARG SOFTHSM2_COMMIT_HASH=5fe2207418cd066142d122ea2c0c67f7831b6a63
+ARG SOFTHSM2_COMMIT_HASH=6319797ff0d11578375965d3a5b2bba7a81e03f0
 RUN cd /opt && \
-      git clone https://github.com/antoinelochet/SoftHSMv2.git && \
+      git clone https://github.com/opendnssec/SoftHSMv2.git && \
       cd SoftHSMv2 && \
       git reset --hard ${SOFTHSM2_COMMIT_HASH}
 
