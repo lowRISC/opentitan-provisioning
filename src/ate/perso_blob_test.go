@@ -43,6 +43,60 @@ var (
 	}
 )
 
+func TestBuildPersoBlobV0WireFormat(t *testing.T) {
+	testPersoBlob := &PersoBlob{
+		X509Certs: []EndorseCertResponse{{
+			KeyLabel: "UDS",
+			Cert:     []byte{0x01, 0x02, 0x03, 0x04},
+		}},
+	}
+	blobBytes, err := BuildPersoBlob(testPersoBlob)
+	if err != nil {
+		t.Fatalf("BuildPersoBlob() failed: %v", err)
+	}
+	want := []byte{
+		// V0 Object Header (Type=1, Size=11 -> 0x100B)
+		0x10, 0x0B,
+		// V0 Cert Header (NameSize=3, Size=9 -> 0x3009)
+		0x30, 0x09,
+		// Name (3 bytes)
+		'U', 'D', 'S',
+		// Cert Body (4 bytes)
+		0x01, 0x02, 0x03, 0x04,
+	}
+	if diff := cmp.Diff(want, blobBytes); diff != "" {
+		t.Errorf("BuildPersoBlob V0 wire format mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestBuildPersoBlobV1WireFormat(t *testing.T) {
+	testPersoBlob := &PersoBlob{
+		X509Certs: []EndorseCertResponse{{
+			KeyLabel: "0123456789abcdef",
+			Cert:     []byte{0x01, 0x02, 0x03, 0x04},
+		}},
+	}
+	blobBytes, err := BuildPersoBlob(testPersoBlob)
+	if err != nil {
+		t.Fatalf("BuildPersoBlob() failed: %v", err)
+	}
+	want := []byte{
+		// Version Prefix (4 bytes)
+		0xF0, 0x04, 0x00, 0x01,
+		// V1 Object Header (Type=1, Size=28 -> 0x0100001C)
+		0x01, 0x00, 0x00, 0x1C,
+		// V1 Cert Header (NameSize=16, Size=24 -> 0x10000018)
+		0x10, 0x00, 0x00, 0x18,
+		// Name (16 bytes)
+		'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+		// Cert Body (4 bytes)
+		0x01, 0x02, 0x03, 0x04,
+	}
+	if diff := cmp.Diff(want, blobBytes); diff != "" {
+		t.Errorf("BuildPersoBlob V1 wire format mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func TestUnpackPersoBlobSuccess(t *testing.T) {
 	testPersoBlob := &PersoBlob{
 		DeviceID:     testDeviceID,
