@@ -30,8 +30,8 @@ const (
 	// maximum size of any single object to 4KB.
 	PersoBlobVersionV0 PersoBlobVersion = 0
 	// PersoBlobVersionV1 personalization blobs start with a version TLV object
-	// (which uses the V0 header format for backwards compatibility). All
-	// subsequent objects in the blob use a larger 32-bit header (8-bit type,
+	// (which uses the V0 header format for backwards compatibility). The
+	// immediately following object uses a larger 32-bit header (8-bit type,
 	// 24-bit size), allowing for significantly larger objects (up to 16MB).
 	PersoBlobVersionV1 PersoBlobVersion = 1
 )
@@ -51,11 +51,17 @@ const (
 	PersoObjectTypeBlobVersion PersoObjectType = 15
 )
 
+var persoTlvVersionPrefixV1 = [4]byte{0xF0, 0x04, 0x00, 0x01}
+
 const (
+	sizeOfVersionPrefix  = 4
 	sizeOfObjectHeaderV0 = 2
 	sizeOfObjectHeaderV1 = 4
 	sizeOfCertHeaderV0   = 2
 	sizeOfCertHeaderV1   = 4
+
+	kCrthV0MaxCertNameLen = 15
+	kObjhV0MaxObjSize     = 4095
 
 	// V0 Header field definitions (from perso_tlv_data.h)
 	objhSizeFieldShiftV0 = 0
@@ -134,12 +140,39 @@ type persoTLVCertObj struct {
 	Name     string
 }
 
-func getObjectHeaderFields(body []byte, blobVersion int) (size uint32, objType PersoObjectType, headerSize int) {
-	if blobVersion == 1 {
-		header := binary.BigEndian.Uint32(body)
-		size = (header >> objhSizeFieldShiftV1) & objhSizeFieldMaskV1
+func getObjectVersion(body []byte) PersoBlobVersion {
+	if len(body) >= sizeOfVersionPrefix+sizeOfObjectHeaderV1 &&
+		body[0] == persoTlvVersionPrefixV1[0] &&
+		body[1] == persoTlvVersionPrefixV1[1] &&
+		body[2] == persoTlvVersionPrefixV1[2] &&
+		body[3] == persoTlvVersionPrefixV1[3] {
+		return PersoBlobVersionV1
+	}
+	return PersoBlobVersionV0
+}
+
+func selectObjectVersion(bodySize, nameSize int) PersoBlobVersion {
+	if nameSize > kCrthV0MaxCertNameLen {
+		return PersoBlobVersionV1
+	}
+	v0HeaderSize := sizeOfObjectHeaderV0
+	if nameSize > 0 {
+		v0HeaderSize += sizeOfCertHeaderV0 + nameSize
+	}
+	if v0HeaderSize+bodySize > kObjhV0MaxObjSize {
+		return PersoBlobVersionV1
+	}
+	return PersoBlobVersionV0
+}
+
+func getObjectHeaderFields(body []byte) (size uint32, objType PersoObjectType, headerSize int) {
+	blobVersion := getObjectVersion(body)
+	if blobVersion == PersoBlobVersionV1 {
+		header := binary.BigEndian.Uint32(body[sizeOfVersionPrefix:])
+		innerSize := (header >> objhSizeFieldShiftV1) & objhSizeFieldMaskV1
+		size = sizeOfVersionPrefix + innerSize
 		objType = PersoObjectType((header >> objhTypeFieldShiftV1) & objhTypeFieldMaskV1)
-		headerSize = sizeOfObjectHeaderV1
+		headerSize = sizeOfVersionPrefix + sizeOfObjectHeaderV1
 	} else {
 		header := binary.BigEndian.Uint16(body)
 		size = uint32((header >> objhSizeFieldShiftV0) & objhSizeFieldMaskV0)
@@ -188,20 +221,8 @@ func setCertHeaderFields(buf []byte, certSize uint32, nameSize uint32, blobVersi
 	}
 }
 
-// GetPersoBlobVersion returns the version of the personalization blob.
-func GetPersoBlobVersion(body []byte) (PersoBlobVersion, error) {
-	if len(body) < 2 {
-		return -1, errors.New("unknown or invalid blob version")
-	}
-	header := binary.BigEndian.Uint16(body[0:])
-	if (header >> objhTypeFieldShiftV0) == uint16(PersoObjectTypeBlobVersion) {
-		return PersoBlobVersionV1, nil
-	}
-	return PersoBlobVersionV0, nil
-}
-
-func extractCertObject(buf []byte, blobVersion PersoBlobVersion) (*persoTLVCertObj, error) {
-	objSize, objType, headerSize := getObjectHeaderFields(buf, int(blobVersion))
+func extractCertObject(buf []byte) (*persoTLVCertObj, error) {
+	objSize, objType, headerSize := getObjectHeaderFields(buf)
 
 	if objSize == 0 || int(objSize) > len(buf) {
 		return nil, fmt.Errorf("invalid object size: %d, buffer size: %d", objSize, len(buf))
@@ -210,6 +231,7 @@ func extractCertObject(buf []byte, blobVersion PersoBlobVersion) (*persoTLVCertO
 		return nil, fmt.Errorf("invalid object type: %d, expected X509 TBS, cert, or CWT cert", objType)
 	}
 
+	blobVersion := getObjectVersion(buf)
 	buf = buf[headerSize:]
 	certEntrySize, nameLen, certHeaderSize := getCertHeaderFields(buf, int(blobVersion))
 
@@ -245,17 +267,8 @@ func UnpackPersoBlob(blobBytes []byte) (*PersoBlob, error) {
 		return nil, fmt.Errorf("blob size %d exceeds max %d", len(blobBytes), kPersoBlobMaxSize)
 	}
 
-	blobVersion, err := GetPersoBlobVersion(blobBytes)
-	if err != nil {
-		return nil, err
-	}
-
 	persoBlob := &PersoBlob{}
 	offset := 0
-
-	if blobVersion == PersoBlobVersionV1 {
-		offset = sizeOfObjectHeaderV0 + 2 // V1 header (2 bytes) + 2 bytes version
-	}
 
 	for offset < len(blobBytes) {
 		remaining := len(blobBytes[offset:])
@@ -266,7 +279,7 @@ func UnpackPersoBlob(blobBytes []byte) (*PersoBlob, error) {
 			return nil, errors.New("remaining buffer too small for object header")
 		}
 
-		objSize, objType, headerSize := getObjectHeaderFields(blobBytes[offset:], int(blobVersion))
+		objSize, objType, headerSize := getObjectHeaderFields(blobBytes[offset:])
 
 		if objSize == 0 {
 			// Check if the rest of the buffer is zeroes (padding)
@@ -284,13 +297,16 @@ func UnpackPersoBlob(blobBytes []byte) (*PersoBlob, error) {
 		objBytes := blobBytes[offset : offset+int(objSize)]
 
 		switch objType {
+		case PersoObjectTypeBlobVersion:
+			return nil, errors.New("Unexpected standalone version object")
+
 		case PersoObjectTypeDeviceId:
 			var deviceID DeviceIDBytes
 			copy(deviceID.Raw[:], objBytes[headerSize:])
 			persoBlob.DeviceID = &deviceID
 
 		case PersoObjectTypeX509Tbs:
-			certObj, err := extractCertObject(objBytes, blobVersion)
+			certObj, err := extractCertObject(objBytes)
 			if err != nil {
 				return nil, fmt.Errorf("failed to extract X509 TBS cert: %w", err)
 			}
@@ -300,7 +316,7 @@ func UnpackPersoBlob(blobBytes []byte) (*PersoBlob, error) {
 			})
 
 		case PersoObjectTypeX509Cert:
-			certObj, err := extractCertObject(objBytes, blobVersion)
+			certObj, err := extractCertObject(objBytes)
 			if err != nil {
 				return nil, fmt.Errorf("failed to extract X509 cert: %w", err)
 			}
@@ -309,7 +325,7 @@ func UnpackPersoBlob(blobBytes []byte) (*PersoBlob, error) {
 				Cert:     certObj.CertBody,
 			})
 		case PersoObjectTypeCwtCert:
-			certObj, err := extractCertObject(objBytes, blobVersion)
+			certObj, err := extractCertObject(objBytes)
 			if err != nil {
 				return nil, fmt.Errorf("failed to extract CWT cert: %w", err)
 			}
@@ -337,21 +353,15 @@ func UnpackPersoBlob(blobBytes []byte) (*PersoBlob, error) {
 }
 
 // BuildPersoBlob serializes a PersoBlob struct into a byte slice.
-func BuildPersoBlob(persoBlob *PersoBlob, blobVersion PersoBlobVersion) ([]byte, error) {
+func BuildPersoBlob(persoBlob *PersoBlob) ([]byte, error) {
 	var buf bytes.Buffer
-
-	// Add Version Object for V1
-	if blobVersion == PersoBlobVersionV1 {
-		header := (uint16(PersoObjectTypeBlobVersion) << objhTypeFieldShiftV0) | (uint16(4&objhSizeFieldMaskV0) << objhSizeFieldShiftV0)
-		hbuf := make([]byte, 2)
-		binary.BigEndian.PutUint16(hbuf, header)
-		buf.Write(hbuf)
-		binary.BigEndian.PutUint16(hbuf, 1) // Version 1
-		buf.Write(hbuf)
-	}
 
 	// 1. Device ID object
 	if persoBlob.DeviceID != nil {
+		blobVersion := selectObjectVersion(len(persoBlob.DeviceID.Raw), 0)
+		if blobVersion == PersoBlobVersionV1 {
+			buf.Write(persoTlvVersionPrefixV1[:])
+		}
 		headerSize := sizeOfObjectHeaderV1
 		if blobVersion == PersoBlobVersionV0 {
 			headerSize = sizeOfObjectHeaderV0
@@ -365,6 +375,10 @@ func BuildPersoBlob(persoBlob *PersoBlob, blobVersion PersoBlobVersion) ([]byte,
 
 	// 2. Signature object
 	if persoBlob.Signature != nil {
+		blobVersion := selectObjectVersion(len(persoBlob.Signature.Raw), 0)
+		if blobVersion == PersoBlobVersionV1 {
+			buf.Write(persoTlvVersionPrefixV1[:])
+		}
 		headerSize := sizeOfObjectHeaderV1
 		if blobVersion == PersoBlobVersionV0 {
 			headerSize = sizeOfObjectHeaderV0
@@ -379,6 +393,10 @@ func BuildPersoBlob(persoBlob *PersoBlob, blobVersion PersoBlobVersion) ([]byte,
 	// 3. X509 TBS certificate objects
 	for _, tbsCert := range persoBlob.X509TbsCerts {
 		keyLabelBytes := []byte(tbsCert.KeyLabel)
+		blobVersion := selectObjectVersion(len(tbsCert.Tbs), len(keyLabelBytes))
+		if blobVersion == PersoBlobVersionV1 {
+			buf.Write(persoTlvVersionPrefixV1[:])
+		}
 		certHeaderSizeVal := sizeOfCertHeaderV1
 		if blobVersion == PersoBlobVersionV0 {
 			certHeaderSizeVal = sizeOfCertHeaderV0
@@ -402,6 +420,10 @@ func BuildPersoBlob(persoBlob *PersoBlob, blobVersion PersoBlobVersion) ([]byte,
 	// 4. X509 certificate objects
 	for _, cert := range persoBlob.X509Certs {
 		keyLabelBytes := []byte(cert.KeyLabel)
+		blobVersion := selectObjectVersion(len(cert.Cert), len(keyLabelBytes))
+		if blobVersion == PersoBlobVersionV1 {
+			buf.Write(persoTlvVersionPrefixV1[:])
+		}
 		certHeaderSizeVal := sizeOfCertHeaderV1
 		if blobVersion == PersoBlobVersionV0 {
 			certHeaderSizeVal = sizeOfCertHeaderV0
@@ -425,6 +447,10 @@ func BuildPersoBlob(persoBlob *PersoBlob, blobVersion PersoBlobVersion) ([]byte,
 	// 5. CWT certificate objects
 	for _, cert := range persoBlob.CwtCerts {
 		keyLabelBytes := []byte(cert.KeyLabel)
+		blobVersion := selectObjectVersion(len(cert.Cert), len(keyLabelBytes))
+		if blobVersion == PersoBlobVersionV1 {
+			buf.Write(persoTlvVersionPrefixV1[:])
+		}
 		certHeaderSizeVal := sizeOfCertHeaderV1
 		if blobVersion == PersoBlobVersionV0 {
 			certHeaderSizeVal = sizeOfCertHeaderV0
@@ -447,6 +473,10 @@ func BuildPersoBlob(persoBlob *PersoBlob, blobVersion PersoBlobVersion) ([]byte,
 
 	// 6. Seed objects
 	for _, seed := range persoBlob.Seeds {
+		blobVersion := selectObjectVersion(len(seed.Raw), 0)
+		if blobVersion == PersoBlobVersionV1 {
+			buf.Write(persoTlvVersionPrefixV1[:])
+		}
 		headerSize := sizeOfObjectHeaderV1
 		if blobVersion == PersoBlobVersionV0 {
 			headerSize = sizeOfObjectHeaderV0

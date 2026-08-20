@@ -33,6 +33,14 @@ var (
 		KeyLabel: "testkey1",
 		Cert:     bytes.Repeat([]byte{0x33}, 128),
 	}
+	testLongNameCert = EndorseCertResponse{
+		KeyLabel: "long_dice_cert_name_v1__",
+		Cert:     bytes.Repeat([]byte{0x55}, 128),
+	}
+	testSeed = Seed{
+		Type: PersoObjectTypeGenericSeed,
+		Raw:  bytes.Repeat([]byte{0x77}, 64),
+	}
 )
 
 func TestUnpackPersoBlobSuccess(t *testing.T) {
@@ -40,9 +48,10 @@ func TestUnpackPersoBlobSuccess(t *testing.T) {
 		DeviceID:     testDeviceID,
 		Signature:    testSignature,
 		X509TbsCerts: []EndorseCertRequest{testTbsCert},
-		X509Certs:    []EndorseCertResponse{testCert},
+		X509Certs:    []EndorseCertResponse{testCert, testLongNameCert},
+		Seeds:        []Seed{testSeed},
 	}
-	blobBytes, err := BuildPersoBlob(testPersoBlob, PersoBlobVersionV0)
+	blobBytes, err := BuildPersoBlob(testPersoBlob)
 	if err != nil {
 		t.Fatalf("BuildPersoBlob() failed: %v", err)
 	}
@@ -66,14 +75,20 @@ func TestUnpackPersoBlobSuccess(t *testing.T) {
 		t.Errorf("Unpacked TBS Cert mismatch (-want +got):\n%s", diff)
 	}
 
-	if got, want := len(unpacked.X509Certs), 1; got != want {
+	if got, want := len(unpacked.X509Certs), 2; got != want {
 		t.Fatalf("got %d X509 certs, want %d", got, want)
 	}
 	if diff := cmp.Diff(testCert, unpacked.X509Certs[0]); diff != "" {
 		t.Errorf("Unpacked X509 Cert mismatch (-want +got):\n%s", diff)
 	}
-	if got, want := len(unpacked.Seeds), 0; got != want {
-		t.Errorf("got %d seeds, want %d", got, want)
+	if diff := cmp.Diff(testLongNameCert, unpacked.X509Certs[1]); diff != "" {
+		t.Errorf("Unpacked X509 Long Name Cert mismatch (-want +got):\n%s", diff)
+	}
+	if got, want := len(unpacked.Seeds), 1; got != want {
+		t.Fatalf("got %d seeds, want %d", got, want)
+	}
+	if diff := cmp.Diff(testSeed, unpacked.Seeds[0]); diff != "" {
+		t.Errorf("Unpacked Seed mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -101,7 +116,7 @@ func TestUnpackPersoBlobErrors(t *testing.T) {
 		{
 			name:      "incomplete header",
 			blob:      []byte{0x01},
-			expectErr: "unknown or invalid blob version",
+			expectErr: "remaining buffer too small for object header",
 		},
 		{
 			name: "object size exceeds buffer",
