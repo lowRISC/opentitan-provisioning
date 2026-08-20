@@ -326,12 +326,6 @@ int main(int argc, char** argv) {
   constexpr size_t kMaxSeeds = 5;
   seed_t seeds[kMaxSeeds];
   size_t num_seeds = kMaxSeeds;
-  perso_blob_version_t blob_version;
-  if (GetPersoBlobVersion(perso_blob_from_dut.body,
-                          perso_blob_from_dut.next_free, &blob_version) != 0) {
-    LOG(ERROR) << "Failed to get perso blob version.";
-    return -1;
-  }
 
   if (UnpackPersoBlob(&perso_blob_from_dut, &device_id, &tbs_was_hmac,
                       &perso_fw_hash, tbs_certs, &num_tbs_certs,
@@ -403,7 +397,7 @@ int main(int argc, char** argv) {
       new dut_spi_frame_t[kNumPersoBlobMaxNumSpiFrames]);
   size_t num_perso_blob_spi_frames = kNumPersoBlobMaxNumSpiFrames;
   if (PackPersoBlob(num_tbs_certs, pa_endorsed_certs, num_ca_certs, ca_certs,
-                    blob_version, &perso_blob_from_ate) != 0) {
+                    &perso_blob_from_ate) != 0) {
     LOG(ERROR) << "Failed to repack the perso blob.";
     return -1;
   }
@@ -456,8 +450,7 @@ int main(int argc, char** argv) {
   perso_blob_t perso_blob_for_registry;
   if (PackRegistryPersoTlvData(dut_endorsed_certs, num_dut_endorsed_certs,
                                pa_endorsed_certs, num_tbs_certs, seeds,
-                               num_seeds, blob_version,
-                               &perso_blob_for_registry) != 0) {
+                               num_seeds, &perso_blob_for_registry) != 0) {
     LOG(ERROR) << "PackRegistryPersoTlvData failed.";
     return -1;
   }

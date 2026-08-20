@@ -28,6 +28,27 @@ typedef enum perso_tlv_object_type {
   kPersoObjectTypeBlobVersion = 15,
 } perso_tlv_object_type_t;
 
+enum {
+  /**
+   * Fixed 4-byte version prefix for V1 objects in little-endian register
+   * representation (corresponds to wire bytes [0xF0, 0x04, 0x00, 0x01]):
+   * Header: 0xF004 (type = kPersoObjectTypeBlobVersion, size = 4)
+   * Payload: 0x0001 (version = 1)
+   */
+  kPersoTlvVersionPrefixV1 = 0x010004F0,
+  kPersoTlvVersionHeaderSize = 4,
+
+  // V0 capacity limits for auto-versioning
+  kCrthV0MaxCertNameLen = 15,
+  kObjhV0MaxObjSize = 4095,
+};
+
+// Object format versions
+typedef enum perso_blob_version {
+  kPersoBlobVersionV0 = 0,
+  kPersoBlobVersionV1 = 1,
+} perso_blob_version_t;
+
 // Header types
 typedef uint16_t perso_tlv_object_header_v0_t;
 typedef uint32_t perso_tlv_object_header_v1_t;
@@ -132,7 +153,7 @@ typedef enum perso_tlv_cert_header_fields {
 typedef struct perso_tlv_cert_obj {
   const char* cert_body_p;
   size_t cert_body_size;
-  char name[kCrthNameSizeFieldMask + 1];
+  char name[kCrthV1NameSizeFieldMask + 1];
 } perso_tlv_cert_obj_t;
 
 #ifdef __cplusplus
