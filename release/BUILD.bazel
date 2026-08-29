@@ -106,6 +106,7 @@ release(
         ":proxybuffer_containers_tar": "ProxyBuffer container",
         ":release_bundle": "Deployment scripts",
         ":softhsm_dev": "SoftHSM2 development binaries",
-        "//src/ate:windows": "ATE Win32 binaries",
+        "//src/ate:windows_win32": "ATE Win32 binaries",
+        "//src/ate:windows_x64": "ATE x64 binaries",
     },
 )
