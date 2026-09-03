@@ -40,7 +40,7 @@
           # 1. Temporarily replace sha256Hash with pkgs.lib.fakeHash (or "").
           # 2. Run: nix build path:.#all
           # 3. Copy the computed SHA-256 mismatch hash back here.
-          sha256Hash = "sha256-lpTEaFMn9EvJaHhNcWturBOS1FK0d/beeHIc3sLmw94=";
+          sha256Hash = "sha256-aBueuJuqBhsj2nS9Xj4jZx4Heev1s3annFfv3BD7mPE=";
 
           rawSource = pkgs.lib.cleanSourceWith {
             src = ./.;

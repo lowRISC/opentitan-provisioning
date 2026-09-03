@@ -3,26 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_test")
-load("@io_bazel_rules_docker//container:container.bzl", "container_push")
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 
 package(default_visibility = ["//visibility:public"])
-
-# Note: running this target: bazel run //src/proxy_buffer:proxybuffer_push
-# pushes the image from the above `proxybuffer` to the Google Container
-# Registry.
-# If you get an error related to the containerregistry API not being
-# accessible, you can enable this API using the following cmd-line:
-# $ gcloud --project=opentitan-provisioning services enable containerregistry.googleapis.com
-container_push(
-    name = "proxybuffer_push",
-    format = "Docker",
-    image = ":pb_server_image",
-    registry = "gcr.io",
-    # opentitan-provisioning is the name of the GCP project.
-    repository = "opentitan-provisioning/proxybuffer",
-    tag = "dev",
-)
 
 PB_SERVER_DEPS = [
     "//src/proxy_buffer/proto:proxy_buffer_go_pb",
@@ -38,14 +20,6 @@ PB_SERVER_DEPS = [
 go_binary(
     name = "pb_server",
     srcs = ["pb_server.go"],
-    deps = PB_SERVER_DEPS,
-)
-
-go_image(
-    name = "pb_server_image",
-    srcs = ["pb_server.go"],
-    pure = "on",
-    static = "on",
     deps = PB_SERVER_DEPS,
 )
 

@@ -2,24 +2,8 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@io_bazel_rules_docker//container:container.bzl", "container_bundle")
 load("@lowrisc_bazel_release//release:release.bzl", "release")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
-
-container_bundle(
-    name = "provisioning_appliance_containers",
-    images = {
-        "podman_pause:latest": "@container_k8s_pause//image",
-        "pa_server:latest": "//src/pa:pa_server_image",
-        "spm_server:latest": "//src/spm:spm_server_image",
-    },
-)
-
-filegroup(
-    name = "provisioning_appliance_containers_tar",
-    srcs = [":provisioning_appliance_containers"],
-    output_group = "tar",
-)
 
 pkg_tar(
     name = "provisioning_appliance_binaries",
@@ -30,36 +14,10 @@ pkg_tar(
     extension = "tar.xz",
 )
 
-container_bundle(
-    name = "proxybuffer_containers",
-    images = {
-        "pb_server:latest": "//src/proxy_buffer:pb_server_image",
-    },
-)
-
-filegroup(
-    name = "proxybuffer_containers_tar",
-    srcs = [":proxybuffer_containers"],
-    output_group = "tar",
-)
-
 pkg_tar(
     name = "proxybuffer_binaries",
     srcs = ["//src/proxy_buffer:pb_server"],
     extension = "tar.xz",
-)
-
-container_bundle(
-    name = "fakeregistry_containers",
-    images = {
-        "fakeregistry_server:latest": "//src/testing/fake_registry:fake_registry_server_image",
-    },
-)
-
-filegroup(
-    name = "fakeregistry_containers_tar",
-    srcs = [":fakeregistry_containers"],
-    output_group = "tar",
 )
 
 pkg_tar(
@@ -98,12 +56,9 @@ release(
     name = "release",
     artifacts = {
         ":fakeregistry_binaries": "FakeRegistry binaries",
-        ":fakeregistry_containers_tar": "FakeRegistry container",
         ":hsmutils": "HSM configuration binaries",
         ":provisioning_appliance_binaries": "Provisioning Appliance binaries",
-        ":provisioning_appliance_containers_tar": "Provisioning Appliance container",
         ":proxybuffer_binaries": "ProxyBuffer binaries",
-        ":proxybuffer_containers_tar": "ProxyBuffer container",
         ":release_bundle": "Deployment scripts",
         ":softhsm_dev": "SoftHSM2 development binaries",
         "//src/ate:windows": "ATE Win32 binaries",

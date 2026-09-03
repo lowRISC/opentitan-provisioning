@@ -302,45 +302,6 @@ use_repo(vendor_deps, "vendor_repo")
 lint_deps = use_extension("//third_party/lint:extensions.bzl", "lint_deps")
 use_repo(lint_deps, "bazelbuild_buildtools", "clang-format", "protolint")
 
-# -------------------------------------------------------------------------
-# Container / Docker (Mixed Bzlmod & Legacy)
-# -------------------------------------------------------------------------
-
-docker = use_extension("//third_party/docker:extensions.bzl", "docker_extension")
-use_repo(docker, "container_k8s_pause", "container_softhsm2", "docker_config", "go_image_base", "go_image_static")
-
-register_toolchains("//config/containers:docker_toolchain")
-
-http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
-
-http_archive(
-    name = "io_bazel_rules_docker",
-    patch_args = ["-p1"],
-    patches = ["//third_party/docker:rules_docker_fix.patch"],
-    sha256 = "f6dcb97e992f13bc9effd794e9bb300f06b0dadc88061f81ae68d8d5994be964",
-    urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.26.0/rules_docker-v0.26.0.tar.gz"],
-)
-
-http_file(
-    name = "go_puller_linux_amd64",
-    executable = True,
-    sha256 = "08b8963cce9234f57055bafc7cadd1624cdce3c5990048cea1df453d7d288bc6",
-    urls = ["https://mirror.bazel.build/storage.googleapis.com/rules_docker/aad94363e63d31d574cf701df484b3e8b868a96a/puller-linux-amd64"],
-)
-
-http_file(
-    name = "loader_linux_amd64",
-    executable = True,
-    sha256 = "5e5ada66beff07f9188bdc1f99c3fa37c407fc0048cd78b9c2047e9c5516f20b",
-    urls = ["https://mirror.bazel.build/storage.googleapis.com/rules_docker/aad94363e63d31d574cf701df484b3e8b868a96a/loader-linux-amd64"],
-)
-
-http_archive(
-    name = "containerregistry",
-    sha256 = "a0c01fcc11db848212f8b11d89df168361f99a31eb7373ff60ce50c5d05cd74b",
-    strip_prefix = "containerregistry-0.0.38",
-    urls = ["https://github.com/google/containerregistry/archive/v0.0.38.tar.gz"],
-)
 
 # -------------------------------------------------------------------------
 # Legacy HTTP Archives & Cross Compilation

@@ -19,7 +19,6 @@ pkg_tar(
     srcs = [
         ":deploy_script",
         "//config/certs",
-        "//config/containers",
         "//config/env/dev:env",
         "//config/env/prod:env",
         "//config/softhsm:release",

@@ -2,26 +2,9 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@io_bazel_rules_docker//container:container.bzl", "container_push")
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary")
 
 package(default_visibility = ["//visibility:public"])
-
-# Note: running this target: bazel run //src/spm:spm_server_push
-# pushes the `spm_server_image` to the Google Container Registry.
-# If you get an error related to the containerregistry API not being
-# accessible, you can enable this API using the following cmd-line:
-# $ gcloud --project=opentitan-provisioning services enable containerregistry.googleapis.com
-container_push(
-    name = "spm_server_push",
-    format = "Docker",
-    image = ":spm_server_image",
-    registry = "gcr.io",
-    # opentitan-provisioning is the name of the GCP project.
-    repository = "opentitan-provisioning/spm_server",
-    tag = "dev",
-)
 
 SPM_SERVER_DEPS = [
     "//src/spm/proto:spm_go_pb",
@@ -34,12 +17,5 @@ SPM_SERVER_DEPS = [
 go_binary(
     name = "spm_server",
     srcs = ["spm_server.go"],
-    deps = SPM_SERVER_DEPS,
-)
-
-go_image(
-    name = "spm_server_image",
-    srcs = ["spm_server.go"],
-    base = "@container_softhsm2//image",
     deps = SPM_SERVER_DEPS,
 )
