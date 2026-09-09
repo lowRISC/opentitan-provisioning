@@ -47,7 +47,7 @@ func generateTBS() {
 	caCertPath := f.String("ca-cert", "", "Path to the CA certificate (optional, PEM or DER)")
 	output := f.String("output", "", "Path to output the TBS DER file")
 	days := f.Int("days", 7300, "Number of days the certificate is valid for. Use -1 for no expiry.")
-	
+
 	f.Parse(os.Args[2:])
 
 	if *csrPath == "" || *output == "" {
@@ -87,15 +87,8 @@ func generateTBS() {
 	// We can detect it from the CSR public key OID or just always try to patch if it matches.
 	// The current tbsgen library only patches if isMldsa is true.
 	// Let's add a flag or detect it.
-	
-	// MLDSA-87 OID: 2.16.840.1.101.3.4.3.19
-	isMldsa := false
-	if csr.PublicKeyAlgorithm == x509.UnknownPublicKeyAlgorithm {
-		// x509.ParseCertificateRequest might set Unknown for OIDs it doesn't know.
-		// We should check the raw OID if possible, but for now let's just use a flag
-		// or check if the signer is MLDSA in the script.
-		isMldsa = true // Default to true if unknown, as this tool is mainly for MLDSA.
-	}
+
+	isMldsa := csr.PublicKeyAlgorithm == x509.MLDSA
 
 	tbsDER, err := tbsgen.GenerateTBS(csr, caCert, *days, isMldsa)
 	if err != nil {
