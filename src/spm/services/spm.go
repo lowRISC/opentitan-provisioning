@@ -576,6 +576,10 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 				},
 			})
 		case *pbc.SigningKeyParams_MldsaParams:
+			rootCertMldsa, ok := sku.Certs["RootCAMldsa"]
+			if !ok {
+				rootCertMldsa = rootCert
+			}
 			params := se.EndorseCertParams{
 				KeyLabel: keyLabel,
 				MldsaAlgorithm: &se.MldsaParams{
@@ -585,7 +589,7 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 					caCert,
 				},
 				Roots: []*x509.Certificate{
-					rootCert,
+					rootCertMldsa,
 				},
 			}
 			cert, err := sku.SeHandle.EndorseCert(bundle.Tbs, params)
@@ -699,6 +703,9 @@ func (s *server) VerifyDeviceData(ctx context.Context, request *pbs.VerifyDevice
 	}
 	roots := x509.NewCertPool()
 	roots.AddCert(rootCert)
+	if rootMldsaCert, ok := sku.Certs["RootCAMldsa"]; ok {
+		roots.AddCert(rootMldsaCert)
+	}
 
 	udsICA, ok := sku.Certs["SigningKey/Dice/v0"]
 	if !ok {
@@ -716,6 +723,9 @@ func (s *server) VerifyDeviceData(ctx context.Context, request *pbs.VerifyDevice
 	extICA, ok := sku.Certs["SigningKey/Ext/v0"]
 	if ok {
 		extIntermediates.AddCert(extICA)
+	}
+	if extMldsaICA, ok := sku.Certs["SigningKey/Ext/Mldsa/v0"]; ok {
+		extIntermediates.AddCert(extMldsaICA)
 	}
 
 	certChainDiceLeaf, err := sku.Config.GetUnsafeAttribute(skucfg.AttrNameCertChainDiceLeaf)

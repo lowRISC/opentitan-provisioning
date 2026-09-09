@@ -11,9 +11,9 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 # -------------------------------------------------------------------------
 
 bazel_dep(name = "abseil-cpp", version = "20240722.0.bcr.1", repo_name = "com_google_absl")
-bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "bazel_skylib", version = "1.8.1")
 bazel_dep(name = "googletest", version = "1.15.2", repo_name = "com_google_googletest")
-bazel_dep(name = "platforms", version = "0.0.11")
+bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "re2", version = "2024-07-02", repo_name = "com_googlesource_code_re2")
 bazel_dep(name = "upb", version = "0.0.0-20230907-e7430e6")
 
@@ -27,7 +27,6 @@ bazel_dep(name = "rules_cc", version = "0.1.2")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
 bazel_dep(name = "rules_proto", version = "7.0.2")
 bazel_dep(name = "aspect_rules_lint", version = "1.0.8")
-
 bazel_dep(name = "rules_foreign_cc", version = "0.9.0")
 single_version_override(
     module_name = "rules_foreign_cc",
@@ -109,7 +108,7 @@ llvm.toolchain(
     name = "llvm_toolchain_lint",
     llvm_versions = {"": "14.0.0"},
 )
-use_repo(llvm, "llvm_toolchain_llvm", "llvm_toolchain_host", "llvm_toolchain_lint")
+use_repo(llvm, "llvm_toolchain_host", "llvm_toolchain_lint", "llvm_toolchain_llvm")
 
 register_toolchains("@llvm_toolchain_host//:all")
 
@@ -117,12 +116,11 @@ register_toolchains("@llvm_toolchain_host//:all")
 # Go Toolchain & Dependencies
 # -------------------------------------------------------------------------
 
-bazel_dep(name = "rules_go", version = "0.60.0", repo_name = "io_bazel_rules_go")
-
-bazel_dep(name = "gazelle", version = "0.47.0", repo_name = "bazel_gazelle")
+bazel_dep(name = "rules_go", version = "0.63.0", repo_name = "io_bazel_rules_go")
+bazel_dep(name = "gazelle", version = "0.51.3", repo_name = "bazel_gazelle")
 
 go_sdk = use_extension("@io_bazel_rules_go//go:extensions.bzl", "go_sdk")
-go_sdk.download(version = "1.26.0")
+go_sdk.download(version = "1.27.1")
 use_repo(go_sdk, "go_default_sdk")
 
 register_toolchains("@go_default_sdk//:all")
@@ -397,6 +395,7 @@ http_archive(
     strip_prefix = "SoftHSMv2-6319797ff0d11578375965d3a5b2bba7a81e03f0",
     urls = ["https://github.com/opendnssec/SoftHSMv2/archive/6319797ff0d11578375965d3a5b2bba7a81e03f0.tar.gz"],
 )
+
 # Release Tools
 http_archive(
     name = "lowrisc_bazel_release",
