@@ -9,10 +9,16 @@ let
     options = {
       enable = mkEnableOption "mTLS secure channel for SPM server";
 
-      enableMlkem = mkOption {
+      enableMlkemTls = mkOption {
         type = types.bool;
-        default = false;
+        default = true;
         description = "Enable MLKEM TLS configuration.";
+      };
+
+      enableMldsaTls = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Enable MLDSA certificate verification TLS configuration.";
       };
 
       certFile = mkOption {
@@ -59,7 +65,8 @@ let
   ++ optional (cfg.hsm.soPath != null) "-hsm_so=${toString cfg.hsm.soPath}"
   ++ optional (cfg.hsm.pwFile != null) "-hsm_pw=${toString cfg.hsm.pwFile}"
   ++ optional cfg.tls.enable "-enable_tls"
-  ++ optional cfg.tls.enableMlkem "-enable_mlkem"
+  ++ optional cfg.tls.enableMlkemTls "-enable_mlkem_tls"
+  ++ optional cfg.tls.enableMldsaTls "-enable_mldsa_tls"
   ++ optional (cfg.tls.certFile != null) "-service_cert=${toString cfg.tls.certFile}"
   ++ optional (cfg.tls.keyFile != null) "-service_key=${toString cfg.tls.keyFile}"
   ++ optional (cfg.tls.caCertFile != null) "-ca_root_certs=${toString cfg.tls.caCertFile}"

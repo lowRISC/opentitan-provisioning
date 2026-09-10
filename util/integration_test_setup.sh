@@ -40,9 +40,12 @@ DEPLOYMENT_DIR="${OPENTITAN_VAR_DIR}/config"
 # This is used to send a kill signal to the process when the script exits.
 SPM_PID_FILE="/tmp/spm.pid"
 
-if [[ -z "${ENABLE_MLKEM}" ]]; then
-    export ENABLE_MLKEM="false"
-fi
+ENABLE_MLKEM_TLS="${ENABLE_MLKEM_TLS:-${ENABLE_MLKEM:-false}}"
+ENABLE_MLDSA_TLS="${ENABLE_MLDSA_TLS:-${ENABLE_MLDSA:-false}}"
+export ENABLE_MLKEM_TLS
+export ENABLE_MLDSA_TLS
+export ENABLE_MLKEM="${ENABLE_MLKEM_TLS}"
+export ENABLE_MLDSA="${ENABLE_MLDSA_TLS}"
 
 # spm_server_try_stop sends a kill signal to the SPM server process if it is
 # running. It also waits for the process to terminate and removes the PID file.
@@ -142,7 +145,8 @@ fi
 echo "Launching SPM server outside of container"
 bazelisk run //src/spm:spm_server -- \
   --enable_tls=true \
-  --enable_mlkem=${ENABLE_MLKEM} \
+  --enable_mlkem_tls=${ENABLE_MLKEM_TLS} \
+  --enable_mldsa_tls=${ENABLE_MLDSA_TLS} \
   --service_cert="${DEPLOYMENT_DIR}/certs/out/spm-service-cert.pem" \
   --service_key="${DEPLOYMENT_DIR}/certs/out/spm-service-key.pem" \
   --ca_root_certs=${DEPLOYMENT_DIR}/certs/out/ca-cert.pem \
