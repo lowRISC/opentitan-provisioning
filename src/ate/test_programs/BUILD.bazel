@@ -4,6 +4,8 @@
 
 package(default_visibility = ["//visibility:public"])
 
+load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+
 cc_binary(
     name = "cp",
     srcs = ["cp.cc"],
@@ -41,16 +43,14 @@ cc_binary(
     ],
 )
 
-cc_binary(
+go_binary(
     name = "tls_test",
-    srcs = ["tls_test.cc"],
+    srcs = ["tls_test.go"],
     deps = [
-        "//src/ate:ate_lib",
-        "//src/version",
-        "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/flags:parse",
-        "@com_google_absl//absl/log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
+        "//src/pa/proto:pa_go_pb",
+        "//src/transport:grpconn",
+        "//src/version:buildver",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//resolver:go_default_library",
     ],
 )
