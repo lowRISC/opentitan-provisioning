@@ -29,9 +29,12 @@ cc_library(
     deps = [
         "//src/pa/proto:pa_cc_grpc",
         "//src/transport:service_credentials",
+        "@boringssl//:crypto",
+        "@boringssl//:ssl",
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings:str_format",
     ],
 )
 
@@ -41,6 +44,8 @@ cc_test(
     deps = [
         ":ate_client",
         "//src/testing:test_helpers",
+        "@boringssl//:crypto",
+        "@boringssl//:ssl",
         "@com_google_googletest//:gtest_main",
     ],
 )

@@ -28,7 +28,8 @@ var (
 	enableRegistry  = flag.Bool("enable_registry", false, "Enable connectivity to the Registry server; optional")
 	registryAddress = flag.String("registry_address", "", "the Registry (Buffer) server address to connect to; required")
 	enableTLS       = flag.Bool("enable_tls", false, "Enable mTLS secure channel; optional")
-	enableMLKEM     = flag.Bool("enable_mlkem", false, "Enable MLKEM TLS configuration; optional")
+	enableMLKEMTLS  = flag.Bool("enable_mlkem_tls", false, "Enable MLKEM TLS configuration; optional")
+	enableMLDSATLS  = flag.Bool("enable_mldsa_tls", false, "Enable MLDSA certificate verification TLS configuration; optional")
 	serviceKey      = flag.String("service_key", "", "File path to the PEM encoding of the server's private key")
 	serviceCert     = flag.String("service_cert", "", "File path to the PEM encoding of the server's certificate chain")
 	caRootCerts     = flag.String("ca_root_certs", "", "File path to the PEM encoding of the CA root certificates")
@@ -39,7 +40,10 @@ func startPAServer(spmClient pbs.SpmServiceClient) (*grpc.Server, error) {
 	opts := []grpc.ServerOption{}
 	auth_service.NewAuthControllerInstance(*enableTLS)
 	if *enableTLS {
-		credentials, err := (&grpconn.Config{EnableMLKEMTLS: *enableMLKEM}).LoadServerCredentials(*caRootCerts, *serviceCert, *serviceKey)
+		credentials, err := (&grpconn.Config{
+			EnableMLKEMTLS: *enableMLKEMTLS,
+			EnableMLDSATLS: *enableMLDSATLS,
+		}).LoadServerCredentials(*caRootCerts, *serviceCert, *serviceKey)
 		if err != nil {
 			return nil, err
 		}
@@ -56,7 +60,10 @@ func startPAServer(spmClient pbs.SpmServiceClient) (*grpc.Server, error) {
 func startSPMClient() (pbs.SpmServiceClient, error) {
 	opts := grpc.WithInsecure()
 	if *enableTLS {
-		credentials, err := (&grpconn.Config{EnableMLKEMTLS: *enableMLKEM}).LoadClientCredentials(*caRootCerts, *serviceCert, *serviceKey)
+		credentials, err := (&grpconn.Config{
+			EnableMLKEMTLS: *enableMLKEMTLS,
+			EnableMLDSATLS: *enableMLDSATLS,
+		}).LoadClientCredentials(*caRootCerts, *serviceCert, *serviceKey)
 		if err != nil {
 			return nil, err
 		}
@@ -103,7 +110,7 @@ func main() {
 			log.Fatalf("`registry_address` parameter missing")
 		}
 		log.Printf("starting Registry client at address: %q", *registryAddress)
-		err = rs.StartRegistryBuffer(*registryAddress, *enableTLS, *enableMLKEM, *caRootCerts, *serviceCert, *serviceKey)
+		err = rs.StartRegistryBuffer(*registryAddress, *enableTLS, *enableMLKEMTLS, *enableMLDSATLS, *caRootCerts, *serviceCert, *serviceKey)
 		if err != nil {
 			log.Fatalf("failed to initialize Registry client: %v", err)
 		}

@@ -54,12 +54,17 @@ ABSL_FLAG(std::string, load_balancing_policy, "",
 ABSL_FLAG(std::string, sku, "", "SKU string to initialize the PA session.");
 ABSL_FLAG(std::string, sku_auth_pw, "",
           "SKU authorization password string to initialize the PA session.");
-ABSL_FLAG(bool, enable_mldsa, false, "Enable additional MLDSA endorsement.");
+ABSL_FLAG(bool, enable_mldsa_dice, false,
+          "Enable additional MLDSA DICE endorsement.");
 
 /**
  * mTLS configuration flags.
  */
 ABSL_FLAG(bool, enable_mtls, false, "Enable mTLS secure channel.");
+ABSL_FLAG(bool, enable_mlkem_tls, false,
+          "Enable ML-KEM post-quantum key exchange in TLS.");
+ABSL_FLAG(bool, enable_mldsa_tls, false,
+          "Enable ML-DSA post-quantum certificate verification in TLS.");
 ABSL_FLAG(std::string, client_key, "",
           "File path to the PEM encoding of the client's private key.");
 ABSL_FLAG(std::string, client_cert, "",
@@ -81,6 +86,8 @@ absl::StatusOr<ate_client_ptr> AteClientNew(void) {
   }
   options.pa_target = pa_target.c_str();
   options.enable_mtls = absl::GetFlag(FLAGS_enable_mtls);
+  options.enable_mlkem_tls = absl::GetFlag(FLAGS_enable_mlkem_tls);
+  options.enable_mldsa_tls = absl::GetFlag(FLAGS_enable_mldsa_tls);
 
   std::string lb_policy = absl::GetFlag(FLAGS_load_balancing_policy);
   options.load_balancing_policy = lb_policy.c_str();
@@ -256,7 +263,7 @@ int main(int argc, char** argv) {
       "UDS",
       "EXT",
   };
-  if (absl::GetFlag(FLAGS_enable_mldsa)) {
+  if (absl::GetFlag(FLAGS_enable_mldsa_dice)) {
     ica_cert_labels.push_back("UDS_MLDSA");
     ica_cert_labels.push_back("EXT_MLDSA");
   }

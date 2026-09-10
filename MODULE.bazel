@@ -11,8 +11,16 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 # -------------------------------------------------------------------------
 
 bazel_dep(name = "abseil-cpp", version = "20240722.0.bcr.1", repo_name = "com_google_absl")
+single_version_override(
+    module_name = "abseil-cpp",
+    version = "20240722.0.bcr.1",
+)
 bazel_dep(name = "bazel_skylib", version = "1.8.1")
 bazel_dep(name = "googletest", version = "1.15.2", repo_name = "com_google_googletest")
+single_version_override(
+    module_name = "googletest",
+    version = "1.15.2",
+)
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "re2", version = "2024-07-02", repo_name = "com_googlesource_code_re2")
 bazel_dep(name = "upb", version = "0.0.0-20230907-e7430e6")
@@ -55,11 +63,14 @@ single_version_override(
 bazel_dep(name = "boringssl")
 archive_override(
     module_name = "boringssl",
-    integrity = "sha256-dHR3G61xqu8ZpYuovGGINHZ7VxPMPEean1AquU74k5E=",
+    integrity = "sha256-N+I8uaX6VPAbB8rdZTzrwdGyNZRUOabDNP6ljqR7Wwo=",
     patch_strip = 0,
-    patches = ["third_party/google/boringssl_mingw_fix.patch"],
-    strip_prefix = "boringssl-0.20241024.0",
-    urls = ["https://github.com/google/boringssl/releases/download/0.20241024.0/boringssl-0.20241024.0.tar.gz"],
+    patches = [
+        "third_party/google/boringssl_mingw_fix.patch",
+        "third_party/google/boringssl_cxx17_span.patch",
+    ],
+    strip_prefix = "boringssl-0.20260813.0",
+    urls = ["https://github.com/google/boringssl/releases/download/0.20260813.0/boringssl-0.20260813.0.tar.gz"],
 )
 
 # -------------------------------------------------------------------------
