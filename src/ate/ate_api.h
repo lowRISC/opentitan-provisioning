@@ -150,6 +150,12 @@ typedef struct {
   // Set to true to enable mTLS connection. When set to false, the connection
   // is established with insecure credentials.
   bool enable_mtls;
+
+  // Set to true to enable ML-KEM post-quantum key exchange in TLS.
+  bool enable_mlkem_tls;
+
+  // Set to true to enable ML-DSA post-quantum certificate verification in TLS.
+  bool enable_mldsa_tls;
 } client_options_t;
 
 /**

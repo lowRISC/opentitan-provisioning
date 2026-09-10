@@ -5,17 +5,46 @@
 #define OPENTITAN_PROVISIONING_SRC_ATE_ATE_CLIENT_H_
 
 #include <grpcpp/grpcpp.h>
+#include <grpcpp/security/tls_certificate_verifier.h>
 
 #include <fstream>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "src/pa/proto/pa.grpc.pb.h"
 
 namespace provisioning {
 namespace ate {
+
+// Verifies that every certificate in `pem_cert_data` has an ML-DSA public key
+// and was signed with an ML-DSA signature algorithm.
+grpc::Status VerifyMldsaCertificates(std::string_view pem_cert_data);
+
+// Verifies that `pem_key_data` contains a valid ML-DSA private key.
+grpc::Status ValidateMldsaPrivateKey(std::string_view pem_key_data);
+
+// Custom certificate verifier that performs standard hostname verification
+// and strictly enforces that peer certificates use ML-DSA public keys and
+// signatures.
+class MldsaCertificateVerifier
+    : public grpc::experimental::ExternalCertificateVerifier {
+ public:
+  MldsaCertificateVerifier();
+
+  bool Verify(grpc::experimental::TlsCustomVerificationCheckRequest* request,
+              std::function<void(grpc::Status)> callback,
+              grpc::Status* sync_status) override;
+
+  void Cancel(
+      grpc::experimental::TlsCustomVerificationCheckRequest* request) override;
+
+ private:
+  std::unique_ptr<grpc::experimental::HostNameCertificateVerifier>
+      hostname_verifier_;
+};
 
 class AteClient {
  public:
@@ -31,7 +60,14 @@ class AteClient {
 
     // Set to true to enable mTLS connection. When set to false, the connection
     // is established with insecure credentials.
-    bool enable_mtls;
+    bool enable_mtls = false;
+
+    // Set to true to enforce ML-KEM post-quantum key exchange in TLS.
+    bool enable_mlkem_tls = false;
+
+    // Set to true to enforce ML-DSA post-quantum certificate verification in
+    // TLS.
+    bool enable_mldsa_tls = false;
 
     // Client certificate in PEM format. Required when `enable_mtls` set to
     // true.

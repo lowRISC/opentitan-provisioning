@@ -40,11 +40,9 @@ func startPAServer(spmClient pbs.SpmServiceClient) (*grpc.Server, error) {
 	opts := []grpc.ServerOption{}
 	auth_service.NewAuthControllerInstance(*enableTLS)
 	if *enableTLS {
-		// The ATE client does not yet support ML-DSA certificate verification
-		// (lowRISC/opentitan-provisioning#285); accept standard RSA certificates.
 		credentials, err := (&grpconn.Config{
 			EnableMLKEMTLS: *enableMLKEMTLS,
-			EnableMLDSATLS: false,
+			EnableMLDSATLS: *enableMLDSATLS,
 		}).LoadServerCredentials(*caRootCerts, *serviceCert, *serviceKey)
 		if err != nil {
 			return nil, err

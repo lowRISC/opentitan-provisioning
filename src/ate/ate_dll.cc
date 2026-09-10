@@ -177,6 +177,8 @@ DLLEXPORT int CreateClient(
 
   // convert from ate_client_ptr to AteClient::Options
   o.enable_mtls = options->enable_mtls;
+  o.enable_mlkem_tls = options->enable_mlkem_tls;
+  o.enable_mldsa_tls = options->enable_mldsa_tls;
   o.pa_target = options->pa_target;
   if (options->load_balancing_policy != nullptr) {
     o.load_balancing_policy = options->load_balancing_policy;
@@ -194,6 +196,10 @@ DLLEXPORT int CreateClient(
 
   // created client instance
   auto ate = AteClient::Create(o);
+  if (!ate) {
+    LOG(ERROR) << "Failed to create AteClient";
+    return static_cast<int>(absl::StatusCode::kInvalidArgument);
+  }
 
   // Clear the ATE name
   ate->ate_id = "";
