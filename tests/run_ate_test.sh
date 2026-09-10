@@ -53,6 +53,8 @@ for OTSKU in "${FPGA_SKUS[@]}"; do
   echo "Running CP FPGA test flow SKU: ${OTSKU} ..."
   bazelisk run //src/ate/test_programs:cp -- \
     --enable_mtls=true \
+    --enable_mlkem_tls=${ENABLE_MLKEM_TLS} \
+    --enable_mldsa_tls=${ENABLE_MLDSA_TLS} \
     --client_cert="${DEPLOYMENT_DIR}/certs/out/ate-client-cert.pem" \
     --client_key="${DEPLOYMENT_DIR}/certs/out/ate-client-key.pem" \
     --ca_root_certs=${DEPLOYMENT_DIR}/certs/out/ca-cert.pem \
@@ -68,6 +70,8 @@ for OTSKU in "${FPGA_SKUS[@]}"; do
   echo "Running FT FPGA test flow SKU: ${OTSKU} ..."
   bazelisk run //src/ate/test_programs:ft -- \
     --enable_mtls=true \
+    --enable_mlkem_tls=${ENABLE_MLKEM_TLS} \
+    --enable_mldsa_tls=${ENABLE_MLDSA_TLS} \
     --client_cert="${DEPLOYMENT_DIR}/certs/out/ate-client-cert.pem" \
     --client_key="${DEPLOYMENT_DIR}/certs/out/ate-client-key.pem" \
     --ca_root_certs=${DEPLOYMENT_DIR}/certs/out/ca-cert.pem \
