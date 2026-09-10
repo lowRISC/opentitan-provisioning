@@ -1,0 +1,20 @@
+--- crypto/fipsmodule/cipher/internal.h.orig	2026-09-10 19:08:25.992162586 +0000
++++ crypto/fipsmodule/cipher/internal.h	2026-09-10 19:08:25.993400595 +0000
+@@ -360,7 +360,7 @@
+       in.Append(Span(collect_from_head.*ReadFrom, collect_from_head.len));
+       if (collect_from_rest.empty()) {
+         // Nothing left - so this is the final block.
+-        auto finalout = Span(out).first(in.size());
++        auto finalout = Span<uint8_t>(out).first(in.size());
+         MutableIVec finalvec = {};
+         finalvec.len = in.size();
+         finalvec.*ReadFrom = in.data();
+@@ -397,7 +397,7 @@
+     if (!call_func(f_whole, wholevec)) {
+       return false;
+     }
+-    maybe_copy_to_iovec(Span(out).first(in.size()), current_range_head,
++    maybe_copy_to_iovec(Span<uint8_t>(out).first(in.size()), current_range_head,
+                         current_range_rest);
+ 
+     // Set the new position.
