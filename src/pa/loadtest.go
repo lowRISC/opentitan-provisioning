@@ -47,14 +47,15 @@ var (
 	clientKey       = flag.String("client_key", "", "File path to the PEM encoding of the client's private key")
 	configDir       = flag.String("spm_config_dir", "", "Path to the SKU configuration directory.")
 	enableTLS       = flag.Bool("enable_tls", false, "Enable mTLS secure channel; optional")
-	enableMLKEM     = flag.Bool("enable_mlkem", false, "Enable MLKEM TLS configuration; optional")
+	enableMLKEMTLS  = flag.Bool("enable_mlkem_tls", false, "Enable MLKEM TLS configuration; optional")
+	enableMLDSATLS  = flag.Bool("enable_mldsa_tls", false, "Enable MLDSA certificate verification TLS configuration; optional")
 	hsmSOLibPath    = flag.String("hsm_so", "", "File path to the HSM's PKCS#11 shared library.")
 	paAddress       = flag.String("pa_address", "", "the PA server address to connect to; required")
 	parallelClients = flag.Int("parallel_clients", 1, "The total number of clients to run concurrently")
 	skuNames        = flag.String("sku_names", "", "Comma-separated list of SKUs to test (e.g., sival,cr01,pi01,ti01). Required.")
 	testSKUAuth     = flag.String("sku_auth", "test_password", "The SKU authorization password to use.")
 	totalDuts       = flag.Int("total_duts", 1, "The total number of DUTs to process during the load test")
-	enableMLDSA     = flag.Bool("enable_mldsa", false, "Enable additional MLDSA endorsement")
+	enableMLDSADice = flag.Bool("enable_mldsa_dice", false, "Enable additional MLDSA DICE endorsement")
 )
 
 // clientTask encapsulates a client connection.
@@ -92,7 +93,10 @@ type clientGroup struct {
 func (c *clientTask) setup(ctx context.Context, skuName string) error {
 	opts := []grpc.DialOption{grpc.WithBlock()}
 	if *enableTLS {
-		credentials, err := (&grpconn.Config{EnableMLKEMTLS: *enableMLKEM}).LoadClientCredentials(*caRootCerts, *clientCert, *clientKey)
+		credentials, err := (&grpconn.Config{
+			EnableMLKEMTLS: *enableMLKEMTLS,
+			EnableMLDSATLS: *enableMLDSATLS,
+		}).LoadClientCredentials(*caRootCerts, *clientCert, *clientKey)
 		if err != nil {
 			return err
 		}
@@ -251,7 +255,7 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 
 	// Retrieve CA subject key IDs.
 	subjectKeyLabels := []string{"UDS", "EXT"}
-	if *enableMLDSA && dut.SupportsMLDSA() {
+	if *enableMLDSADice && dut.SupportsMLDSA() {
 		subjectKeyLabels = append(subjectKeyLabels, "UDS_MLDSA", "EXT_MLDSA")
 	}
 	caKeysReq := &pbp.GetCaSubjectKeysRequest{
@@ -345,7 +349,7 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 	} else {
 		caCertLabels = []string{"dice", "ext", "root"}
 	}
-	if *enableMLDSA && dut.SupportsMLDSA() {
+	if *enableMLDSADice && dut.SupportsMLDSA() {
 		caCertLabels = append(caCertLabels, "root_mldsa")
 		caCertLabels = append(caCertLabels, "dice_mldsa")
 		if skuName != "sival_pqc" {
@@ -541,7 +545,7 @@ func main() {
 			if err != nil {
 				log.Fatalf("failed to create DUT %d for SKU %q: %v", i, skuName, err)
 			}
-			if err := dut.BuildTbsCerts(*enableMLDSA); err != nil {
+			if err := dut.BuildTbsCerts(*enableMLDSADice); err != nil {
 				log.Fatalf("failed to build TBS certificates for DUT %d for SKU %q: %v", i, skuName, err)
 			}
 			duts[i] = dut

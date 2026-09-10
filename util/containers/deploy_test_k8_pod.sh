@@ -8,9 +8,10 @@ set -e
 # Deploy the provisioning appliance services.
 export CONTAINERS_ONLY="yes"
 
-if [[ -z "${ENABLE_MLKEM}" ]]; then
-    export ENABLE_MLKEM="false"
-fi
+ENABLE_MLKEM_TLS="${ENABLE_MLKEM_TLS:-false}"
+ENABLE_MLDSA_TLS="${ENABLE_MLDSA_TLS:-false}"
+export ENABLE_MLKEM_TLS
+export ENABLE_MLDSA_TLS
 
 DEPLOY_ENV="dev"
 if [[ -n "${OT_PROV_PROD_EN}" ]]; then

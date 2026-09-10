@@ -54,7 +54,8 @@ ABSL_FLAG(std::string, load_balancing_policy, "",
 ABSL_FLAG(std::string, sku, "", "SKU string to initialize the PA session.");
 ABSL_FLAG(std::string, sku_auth_pw, "",
           "SKU authorization password string to initialize the PA session.");
-ABSL_FLAG(bool, enable_mldsa, false, "Enable additional MLDSA endorsement.");
+ABSL_FLAG(bool, enable_mldsa_dice, false,
+          "Enable additional MLDSA DICE endorsement.");
 
 /**
  * mTLS configuration flags.
@@ -256,7 +257,7 @@ int main(int argc, char** argv) {
       "UDS",
       "EXT",
   };
-  if (absl::GetFlag(FLAGS_enable_mldsa)) {
+  if (absl::GetFlag(FLAGS_enable_mldsa_dice)) {
     ica_cert_labels.push_back("UDS_MLDSA");
     ica_cert_labels.push_back("EXT_MLDSA");
   }
