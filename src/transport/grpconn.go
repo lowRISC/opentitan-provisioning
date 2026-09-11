@@ -71,49 +71,36 @@ func isMLDSAPrivateKey(priv crypto.PrivateKey) bool {
 	return false
 }
 
-// verifyMLDSAPeerCertificate verifies that the peer's certificate and every
-// certificate in its verified chain (leaf, intermediates, and root CA) use
-// ML-DSA public keys and signature algorithms. Standard TLS handles cryptographic
-// signature and root CA trust verification; this function enforces post-quantum
-// algorithm policy across the entire chain.
-func verifyMLDSAPeerCertificate(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-	if len(verifiedChains) > 0 {
-		var lastErr error
-		for _, chain := range verifiedChains {
-			chainOK := true
-			for i, cert := range chain {
-				if !isMLDSAPublicKeyAlgo(cert.PublicKeyAlgorithm) {
-					lastErr = fmt.Errorf("certificate at index %d in chain has non-MLDSA public key algorithm %v", i, cert.PublicKeyAlgorithm)
-					chainOK = false
-					break
-				}
-				if !isMLDSASignatureAlgo(cert.SignatureAlgorithm) {
-					lastErr = fmt.Errorf("certificate at index %d in chain has non-MLDSA signature algorithm %v", i, cert.SignatureAlgorithm)
-					chainOK = false
-					break
-				}
-			}
-			if chainOK {
-				return nil
-			}
-		}
-		return lastErr
+// verifyMLDSAPeerCertificate verifies that every certificate in the peer's
+// verified chain (leaf, intermediates, and root CA) uses ML-DSA public keys
+// and signature algorithms. Standard TLS handles cryptographic signature and
+// root CA trust verification; this function enforces post-quantum algorithm
+// policy across the entire chain.
+func verifyMLDSAPeerCertificate(_ [][]byte, verifiedChains [][]*x509.Certificate) error {
+	if len(verifiedChains) == 0 {
+		return fmt.Errorf("no verified certificate chains provided")
 	}
 
-	if len(rawCerts) == 0 {
-		return fmt.Errorf("no peer certificates provided")
+	var lastErr error
+	for _, chain := range verifiedChains {
+		chainOK := true
+		for i, cert := range chain {
+			if !isMLDSAPublicKeyAlgo(cert.PublicKeyAlgorithm) {
+				lastErr = fmt.Errorf("certificate at index %d in chain has non-MLDSA public key algorithm %v", i, cert.PublicKeyAlgorithm)
+				chainOK = false
+				break
+			}
+			if !isMLDSASignatureAlgo(cert.SignatureAlgorithm) {
+				lastErr = fmt.Errorf("certificate at index %d in chain has non-MLDSA signature algorithm %v", i, cert.SignatureAlgorithm)
+				chainOK = false
+				break
+			}
+		}
+		if chainOK {
+			return nil
+		}
 	}
-	cert, err := x509.ParseCertificate(rawCerts[0])
-	if err != nil {
-		return fmt.Errorf("failed to parse peer certificate: %w", err)
-	}
-	if !isMLDSAPublicKeyAlgo(cert.PublicKeyAlgorithm) {
-		return fmt.Errorf("peer certificate public key algorithm %v is not MLDSA", cert.PublicKeyAlgorithm)
-	}
-	if !isMLDSASignatureAlgo(cert.SignatureAlgorithm) {
-		return fmt.Errorf("peer certificate signature algorithm %v is not MLDSA", cert.SignatureAlgorithm)
-	}
-	return nil
+	return lastErr
 }
 
 func (c *Config) applyMLDSAConfig(tlsConfig *tls.Config) {

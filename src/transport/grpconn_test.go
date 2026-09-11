@@ -279,10 +279,10 @@ func TestVerifyMLDSAPeerCertificate(t *testing.T) {
 			expectErr:      false,
 		},
 		{
-			name:           "Valid Raw MLDSA-65 without VerifiedChains",
+			name:           "Reject Empty VerifiedChains",
 			rawCerts:       [][]byte{leaf65.Raw},
 			verifiedChains: nil,
-			expectErr:      false,
+			expectErr:      true,
 		},
 		{
 			name:           "Reject RSA Leaf In Chain",
