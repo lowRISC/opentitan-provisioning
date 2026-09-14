@@ -382,6 +382,9 @@ func (k PublicKey) ExportKey() (any, error) {
 	case pkcs11.CKK_ECDSA:
 		// Defined in ecdsa.go
 		return k.exportECDSAPublic()
+	case CKK_ML_DSA:
+		// Defined in mldsa.go
+		return k.exportMLDSAPublic()
 	default:
 		return nil, fmt.Errorf("cannot parse key: type %x", kType)
 	}
@@ -456,8 +459,8 @@ func (k PrivateKey) Signer() (crypto.Signer, error) {
 	case pkcs11.CKK_ECDSA:
 		// Defined in ecdsa.go
 		return NewECDSASigner(k)
-	case CKK_MLDSA:
-		return MLDSASigner{k}, nil
+	case CKK_ML_DSA:
+		return NewMLDSASigner(k)
 	default:
 		return nil, fmt.Errorf("not a known private key type: %x", kType)
 	}
