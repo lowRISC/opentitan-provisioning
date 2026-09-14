@@ -16,6 +16,7 @@ usage () {
   echo "  --output_tar <output.tar.gz> Path to the output tarball. Optional."
   echo "  --csr_only                   Only export CSRs, do not sign them. Optional."
   echo "  --sign_only                  Only sign certificates, skip CSR generation. Optional."
+  echo "  --cert_validity_days <days>  Certificate validity period in days. Optional (default: 7300)."
   echo "  --help                       Show this help message."
   exit 1
 }
@@ -36,8 +37,9 @@ FLAGS_IN_TAR=""
 FLAGS_OUT_TAR=""
 FLAGS_CSR_ONLY=false
 FLAGS_SIGN_ONLY=false
+FLAGS_CERT_VALIDITY_DAYS="${OTPROV_CA_CERT_DAYS:-7300}"
 
-LONGOPTS="hsm_module:,token:,softhsm_config:,hsm_pin:,input_tar:,output_tar:,csr_only,sign_only,help"
+LONGOPTS="hsm_module:,token:,softhsm_config:,hsm_pin:,input_tar:,output_tar:,cert_validity_days:,days:,csr_only,sign_only,help"
 OPTS=$(getopt -o "" --long "${LONGOPTS}" -n "$0" -- "$@")
 
 if [ $? != 0 ] ; then echo "Failed parsing options." >&2 ; exit 1 ; fi
@@ -70,6 +72,10 @@ while true; do
       FLAGS_OUT_TAR="$2"
       shift 2
       ;;
+    --cert_validity_days|--days)
+      FLAGS_CERT_VALIDITY_DAYS="$2"
+      shift 2
+      ;;
     --csr_only)
       FLAGS_CSR_ONLY=true
       shift
@@ -96,6 +102,13 @@ if [[ "$#" -gt 0 ]]; then
   echo "Unexpected arguments:" "$@" >&2
   exit 1
 fi
+
+if ! [[ "${FLAGS_CERT_VALIDITY_DAYS}" =~ ^[0-9]+$ ]] || [[ "${FLAGS_CERT_VALIDITY_DAYS}" -le 0 ]]; then
+  echo "Error: --cert_validity_days must be a positive integer, got: ${FLAGS_CERT_VALIDITY_DAYS}" >&2
+  exit 1
+fi
+
+export OTPROV_CA_CERT_DAYS="${FLAGS_CERT_VALIDITY_DAYS}"
 
 if [[ -z "${FLAGS_HSMTOOL_MODULE}" ]]; then
   echo "Error: -m HSMTOOL_MODULE is not set."
@@ -290,7 +303,7 @@ certgen () {
         openssl x509 -req -engine "${ENGINE}" -keyform engine \
         -in "${CSR_FILE}" \
         -out "${CERT_FILE}" \
-        -days 7300 \
+        -days "${FLAGS_CERT_VALIDITY_DAYS}" \
         -extfile "${CONFIG_FILE}" \
         -extensions v3_ca \
         -signkey "${ENDORSING_KEY}"
@@ -307,7 +320,7 @@ certgen () {
         openssl x509 -req -engine "${ENGINE}" -keyform engine \
         -in "${CSR_FILE}" \
         -out "${CERT_FILE}" \
-        -days 7300 \
+        -days "${FLAGS_CERT_VALIDITY_DAYS}" \
         -extfile "${CONFIG_FILE}" \
         -extensions v3_ca \
         -CA "${CA_ENDORSING_CERT_FILE}" \
@@ -336,7 +349,7 @@ certgen () {
     SIG_FILE="${CERT_FILE}.sig"
 
     # 1. Generate TBS
-    TBS_ARGS=(tbs --csr "${CSR_FILE}" --output "${TBS_FILE}" --days 7300)
+    TBS_ARGS=(tbs --csr "${CSR_FILE}" --output "${TBS_FILE}" --days "${FLAGS_CERT_VALIDITY_DAYS}")
     if [[ "${ca_key}" != "${endorsing_key}" ]]; then
         CA_ENDORSING_CERT_FILE="${OUTDIR_CA}/${endorsing_key}.pem"
         if [[ ! -f "${CA_ENDORSING_CERT_FILE}" ]]; then
