@@ -26,7 +26,6 @@ configure_make(
         "no-rc5",
         "no-ssl3",
         "no-weak-ssl-ciphers",
-        "no-apps",
         "no-asm",
         "-fPIC",
         "--prefix=/",
@@ -40,6 +39,7 @@ configure_make(
         "//conditions:default": {},
     }),
     lib_source = ":all_srcs",
+    out_binaries = ["openssl"],
     out_static_libs = [
         "libssl.a",
         "libcrypto.a",

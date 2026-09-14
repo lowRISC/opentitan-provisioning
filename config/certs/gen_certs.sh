@@ -14,11 +14,26 @@ readonly CA_CERT=${CONFIG_PATH}/ca-cert.pem
 
 mkdir -p ${CONFIG_PATH}
 
-echo "Creating CA certificate"
-openssl req -x509 -newkey rsa:4096 -days 365 -nodes \
-    -keyout ${CA_KEY} \
-    -out ${CA_CERT} \
-    -config ${CONFIG_TEMPLATE_PATH}/ca.cnf
+OPENSSL_BIN="${OPENTITAN_VAR_DIR}/bin/openssl"
+if [[ ! -x "${OPENSSL_BIN}" ]]; then
+  OPENSSL_BIN="openssl"
+fi
+
+if [[ "${ENABLE_MLDSA_TLS}" == "true" ]]; then
+  echo "Creating ML-DSA-87 CA key and certificate"
+  "${OPENSSL_BIN}" genpkey -algorithm mldsa87 \
+      -provparam ml-dsa.output_formats=seed-only \
+      -out ${CA_KEY}
+  "${OPENSSL_BIN}" req -x509 -key ${CA_KEY} -days 365 \
+      -out ${CA_CERT} \
+      -config ${CONFIG_TEMPLATE_PATH}/ca.cnf
+else
+  echo "Creating RSA CA certificate"
+  "${OPENSSL_BIN}" req -x509 -newkey rsa:4096 -days 365 -nodes \
+      -keyout ${CA_KEY} \
+      -out ${CA_CERT} \
+      -config ${CONFIG_TEMPLATE_PATH}/ca.cnf
+fi
 
 readonly SERVICE_CERT_REQ=${CONFIG_PATH}/pa-req.pem
 
@@ -30,13 +45,23 @@ create_key_and_cert () {
     < ${CONFIG_TEMPLATE_PATH}/endpoint_${1}.cnf.tmpl \
     > ${CONFIG_PATH}/endpoint_${1}.cnf
 
-  openssl req -newkey rsa:4096 -nodes \
-      -keyout ${CONFIG_PATH}/${1}-key.pem \
-      -out ${ENDPOINT_CERT_REQ} \
-      -config ${CONFIG_PATH}/endpoint_${1}.cnf
+  if [[ "${ENABLE_MLDSA_TLS}" == "true" ]]; then
+    "${OPENSSL_BIN}" genpkey -algorithm mldsa87 \
+        -provparam ml-dsa.output_formats=seed-only \
+        -out ${CONFIG_PATH}/${1}-key.pem
+    "${OPENSSL_BIN}" req -new \
+        -key ${CONFIG_PATH}/${1}-key.pem \
+        -out ${ENDPOINT_CERT_REQ} \
+        -config ${CONFIG_PATH}/endpoint_${1}.cnf
+  else
+    "${OPENSSL_BIN}" req -newkey rsa:4096 -nodes \
+        -keyout ${CONFIG_PATH}/${1}-key.pem \
+        -out ${ENDPOINT_CERT_REQ} \
+        -config ${CONFIG_PATH}/endpoint_${1}.cnf
+  fi
 
   echo "Signing ${1} certificate with CA key."
-  openssl x509 -req \
+  "${OPENSSL_BIN}" x509 -req \
     -in ${ENDPOINT_CERT_REQ} \
     -days 60 \
     -CA ${CA_CERT} \

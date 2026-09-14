@@ -40,10 +40,15 @@ DEPLOYMENT_DIR="${OPENTITAN_VAR_DIR}/config"
 # This is used to send a kill signal to the process when the script exits.
 SPM_PID_FILE="/tmp/spm.pid"
 
-ENABLE_MLKEM_TLS="${ENABLE_MLKEM_TLS:-false}"
-ENABLE_MLDSA_TLS="${ENABLE_MLDSA_TLS:-false}"
-export ENABLE_MLKEM_TLS
-export ENABLE_MLDSA_TLS
+if [[ -n "${OT_PROV_PQ_EN}" ]]; then
+  export ENABLE_MLKEM_TLS="${ENABLE_MLKEM_TLS:-true}"
+  export ENABLE_MLDSA_TLS="${ENABLE_MLDSA_TLS:-true}"
+  export ENABLE_MLDSA_DICE="${ENABLE_MLDSA_DICE:-true}"
+else
+  export ENABLE_MLKEM_TLS="${ENABLE_MLKEM_TLS:-false}"
+  export ENABLE_MLDSA_TLS="${ENABLE_MLDSA_TLS:-false}"
+  export ENABLE_MLDSA_DICE="${ENABLE_MLDSA_DICE:-false}"
+fi
 
 # spm_server_try_stop sends a kill signal to the SPM server process if it is
 # running. It also waits for the process to terminate and removes the PID file.
