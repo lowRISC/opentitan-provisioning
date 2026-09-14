@@ -235,7 +235,8 @@ This step creates the self-signed root certificate.
 ```
 
 *   **Description:** Uses the root CA private key (created in Step 2) to
-    generate the root CA's public certificate.
+    generate the root CA's public certificate. Certificate validity period can
+    optionally be set using `--cert_validity_days <days>` (defaults to 7300 days / 20 years).
 *   **Output Artifact:** `hsm_ca_root_certs.tar.gz`. This file contains the root
     of trust for the entire PKI.
 *   **Action:** The operator must securely archive this file and provide it to
@@ -247,7 +248,7 @@ This is the final and most critical step: the Offline HSM's root CA signs the
 intermediate CSRs from the SPM HSM, thus completing the chain of trust.
 
 ```shell
-# Sign CSRs for all desired SKUs
+# Sign CSRs for all desired SKUs (optionally specify --cert_validity_days <days>)
 ./config/token_init.sh \
   --action offline-sku-certgen \
   --sku sival \

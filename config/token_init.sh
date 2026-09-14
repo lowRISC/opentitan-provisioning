@@ -9,6 +9,7 @@ usage () {
   echo "Usage: $0 --action <action> [--sku <sku>]..."
   echo "  --action <action>            Action to perform. Required."
   echo "  --sku <sku>                  SKU to process. Can be specified multiple times. Required for some actions."
+  echo "  --cert_validity_days <days>  Certificate validity period in days. Optional (default: 7300)."
   echo "  --wipe                       Wipe the SPM wrapping key before exporting secrets from the offline HSM."
   echo "  --show                       Show the HSM contents."
   echo "  --help                       Show this help message."
@@ -35,9 +36,10 @@ usage () {
 FLAG_ACTION=""
 FlAGS_WIPE=""
 FLAGS_SHOW=""
+FLAGS_CERT_VALIDITY_DAYS=""
 FLAGS_SKUS_ARRAY=()
 
-LONGOPTS="action:,sku:,wipe,show,help"
+LONGOPTS="action:,sku:,cert_validity_days:,days:,wipe,show,help"
 OPTS=$(getopt -o "" --long "${LONGOPTS}" -n "$0" -- "$@")
 
 if [ $? != 0 ] ; then echo "Failed parsing options." >&2 ; exit 1 ; fi
@@ -55,6 +57,11 @@ while true; do
       # Strip quotes that getopt may add.
       sku_val="${2//\'/}"
       FLAGS_SKUS_ARRAY+=("$sku_val")
+      shift 2
+      ;;
+    --cert_validity_days|--days)
+      # Strip quotes that getopt may add.
+      FLAGS_CERT_VALIDITY_DAYS="${2//\'/}"
       shift 2
       ;;
     --wipe)
@@ -87,6 +94,13 @@ fi
 if [[ "$#" -gt 0 ]]; then
   echo "Unexpected arguments:" "$@" >&2
   exit 1
+fi
+
+if [[ -n "${FLAGS_CERT_VALIDITY_DAYS}" ]]; then
+  if ! [[ "${FLAGS_CERT_VALIDITY_DAYS}" =~ ^[0-9]+$ ]] || [[ "${FLAGS_CERT_VALIDITY_DAYS}" -le 0 ]]; then
+    echo "Error: --cert_validity_days must be a positive integer, got: ${FLAGS_CERT_VALIDITY_DAYS}" >&2
+    exit 1
+  fi
 fi
 
 if [[ -z "${DEPLOY_ENV}" ]]; then
@@ -322,6 +336,10 @@ OFFLINE_ARGS=(
 )
 CA_SPM_ARGS=("${SPM_ARGS[@]}")
 CA_OFFLINE_ARGS=("${OFFLINE_ARGS[@]}")
+if [[ -n "${FLAGS_CERT_VALIDITY_DAYS}" ]]; then
+  CA_OFFLINE_ARGS+=("--cert_validity_days" "${FLAGS_CERT_VALIDITY_DAYS}")
+  export OTPROV_CA_CERT_DAYS="${FLAGS_CERT_VALIDITY_DAYS}"
+fi
 
 case "${FLAG_ACTION}" in
   spm-init)
