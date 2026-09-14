@@ -1,0 +1,12 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+genrule(
+    name = "openssl_bin",
+    srcs = ["@openssl"],
+    outs = ["openssl"],
+    cmd = "for f in $(locations @openssl); do if [[ \"$$f\" == */bin/openssl ]]; then cp \"$$f\" $@; fi; done",
+    executable = True,
+    visibility = ["//visibility:public"],
+)

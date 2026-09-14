@@ -102,6 +102,7 @@ if [ ! -d "${OPENTITAN_VAR_DIR}/bin" ]; then
     mkdir -p "${OPENTITAN_VAR_DIR}/bin"
 fi
 tar -xvf "${RELEASE_DIR}/hsmutils.tar.xz" --directory "${OPENTITAN_VAR_DIR}/bin"
+chmod +w "${OPENTITAN_VAR_DIR}/bin"/*
 
 ################################################################################
 # Unpack the infrastructure release binaries (PA, SPM, ProxyBuffer, etc.).
