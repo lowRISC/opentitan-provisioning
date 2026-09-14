@@ -5,6 +5,8 @@
 package test
 
 import (
+	"crypto/mldsa"
+	"crypto/rand"
 	"fmt"
 	"testing"
 
@@ -45,6 +47,48 @@ func TestMLDSA(t *testing.T) {
 
 			if err := kp.PublicKey.VerifyMLDSA(message, sig); err != nil {
 				t.Fatalf("VerifyMLDSA failed: %v", err)
+			}
+
+			// Test ExportKey on the public key.
+			exportedKey, err := kp.PublicKey.ExportKey()
+			if err != nil {
+				t.Fatalf("ExportKey failed: %v", err)
+			}
+			mldsaPub, ok := exportedKey.(*mldsa.PublicKey)
+			if !ok {
+				t.Fatalf("ExportKey returned unexpected type: %T", exportedKey)
+			}
+
+			// Verify the signature with Go's standard library crypto/mldsa.
+			if err := mldsa.Verify(mldsaPub, message, sig, nil); err != nil {
+				t.Fatalf("crypto/mldsa.Verify failed on PKCS#11 signature: %v", err)
+			}
+
+			// Test crypto.Signer interface.
+			signer, err := kp.PrivateKey.Signer()
+			if err != nil {
+				t.Fatalf("Signer() failed: %v", err)
+			}
+
+			pub := signer.Public()
+			if pub == nil {
+				t.Fatal("signer.Public() returned nil")
+			}
+			signerPub, ok := pub.(*mldsa.PublicKey)
+			if !ok {
+				t.Fatalf("signer.Public() returned unexpected type: %T", pub)
+			}
+			if !signerPub.Equal(mldsaPub) {
+				t.Fatal("signer.Public() does not match exported public key")
+			}
+
+			// Sign via crypto.Signer.
+			signerSig, err := signer.Sign(rand.Reader, message, nil)
+			if err != nil {
+				t.Fatalf("signer.Sign() failed: %v", err)
+			}
+			if err := mldsa.Verify(mldsaPub, message, signerSig, nil); err != nil {
+				t.Fatalf("crypto/mldsa.Verify failed on crypto.Signer signature: %v", err)
 			}
 		})
 	}
