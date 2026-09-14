@@ -35,4 +35,22 @@
     openssl
     sqlite
   ];
+
+  # User credentials for the Provisioning Appliance:
+  users.mutableUsers = lib.mkDefault false;
+  users.users.opentitan = {
+    isNormalUser = true;
+    isSystemUser = lib.mkForce false;
+    extraGroups = [ "wheel" "opentitan" ];
+    password = "opentitan";
+    home = "/home/opentitan";
+    createHome = true;
+  };
+  users.users.root.password = "opentitan";
+
+  # Enable passwordless sudo for convenience in appliance/VM environment
+  security.sudo.wheelNeedsPassword = false;
+
+  # Auto-login on virtual console
+  services.getty.autologinUser = lib.mkDefault "opentitan";
 }
