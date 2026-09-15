@@ -13,7 +13,7 @@ go 1.27.1
 // To remove unused dependencies, run `go mod tidy` and then `bazel mod tidy`.
 require (
 	// OpenTitan Provisioning core dependencies.
-	github.com/golang/protobuf v1.5.3
+	github.com/golang/protobuf v1.5.4
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.8.0
 	github.com/google/tink/go v1.6.1
@@ -21,18 +21,18 @@ require (
 	github.com/jinzhu/now v1.1.5
 	github.com/miekg/pkcs11 v1.0.3
 	github.com/pkg/errors v0.9.1
-	golang.org/x/crypto v0.17.0
+	golang.org/x/crypto v0.39.0
 	golang.org/x/sync v0.18.0
 	golang.org/x/sys v0.39.0
 
 	// Required by Bazel golang infrastructure.
-	golang.org/x/tools v0.17.0
+	golang.org/x/tools v0.34.0
 	google.golang.org/api v0.62.0
 
 	// Required by google.golang.org/grpc
-	google.golang.org/genproto v0.0.0-20211208223120-3a66f561d7aa
-	google.golang.org/grpc v1.43.0
-	google.golang.org/protobuf v1.33.0
+	google.golang.org/genproto v0.0.0-20250115164207-1a7da9e5054f
+	google.golang.org/grpc v1.71.0
+	google.golang.org/protobuf v1.36.10
 
 	// Required by gorm.
 	gorm.io/gorm v1.25.12
@@ -65,7 +65,9 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/vbatts/tar-split v0.11.5
 	golang.org/x/exp v0.0.0-20200224162631-6cc2880d07d6
-	golang.org/x/text v0.15.0
+	golang.org/x/net v0.41.0
+	golang.org/x/text v0.26.0
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f
 	modernc.org/libc v1.43.1
 	modernc.org/mathutil v1.7.1
 	modernc.org/memory v1.7.2
