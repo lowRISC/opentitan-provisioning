@@ -22,6 +22,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"google.golang.org/grpc/codes"
@@ -880,7 +881,7 @@ func (s *server) VerifyDeviceData(ctx context.Context, request *pbs.VerifyDevice
 			}
 		}
 		certsHash := certHasher.Sum(nil)
-		utils.Reverse(certsHash) // The DUT produces the hash in little endian order.
+		slices.Reverse(certsHash) // The DUT produces the hash in little endian order.
 
 		if !bytes.Equal(certsHash, request.CertsHash) {
 			log.Printf("Expected hash: %x\n", request.CertsHash)
