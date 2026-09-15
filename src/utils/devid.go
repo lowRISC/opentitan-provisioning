@@ -8,10 +8,10 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"slices"
 
 	dpb "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_go_pb"
 	"github.com/lowRISC/opentitan-provisioning/src/proto/validators"
-	"github.com/lowRISC/opentitan-provisioning/src/utils"
 )
 
 type DeviceIDField struct {
@@ -62,7 +62,7 @@ func FromRawBytes(raw []byte) (*dpb.DeviceId, error) {
 // characters (32 bytes).
 func FromHex(h string) (*dpb.DeviceId, error) {
 	raw, err := hex.DecodeString(h)
-	utils.Reverse(raw)
+	slices.Reverse(raw)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding hex string: %v", err)
 	}
@@ -94,7 +94,7 @@ func DeviceIDToHex(d *dpb.DeviceId) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("error converting device ID to raw bytes: %v", err)
 	}
-	utils.Reverse(raw)
+	slices.Reverse(raw)
 	return hex.EncodeToString(raw), nil
 }
 
@@ -117,6 +117,6 @@ func HardwareOriginToHex(h *dpb.HardwareOrigin) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("error converting hardware origin to raw bytes: %v", err)
 	}
-	utils.Reverse(raw)
+	slices.Reverse(raw)
 	return hex.EncodeToString(raw), nil
 }
