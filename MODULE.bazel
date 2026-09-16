@@ -228,6 +228,7 @@ single_version_override(
     patch_strip = 0,
     patches = [
         "third_party/bazel/rules_rust.extra_rustc_toolchain_dirs.patch",
+        "third_party/bazel/rules_rust_nixos.patch",
     ],
     version = "0.59.2",
 )

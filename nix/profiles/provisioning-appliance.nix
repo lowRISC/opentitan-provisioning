@@ -77,6 +77,9 @@ in
     };
   };
 
-  # Allow trusted users to deploy closures / run nixos-rebuild over SSH
-  nix.settings.trusted-users = [ "root" "@wheel" ];
+  # Allow trusted users to deploy closures / run nixos-rebuild over SSH and enable flakes
+  nix.settings = {
+    trusted-users = [ "root" "@wheel" ];
+    experimental-features = [ "nix-command" "flakes" ];
+  };
 }

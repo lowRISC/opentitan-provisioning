@@ -1,0 +1,152 @@
+diff --git crate_universe/extensions.bzl crate_universe/extensions.bzl
+index aa48cc8..f248d73 100644
+--- crate_universe/extensions.bzl
++++ crate_universe/extensions.bzl
+@@ -389,6 +389,7 @@ load(
+ load(
+     "//crate_universe/private:generate_utils.bzl",
+     "CARGO_BAZEL_GENERATOR_SHA256",
++    "patch_cargo_bazel_nix",
+     "CARGO_BAZEL_GENERATOR_URL",
+     "CRATES_REPOSITORY_ENVIRON",
+     "GENERATOR_ENV_VARS",
+@@ -614,15 +615,20 @@ def _generate_hub_and_spokes(
+     # TODO: Repins should never be allowed if the lockfile is not within
+     # https://github.com/bazelbuild/rules_rust/issues/1738
+ 
++    ws_root = module_ctx.path(Label("@@//:MODULE.bazel")).dirname
++    nix_lockfile = ws_root.get_child("vendor_dir").get_child("cargo-bazel-lock-" + cfg.name + ".json")
++    if not lockfile and nix_lockfile.exists:
++        lockfile = nix_lockfile
++
+     # Determine whether or not to repin dependencies
+-    repin = not lockfile or determine_repin(
++    repin = False if (lockfile == nix_lockfile) else (not lockfile or determine_repin(
+         repository_ctx = module_ctx,
+         repository_name = cfg.name,
+         cargo_bazel_fn = cargo_bazel_fn,
+         lockfile_path = lockfile,
+         config = config_file,
+         splicing_manifest = splicing_manifest,
+-    )
++    ))
+ 
+     # If re-pinning is enabled, gather additional inputs for the generator
+     kwargs = dict()
+@@ -673,6 +679,16 @@ def _generate_hub_and_spokes(
+         warnings_output_file = warnings_output_file,
+         **kwargs
+     )
++    if repin and "NIX_DYNAMIC_LINKER" in module_ctx.os.environ:
++        module_ctx.execute([
++            "sh",
++            "-c",
++            "mkdir -p \"$1/vendor_dir\" && cp \"$2\" \"$1/vendor_dir/cargo-bazel-lock-$3.json\"",
++            "sh",
++            str(ws_root),
++            str(lockfile),
++            cfg.name,
++        ])
+ 
+     module_ctx.report_progress("Generating hub and spokes")
+ 
+@@ -829,6 +845,7 @@ def _get_generator(module_ctx):
+         download_kwargs.update({"sha256": generator_sha256})
+ 
+     module_ctx.download(**download_kwargs)
++    patch_cargo_bazel_nix(module_ctx, output)
+     return output
+ 
+ def _get_host_cargo_rustc(module_ctx, host_triple, host_tools_repo):
+diff --git crate_universe/private/generate_utils.bzl crate_universe/private/generate_utils.bzl
+index 54517fb..edd7360 100644
+--- crate_universe/private/generate_utils.bzl
++++ crate_universe/private/generate_utils.bzl
+@@ -23,6 +23,47 @@ CRATES_REPOSITORY_ENVIRON = GENERATOR_ENV_VARS + REPIN_ENV_VARS + [
+     CARGO_BAZEL_DEBUG,
+ ]
+ 
++def patch_cargo_bazel_nix(ctx, output):
++    """Patch prebuilt cargo-bazel binary for Nix sandbox execution."""
++    if "NIX_DYNAMIC_LINKER" not in ctx.os.environ:
++        return
++    ctx.execute(["chmod", "u+w", str(output)])
++    script = """
++import sys, os
++path = sys.argv[1]
++with open(path, "rb") as f:
++    data = f.read()
++orig = (
++    b"#!/usr/bin/env bash\\n#\\n# For details, see:\\n"
++    b"# `@rules_rust//crate_universe/src/metadata/cargo_tree_resolver.rs - TreeResolver::create_rustc_wrapper`"
++)
++if orig in data:
++    nix_bash = os.environ.get("NIX_BASH", "bash").encode()
++    prefix = b"#!/bin/sh\\n[ -z \\"$_IN_BASH\\" ] && _IN_BASH=1 exec " + nix_bash + b" \\"$0\\" \\"$@\\"\\n#"
++    pad = len(orig) - len(prefix)
++    assert pad >= 0, f"NIX_BASH path too long: {pad}"
++    repl = prefix + (b" " * pad)
++    assert len(repl) == len(orig)
++    data = data.replace(orig, repl)
++    with open(path, "wb") as f:
++        f.write(data)
++"""
++    ctx.execute([
++        ctx.os.environ.get("NIX_PYTHON3", "python3"),
++        "-c",
++        script,
++        str(output),
++    ])
++    ctx.execute([
++        ctx.os.environ.get("NIX_PATCHELF", "patchelf"),
++        "--set-interpreter",
++        ctx.os.environ["NIX_DYNAMIC_LINKER"],
++        "--force-rpath",
++        "--set-rpath",
++        ctx.os.environ.get("NIX_LIB_PATH", ""),
++        str(output),
++    ])
++
+ def get_generator(repository_ctx, host_triple):
+     """Query network resources to locate a `cargo-bazel` binary
+ 
+@@ -77,6 +118,7 @@ def get_generator(repository_ctx, host_triple):
+             sha256 = generator_sha256,
+             executable = True,
+         )
++        patch_cargo_bazel_nix(repository_ctx, output)
+         return output, None
+ 
+     result = repository_ctx.download(
+@@ -84,6 +126,7 @@ def get_generator(repository_ctx, host_triple):
+         url = generator_url,
+         executable = True,
+     )
++    patch_cargo_bazel_nix(repository_ctx, output)
+ 
+     return output, {host_triple: result.sha256}
+ 
+diff --git rust/private/repository_utils.bzl rust/private/repository_utils.bzl
+index 27c08e7..4421b97 100644
+--- rust/private/repository_utils.bzl
++++ rust/private/repository_utils.bzl
+@@ -816,6 +816,19 @@ def load_arbitrary_tool(
+             auth = _make_auth_dict(ctx, urls),
+             stripPrefix = "{}/{}".format(tool_path, subdirectory),
+         )
++        if "NIX_DYNAMIC_LINKER" in ctx.os.environ:
++            ctx.execute([
++                "sh",
++                "-c",
++                "chmod -R u+w bin lib 2>/dev/null || true; " +
++                "for f in $(find bin -type f 2>/dev/null); do " +
++                ctx.os.environ.get("NIX_PATCHELF", "patchelf") +
++                " --set-interpreter " + ctx.os.environ["NIX_DYNAMIC_LINKER"] +
++                " --force-rpath --set-rpath '$ORIGIN/../lib:" + ctx.os.environ.get("NIX_LIB_PATH", "") + "' \"$f\" 2>/dev/null || true; done; " +
++                "for f in $(find lib -type f -name '*.so*' 2>/dev/null); do " +
++                ctx.os.environ.get("NIX_PATCHELF", "patchelf") +
++                " --force-rpath --set-rpath '$ORIGIN:" + ctx.os.environ.get("NIX_LIB_PATH", "") + "' \"$f\" 2>/dev/null || true; done",
++            ])
+ 
+         # In the event no sha256 was provided, set it to the value of the first
+         # downloaded item so subsequent downloads use a cached artifact.
