@@ -17,6 +17,7 @@
           pa_server = self.packages.${prev.system}.pa_server;
           spm_server = self.packages.${prev.system}.spm_server;
           pb_server = self.packages.${prev.system}.pb_server;
+          luna-hsm-client = self.packages.${prev.stdenv.hostPlatform.system}.luna-hsm-client;
           all = self.packages.${prev.system}.all;
         };
       };
@@ -31,7 +32,11 @@
 
       perSystem = flake-utils.lib.eachDefaultSystem (system:
         let
-          pkgs = nixpkgs.legacyPackages.${system};
+          pkgs = import nixpkgs {
+            inherit system;
+            config.allowUnfreePredicate = pkg:
+              builtins.elem (nixpkgs.lib.getName pkg) [ "luna-hsm-client" "610" ];
+          };
 
           buildBazel8Package = pkgs.callPackage "${pkgs.path}/pkgs/by-name/ba/bazel_8/build-support/bazelPackage.nix" {};
 
@@ -121,6 +126,7 @@ EOF
           pa_server = mkSingleService "pa_server";
           spm_server = mkSingleService "spm_server";
           pb_server = mkSingleService "pb_server";
+          luna-hsm-client = pkgs.callPackage ./nix/packages/luna-hsm-client.nix {};
 
           applianceSystem = nixpkgs.lib.nixosSystem {
             inherit system;
@@ -180,7 +186,7 @@ EOF
           packages = {
             all = services;
             default = services;
-            inherit pa_server spm_server pb_server;
+            inherit pa_server spm_server pb_server luna-hsm-client;
             test-binaries = testBinaries;
             provisioning-appliance-vm = applianceSystem.config.system.build.vm;
           };
@@ -239,13 +245,14 @@ EOF
           };
           ci-profile = ./nix/profiles/ci.nix;
           softhsm-profile = ./nix/profiles/softhsm.nix;
+          luna-hsm-profile = ./nix/profiles/luna-hsm.nix;
         };
 
         nixosConfigurations.provisioning-appliance = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
             self.nixosModules.provisioning-appliance-profile
-            self.nixosModules.softhsm-profile
+            self.nixosModules.luna-hsm-profile
             self.nixosModules.ci-profile
             ./nix/hardware-configuration.nix
             ({ lib, ... }: {
