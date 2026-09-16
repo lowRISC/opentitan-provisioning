@@ -19,6 +19,7 @@ def _envsubst_impl(ctx):
     ctx.actions.run_shell(
         outputs = [out],
         inputs = [template, env_config],
+        use_default_shell_env = True,
         command = """
             set -a
             source {env_config}
