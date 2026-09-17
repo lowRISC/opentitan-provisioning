@@ -1,0 +1,22 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "Dockerfile",
+    "Dockerfile.bundle",
+    "entrypoint.sh",
+])
+
+# Everything needed to build the simulated Windows ATE machine image from
+# within a test.
+filegroup(
+    name = "container_files",
+    srcs = [
+        "Dockerfile",
+        "Dockerfile.bundle",
+        "entrypoint.sh",
+    ],
+)

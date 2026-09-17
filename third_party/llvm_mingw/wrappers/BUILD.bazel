@@ -4,19 +4,15 @@
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files(glob(["*"]))
+filegroup(
+    name = "compiler_wrappers",
+    srcs = glob(
+        ["*"],
+        exclude = ["pb_defaults_stub.c"],
+    ),
+)
 
 filegroup(
     name = "all",
-    srcs = [
-        "ar",
-        "cpp",
-        "gcc",
-        "gcov",
-        "ld",
-        "nm",
-        "objcopy",
-        "objdump",
-        "strip",
-    ],
+    srcs = glob(["*"]),
 )
