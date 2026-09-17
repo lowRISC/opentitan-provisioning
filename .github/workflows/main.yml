@@ -42,6 +42,12 @@ jobs:
       - name: Test everything
         # Skip running lint tests as those are run in a previous stage.
         run: bazelisk test --test_tag_filters=-lint,-fpga //...
+      # Tagged `manual` (it needs podman and builds a container image), so it is
+      # not covered by the wildcard above. This is the only check that actually
+      # executes the Win32 artifact we ship.
+      - name: Test Win32 ATE DLL
+        if: always()
+        run: bazelisk test //src/ate/test_programs:ate_dll_smoke_test --test_output=errors
 
   # Run integration tests.
   integration_tests:
@@ -70,6 +76,15 @@ jobs:
       - name: Run TLS test (RSA)
         if: always()
         run: OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev-tls-rsa ./tests/run_tls_test.sh
+      # Same coverage as the TLS tests above, but driving the Win32 `ate.dll`
+      # we ship to ATE vendors, from a container that stands in for a Windows
+      # ATE machine.
+      - name: Run Windows ATE DLL test (PQ)
+        if: always()
+        run: OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev-windll-pq ./tests/run_ate_dll_test.sh --pq
+      - name: Run Windows ATE DLL test (RSA)
+        if: always()
+        run: OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev-windll-rsa ./tests/run_ate_dll_test.sh
       - name: Run integration tests (SoftHSM2, PQ)
         if: always()
         run: OT_PROV_ORCHESTRATOR_PATH="${OT_PROV_ORCHESTRATOR_PATH}" OT_PROV_ORCHESTRATOR_UNPACK="${OT_PROV_ORCHESTRATOR_UNPACK}" OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev-ate-pq ./tests/run_ate_test.sh --pq

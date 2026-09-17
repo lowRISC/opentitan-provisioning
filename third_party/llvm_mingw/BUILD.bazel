@@ -1,0 +1,63 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@rules_cc//cc:defs.bzl", "cc_toolchain")
+load("//third_party/llvm_mingw:cc_toolchain_config.bzl", "llvm_mingw_cc_toolchain_config")
+
+package(default_visibility = ["//visibility:public"])
+
+platform(
+    name = "win32",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_32",
+    ],
+)
+
+filegroup(
+    name = "compiler_components",
+    srcs = [
+        "//third_party/llvm_mingw/wrappers:compiler_wrappers",
+        "@llvm_mingw_files//:all",
+    ],
+)
+
+filegroup(
+    name = "linker_components",
+    srcs = [
+        "//third_party/llvm_mingw/wrappers:all",
+        "@llvm_mingw_files//:all",
+    ],
+)
+
+llvm_mingw_cc_toolchain_config(
+    name = "win32_config",
+)
+
+cc_toolchain(
+    name = "win32_toolchain",
+    all_files = ":linker_components",
+    ar_files = ":compiler_components",
+    as_files = ":compiler_components",
+    compiler_files = ":compiler_components",
+    dwp_files = ":compiler_components",
+    linker_files = ":linker_components",
+    objcopy_files = ":compiler_components",
+    strip_files = ":compiler_components",
+    supports_param_files = False,
+    toolchain_config = ":win32_config",
+)
+
+toolchain(
+    name = "cc_toolchain_win32",
+    exec_compatible_with = [
+        "@platforms//cpu:x86_64",
+    ],
+    target_compatible_with = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_32",
+    ],
+    toolchain = ":win32_toolchain",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)

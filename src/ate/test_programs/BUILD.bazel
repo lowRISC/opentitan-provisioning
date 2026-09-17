@@ -5,6 +5,7 @@
 package(default_visibility = ["//visibility:public"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+load("//rules:windows_binary.bzl", "windows_binary")
 
 cc_binary(
     name = "cp",
@@ -52,5 +53,51 @@ go_binary(
         "//src/version:buildver",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//resolver:go_default_library",
+    ],
+)
+
+# Win32 host that loads the shipped `ate.dll` and calls `CreateClient()`. Built
+# for Windows only; it is executed under wine by `:ate_dll_smoke_test`.
+cc_binary(
+    name = "ate_dll_smoke_bin",
+    srcs = ["ate_dll_smoke.cc"],
+    linkopts = ["-lstdc++"],
+    target_compatible_with = [
+        "@platforms//os:windows",
+    ],
+    deps = ["//src/ate:ate_api_hdr"],
+)
+
+windows_binary(
+    name = "ate_dll_smoke",
+    dep = ":ate_dll_smoke_bin",
+    extension = "exe",
+)
+
+# Loads the Win32 ATE DLL inside a Wine container and exercises `CreateClient()`
+# in both insecure and mTLS modes.
+#
+# Tagged `manual` because it requires `podman` and `openssl` on the host, and
+# builds a container image on first run; run it explicitly with:
+#   bazelisk test //src/ate/test_programs:ate_dll_smoke_test
+sh_test(
+    name = "ate_dll_smoke_test",
+    srcs = ["run_ate_dll_smoke_test.sh"],
+    data = [
+        ":ate_dll_smoke",
+        "//src/ate",
+        "//util:ate_client_container.sh",
+        "//util/containers/ate_client:container_files",
+    ],
+    env = {
+        "SMOKE_EXE": "$(rootpath :ate_dll_smoke)",
+        "ATE_DLL": "$(rootpath //src/ate)",
+    },
+    tags = [
+        "external",
+        "local",
+        "manual",
+        "no-remote",
+        "no-sandbox",
     ],
 )

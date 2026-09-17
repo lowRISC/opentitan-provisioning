@@ -1,0 +1,17 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+# Layers the Win32 ATE artifacts onto the Wine base image, mirroring how a
+# release bundle is installed onto a real Windows ATE machine.
+#
+# Built at test time by `util/ate_client_container.sh`; the `BASE_IMAGE` build
+# argument selects the (cached) Wine base image.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+# `ate.dll`, the MinGW runtime DLLs and the harness must all share a directory,
+# matching the layout produced by `//src/ate:windows`.
+COPY bundle/ /opt/ate/
+
+WORKDIR /opt/ate

@@ -6,6 +6,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary")
 
 # TODO(#41): make this a proper py_binary target
 exports_files([
+    "ate_client_container.sh",
     "fix_include_guard.py",
 ])
 

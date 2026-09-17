@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//third_party/crt/rules:pkg_win.bzl", "pkg_win")
+load("@rules_pkg//pkg:zip.bzl", "pkg_zip")
 load("//rules:windows_binary.bzl", "windows_binary")
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
@@ -15,6 +15,14 @@ WINDOWS_LIBS = [
     "-lws2_32",  # aka: ws2_32.lib
     "-lstdc++",  # Standard C++ library
 ]
+
+# Header-only view of the public DLL C API, for consumers that load `ate.dll`
+# dynamically (e.g. the Win32 smoke test) and must not link the client itself.
+cc_library(
+    name = "ate_api_hdr",
+    hdrs = ["ate_api.h"],
+    includes = ["."],
+)
 
 cc_library(
     name = "ate_client",
@@ -126,14 +134,13 @@ windows_binary(
     dep = ":ate_bin",
 )
 
-pkg_win(
+pkg_zip(
     name = "windows",
     srcs = [
         "ate_api.h",
         "ate_perso_blob.h",
         ":ate",
     ],
-    platform = "//third_party/crt/platforms/x86_32:win32",
 )
 
 go_library(

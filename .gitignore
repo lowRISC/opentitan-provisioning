@@ -3,6 +3,7 @@
 .opentitan
 .otdev
 .otprod
+.otvar*
 bazel-*
 *.swp
 result

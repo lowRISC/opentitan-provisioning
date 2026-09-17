@@ -357,8 +357,8 @@ http_archive(
 # Legacy HTTP Archives & Cross Compilation
 # -------------------------------------------------------------------------
 
-# GCC MXE MinGW32 Toolchain
-_MXE_BUILD_FILE = """
+# LLVM-MinGW Win32 Toolchain
+_LLVM_MINGW_BUILD_FILE = """
 package(default_visibility = ["//visibility:public"])
 filegroup(
     name = "all",
@@ -368,14 +368,14 @@ exports_files(glob(["bin/**"]))
 """
 
 http_archive(
-    name = "gcc_mxe_mingw32_files",
-    build_file_content = _MXE_BUILD_FILE,
-    sha256 = "215b9dfa070687dafab29453b04a075e7955c2c7f3b8d16960207cfde730f126",
-    strip_prefix = "mxe",
-    urls = ["https://github.com/lowRISC/crt/releases/download/v0.4.14/mxe-binaries-win32.tar.xz"],
+    name = "llvm_mingw_files",
+    build_file_content = _LLVM_MINGW_BUILD_FILE,
+    sha256 = "4d905bae713182f1a2b4d33875fe5aa544ce9fc04cc153acb47755a90ca62f16",
+    strip_prefix = "llvm-mingw-20260908-msvcrt-ubuntu-22.04-x86_64",
+    urls = ["https://github.com/mstorsjo/llvm-mingw/releases/download/20260908/llvm-mingw-20260908-msvcrt-ubuntu-22.04-x86_64.tar.xz"],
 )
 
-register_toolchains("//third_party/crt/toolchains/gcc_mxe_mingw32:cc_toolchain_pc-win32")
+register_toolchains("//third_party/llvm_mingw:cc_toolchain_win32")
 
 # Protobuf matchers
 http_archive(
