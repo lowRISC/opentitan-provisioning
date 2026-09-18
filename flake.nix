@@ -31,7 +31,7 @@
         services.opentitan-provisioning.pb.package = lib.mkDefault pkgs.opentitan-provisioning.pb_server;
       };
 
-      perSystem = flake-utils.lib.eachDefaultSystem (system:
+      perSystem = flake-utils.lib.eachSystem (builtins.filter (s: s != "x86_64-darwin") flake-utils.lib.defaultSystems) (system:
         let
           pkgs = import nixpkgs {
             inherit system;

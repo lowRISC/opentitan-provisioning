@@ -17,8 +17,8 @@ stdenv.mkDerivation {
   };
 
   patches = [
-    ../third_party/softhsm2/0002-Include-time.patch
-    ../third_party/softhsm2/0003-Fix-MLDSA-include-path.patch
+    ../../third_party/softhsm2/0002-Include-time.patch
+    ../../third_party/softhsm2/0003-Fix-MLDSA-include-path.patch
   ];
 
   postPatch = ''
