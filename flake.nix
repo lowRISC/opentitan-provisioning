@@ -13,12 +13,13 @@
   outputs = { self, nixpkgs, flake-utils, bcr }:
     let
       overlay = final: prev: {
+        softhsm = final.callPackage ./nix/packages/softhsm2.nix {};
         opentitan-provisioning = {
-          pa_server = self.packages.${prev.system}.pa_server;
-          spm_server = self.packages.${prev.system}.spm_server;
-          pb_server = self.packages.${prev.system}.pb_server;
+          pa_server = self.packages.${prev.stdenv.hostPlatform.system}.pa_server;
+          spm_server = self.packages.${prev.stdenv.hostPlatform.system}.spm_server;
+          pb_server = self.packages.${prev.stdenv.hostPlatform.system}.pb_server;
           luna-hsm-client = self.packages.${prev.stdenv.hostPlatform.system}.luna-hsm-client;
-          all = self.packages.${prev.system}.all;
+          all = self.packages.${prev.stdenv.hostPlatform.system}.all;
         };
       };
 
@@ -30,7 +31,7 @@
         services.opentitan-provisioning.pb.package = lib.mkDefault pkgs.opentitan-provisioning.pb_server;
       };
 
-      perSystem = flake-utils.lib.eachDefaultSystem (system:
+      perSystem = flake-utils.lib.eachSystem (builtins.filter (s: s != "x86_64-darwin") flake-utils.lib.defaultSystems) (system:
         let
           pkgs = import nixpkgs {
             inherit system;
@@ -38,94 +39,11 @@
               builtins.elem (nixpkgs.lib.getName pkg) [ "luna-hsm-client" "610" ];
           };
 
-          buildBazel8Package = pkgs.callPackage "${pkgs.path}/pkgs/by-name/ba/bazel_8/build-support/bazelPackage.nix" {};
-
-          # Bazel vendor Fixed-Output Derivation (FOD) SHA-256 hash.
-          # When MODULE.bazel or go.mod changes:
-          # 1. Temporarily replace sha256Hash with pkgs.lib.fakeHash (or "").
-          # 2. Run: nix build path:.#all
-          # 3. Copy the computed SHA-256 mismatch hash back here.
-          sha256Hash = "sha256-vYF4clYZPxwlChafDqd9eJfhkP0sXn/HDAImF9wTdYE=";
-
-          rawSource = pkgs.lib.cleanSourceWith {
+          bazelPackages = import ./nix/bazel.nix {
+            inherit pkgs bcr;
             src = ./.;
-            filter = path: type:
-              let base = baseNameOf path;
-              in !(
-                base == "result" ||
-                base == ".git" ||
-                base == "nix" ||
-                base == "flake.lock" ||
-                pkgs.lib.hasPrefix "bazel-" base ||
-                pkgs.lib.hasSuffix ".nix" base
-              );
           };
-
-          cleanedSource = pkgs.runCommand "opentitan-provisioning-src" {} ''
-            cp -r ${rawSource} $out
-            chmod -R +w $out
-            cd $out
-            rm -f .bazelversion
-            sed -i 's|register_toolchains("@llvm_toolchain_host//:all")|# register_toolchains("@llvm_toolchain_host//:all")|g' MODULE.bazel
-            cat << 'EOF' > util/get_workspace_status.sh
-#!/bin/sh
-echo "BUILD_SCM_REVISION 0.1.0"
-echo "BUILD_GIT_VERSION 0.1.0"
-echo "BUILD_SCM_STATUS clean"
-EOF
-            chmod +x util/get_workspace_status.sh
-            cat << 'EOF' >> .bazelrc
-build --spawn_strategy=standalone
-build --genrule_strategy=standalone
-EOF
-          '';
-
-          services = buildBazel8Package {
-            name = "opentitan-provisioning-services";
-            version = "0.1.0";
-            src = cleanedSource;
-            registry = "${bcr}";
-            bazel = pkgs.bazel_8;
-            targets = [
-              "//src/pa:pa_server"
-              "//src/spm:spm_server"
-              "//src/proxy_buffer:pb_server"
-            ];
-            buildInputs = with pkgs; [
-              stdenv.cc.cc.lib
-              ncurses5
-              zlib
-            ];
-            autoPatchelfIgnoreMissingDeps = [
-              "libtiff.so.6"
-              "libstdc++.so.6"
-              "libgcc_s.so.1"
-              "libtinfo.so.5"
-              "libtinfo.so.6"
-            ];
-            bazelVendorDepsFOD = {
-              outputHash = sha256Hash;
-              outputHashAlgo = "sha256";
-            };
-            installPhase = ''
-              mkdir -p $out/bin
-              cp bazel-bin/src/pa/pa_server_/pa_server $out/bin/pa_server
-              cp bazel-bin/src/spm/spm_server_/spm_server $out/bin/spm_server
-              cp bazel-bin/src/proxy_buffer/pb_server_/pb_server $out/bin/pb_server
-            '';
-          };
-
-          mkSingleService = name:
-            pkgs.runCommand name {
-              meta.mainProgram = name;
-            } ''
-              mkdir -p $out/bin
-              ln -s ${services}/bin/${name} $out/bin/${name}
-            '';
-
-          pa_server = mkSingleService "pa_server";
-          spm_server = mkSingleService "spm_server";
-          pb_server = mkSingleService "pb_server";
+          inherit (bazelPackages) pa_server spm_server pb_server services testBinaries bazelDepsCache;
           luna-hsm-client = pkgs.callPackage ./nix/packages/luna-hsm-client.nix {};
 
           applianceSystem = nixpkgs.lib.nixosSystem {
@@ -140,44 +58,21 @@ EOF
               })
             ];
           };
-          testSha256Hash = "sha256-yPmnllXLIko7PPCojy1667PsHpqYPEw96x3pWIJu+pE=";
 
-          testBinaries = buildBazel8Package {
-            name = "opentitan-provisioning-test-binaries";
-            version = "0.1.0";
-            src = cleanedSource;
-            registry = "${bcr}";
-            bazel = pkgs.bazel_8;
-            targets = [
-              "//src/pa:loadtest"
-              "//src/ate/test_programs:tls_test"
-            ];
-            buildInputs = with pkgs; [
-              stdenv.cc.cc.lib
-              ncurses5
-              zlib
-            ];
-            autoPatchelfIgnoreMissingDeps = [
-              "libtiff.so.6"
-              "libstdc++.so.6"
-              "libgcc_s.so.1"
-              "libtinfo.so.5"
-              "libtinfo.so.6"
-            ];
-            bazelVendorDepsFOD = {
-              outputHash = testSha256Hash;
-              outputHashAlgo = "sha256";
-            };
-            installPhase = ''
-              mkdir -p $out/bin
-              cp bazel-bin/src/pa/loadtest_/loadtest $out/bin/pa_loadtest
-              cp bazel-bin/src/ate/test_programs/tls_test $out/bin/tls_test
-            '';
-          };
+          cryptoAssets = import ./nix/crypto-assets.nix { inherit pkgs; };
+          softhsm2 = pkgs.callPackage ./nix/packages/softhsm2.nix {};
+
+          ciDepsCache = pkgs.writeText "opentitan-ci-deps-cache" ''
+            ${bazelDepsCache}
+            ${softhsm2}
+            ${cryptoAssets.rsaCerts}
+            ${cryptoAssets.pqCerts}
+            ${cryptoAssets.hpkeKeys}
+          '';
 
           checks = pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
             provisioning-appliance = import ./nix/tests/provisioning-appliance.nix {
-              inherit pkgs self testBinaries;
+              inherit pkgs self testBinaries cryptoAssets;
             };
           };
         in {
@@ -187,6 +82,7 @@ EOF
             all = services;
             default = services;
             inherit pa_server spm_server pb_server luna-hsm-client;
+            bazel-deps-cache = ciDepsCache;
             test-binaries = testBinaries;
             provisioning-appliance-vm = applianceSystem.config.system.build.vm;
           };
@@ -212,12 +108,13 @@ EOF
           };
 
           devShells.default = pkgs.mkShell {
-            buildInputs = with pkgs; [
+            buildInputs = [
+              softhsm2
+            ] ++ (with pkgs; [
               bazel_8
               bazelisk
               go
               gopls
-              softhsm
               protobuf
               pkg-config
               systemd
@@ -225,7 +122,7 @@ EOF
               openssl
               git-lfs
               gettext
-            ];
+            ]);
             USE_BAZEL_VERSION = "${pkgs.bazel_8.version}";
           };
         }

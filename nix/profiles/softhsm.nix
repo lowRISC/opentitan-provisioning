@@ -59,10 +59,15 @@ in
       bash
       coreutils
       findutils
+      gnugrep
+      gawk
       gnused
       gnutar
       gzip
       xz
+      util-linux
+      which
+      diffutils
       softhsm
       openssl
       libp11
@@ -70,6 +75,7 @@ in
     ];
     serviceConfig = {
       Type = "oneshot";
+      RemainAfterExit = true;
       User = "opentitan";
       Group = "opentitan";
       Environment = [
@@ -100,8 +106,12 @@ in
           mkdir -p /var/lib/opentitan/bin
           tar -xf /var/lib/opentitan/release/hsmutils.tar.xz -C /var/lib/opentitan/bin
         fi
+        if [ ! -x /var/lib/opentitan/bin/hsmtool ] && command -v hsmtool >/dev/null 2>&1; then
+          mkdir -p /var/lib/opentitan/bin
+          ln -sf "$(command -v hsmtool)" /var/lib/opentitan/bin/hsmtool
+        fi
 
-        # 4. Run token_init.sh for sival SKU if token_init.sh and hsmtool are present and sival cert is not yet generated
+        # 4. Run token_init.sh for all SKUs if token_init.sh and hsmtool are present and sival cert is not yet generated
         if [ -f /var/lib/opentitan/config/token_init.sh ] && [ -x /var/lib/opentitan/bin/hsmtool ] && [ ! -f /var/lib/opentitan/config/spm/sku/sival/ca/sival-dice-key-p256-v0.priv.der ]; then
           cd /var/lib/opentitan/config
           find /var/lib/opentitan/config -type f \( -name "*.sh" -o -name "*.bash" \) -exec sed -i "s|^#!/bin/bash|#!/usr/bin/env bash|" {} +
@@ -112,21 +122,39 @@ in
 
           export DEPLOY_ENV=dev
           export OPENTITAN_VAR_DIR=/var/lib/opentitan
+          if command -v tbsgen >/dev/null 2>&1; then
+            export TBSGEN_BIN="$(command -v tbsgen)"
+          fi
+
+          SKUS=(--sku sival --sku cr01 --sku pi01 --sku ti01)
+          if [ -d /var/lib/opentitan/config/spm/sku/sival_pqc ]; then
+            SKUS+=(--sku sival_pqc)
+          fi
+
           /var/lib/opentitan/config/token_init.sh --action spm-init
           /var/lib/opentitan/config/token_init.sh --action offline-common-init
           /var/lib/opentitan/config/token_init.sh --action offline-common-export
-          /var/lib/opentitan/config/token_init.sh --action spm-sku-init --sku sival
+          /var/lib/opentitan/config/token_init.sh --action spm-sku-init "''${SKUS[@]}"
           /var/lib/opentitan/config/token_init.sh --action offline-ca-root-certgen
-          /var/lib/opentitan/config/token_init.sh --action spm-sku-csr --sku sival
-          /var/lib/opentitan/config/token_init.sh --action offline-sku-certgen --sku sival
+          /var/lib/opentitan/config/token_init.sh --action spm-sku-csr "''${SKUS[@]}"
+          /var/lib/opentitan/config/token_init.sh --action offline-sku-certgen "''${SKUS[@]}"
+        fi
+
+        # Copy HPKE keys for sival_pqc if staged in /var/lib/opentitan/release/hpke
+        if [ -d /var/lib/opentitan/release/hpke ] && [ -d /var/lib/opentitan/config/spm/sku/sival_pqc ]; then
+          mkdir -p /var/lib/opentitan/config/spm/sku/sival_pqc/ca
+          cp -f /var/lib/opentitan/release/hpke/* /var/lib/opentitan/config/spm/sku/sival_pqc/ca/
         fi
 
         # 5. Ensure SKU config files and directories are linked into /var/lib/opentitan/config for spm_server
         if [ -d /var/lib/opentitan/config/spm ]; then
-          ln -sf /var/lib/opentitan/config/spm/sku_sival.yml /var/lib/opentitan/config/sku_sival.yml
-          ln -sf /var/lib/opentitan/config/spm/sku_cr01.yml /var/lib/opentitan/config/sku_cr01.yml
-          ln -sf /var/lib/opentitan/config/spm/sku_pi01.yml /var/lib/opentitan/config/sku_pi01.yml
-          ln -sf /var/lib/opentitan/config/spm/sku_ti01.yml /var/lib/opentitan/config/sku_ti01.yml
+          for f in /var/lib/opentitan/config/spm/sku_*.yml; do
+            if [ -f "$f" ] && [ "$(basename "$f")" != "sku_auth.yml" ]; then
+              ln -sf "$f" "/var/lib/opentitan/config/$(basename "$f")"
+            fi
+          done
+          cp -f ${defaultSkuAuth} /var/lib/opentitan/config/sku_auth.yml
+          cp -f ${defaultSkuAuth} /var/lib/opentitan/config/spm/sku_auth.yml
           ln -sf /var/lib/opentitan/config/spm/sku /var/lib/opentitan/config/sku
         fi
       '';

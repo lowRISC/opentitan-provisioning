@@ -86,3 +86,71 @@ jobs:
       # - name: Run integration tests (Thales HSM)
       #   if: always()
       #   run: OT_PROV_ORCHESTRATOR_PATH="${OT_PROV_ORCHESTRATOR_PATH}" OT_PROV_ORCHESTRATOR_UNPACK="${OT_PROV_ORCHESTRATOR_UNPACK}" OPENTITAN_VAR_DIR=$(pwd)/.otvar-prod ./tests/run_ate_test.sh --prod
+
+  # Run NixOS VM integration tests.
+  nixos_integration_tests:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            extra-substituters = file:///tmp/nix-bazel-cache?trusted=1
+      - name: Restore Nix Bazel Dependencies Cache
+        id: cache-bazel-deps
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/nix-bazel-cache
+          key: nix-bazel-deps-${{ hashFiles('flake.lock', 'MODULE.bazel', 'MODULE.bazel.lock', 'Cargo.lock', 'nix/bazel.nix', 'nix/packages/softhsm2.nix', 'nix/crypto-assets.nix') }}
+          restore-keys: |
+            nix-bazel-deps-
+      - name: Prepare Nix Bazel Cache Directory
+        run: |
+          sudo mkdir -p -m 777 /tmp/nix-bazel-cache /tmp/nix-bazel-cache/nar
+          sudo chmod -R 777 /tmp/nix-bazel-cache
+      - name: Populate Nix Bazel Cache (on cache miss)
+        if: steps.cache-bazel-deps.outputs.cache-hit != 'true'
+        run: |
+          nix build --no-link path:.#bazel-deps-cache -L
+          sudo chmod -R 777 /tmp/nix-bazel-cache
+          nix copy --to 'file:///tmp/nix-bazel-cache?compression=none' path:.#bazel-deps-cache
+          sudo chmod -R 777 /tmp/nix-bazel-cache
+      - name: Save Nix Bazel Dependencies Cache
+        if: steps.cache-bazel-deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/nix-bazel-cache
+          key: ${{ steps.cache-bazel-deps.outputs.cache-primary-key }}
+      - name: Run NixOS Provisioning Appliance Integration Test
+        run: |
+          set -o pipefail
+          nix flake check path:. -L 2>&1 | tee /tmp/nix-flake-check.log
+      - name: Dump Nix derivation logs
+        if: always()
+        run: |
+          mkdir -p /tmp/nix-logs
+          for item in \
+            "bazel-deps-cache:path:.#bazel-deps-cache" \
+            "services:path:.#packages.x86_64-linux.all" \
+            "test-binaries:path:.#packages.x86_64-linux.test-binaries" \
+            "provisioning-appliance-vm-test:path:.#checks.x86_64-linux.provisioning-appliance"; do
+            name="${item%%:*}"
+            target="${item#*:}"
+            echo "::group::nix log $target"
+            nix log "$target" > "/tmp/nix-logs/${name}.log" 2>&1 || true
+            cat "/tmp/nix-logs/${name}.log"
+            echo "::endgroup::"
+          done
+      - name: Upload Nix flake check logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nix-flake-check-logs
+          path: |
+            /tmp/nix-flake-check.log
+            /tmp/nix-logs/*.log
+
+

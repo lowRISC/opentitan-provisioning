@@ -1,4 +1,4 @@
-{ pkgs, self, testBinaries }:
+{ pkgs, self, testBinaries, cryptoAssets }:
 
 let
   testPkgs = pkgs.extend self.overlays.default;
@@ -12,105 +12,185 @@ let
     nodes.machine = { config, lib, pkgs, ... }: {
       imports = [
         self.nixosModules.provisioning-appliance-profile
+        self.nixosModules.softhsm-profile
       ];
 
       nixpkgs.overlays = lib.mkForce [ ];
 
-      virtualisation.memorySize = 2048;
-      virtualisation.cores = 2;
+      virtualisation.memorySize = 4096;
+      virtualisation.cores = 4;
 
       environment.systemPackages = [
         testBinaries
-        pkgs.softhsm
+        testPkgs.softhsm
         pkgs.openssl
         pkgs.sqlite
       ];
 
-      # Configure SoftHSM for SPM
-      environment.etc."softhsm2.conf".text = ''
-        directories.tokendir = /var/lib/opentitan/tokens
-        objectstore.backend = file
-        objectstore.umask = 0077
-        log.level = DEBUG
-        slots.removable = false
-        slots.mechanisms = ALL
-        library.reset_on_fork = false
-      '';
+      # Provide testBinaries (hsmtool, tbsgen) to opentitan-hsm-init service
+      systemd.services.opentitan-hsm-init.path = [ testBinaries ];
 
-      environment.variables.SOFTHSM2_CONF = "/etc/softhsm2.conf";
-      systemd.services.opentitan-spm.environment.SOFTHSM2_CONF = "/etc/softhsm2.conf";
+      # Stage config.tar.gz and HPKE public keys so opentitan-hsm-init automatically
+      # initializes all 5 SKUs (sival, cr01, pi01, ti01, sival_pqc) and HPKE keys on boot
+      systemd.tmpfiles.rules = [
+        "d /var/lib/opentitan/release 0750 opentitan opentitan -"
+        "d /var/lib/opentitan/release/hpke 0750 opentitan opentitan -"
+        "C /var/lib/opentitan/release/config.tar.gz 0640 opentitan opentitan - ${testBinaries}/share/opentitan/config.tar.gz"
+        "C /var/lib/opentitan/release/hpke/hpke_mlkem.pub 0640 opentitan opentitan - ${cryptoAssets.hpkeKeys}/hpke_mlkem.pub"
+        "C /var/lib/opentitan/release/hpke/hpke_ecdsa.pub.der 0640 opentitan opentitan - ${cryptoAssets.hpkeKeys}/hpke_ecdsa.pub.der"
+      ];
+
+      # Default configuration: PQ mTLS (ML-DSA-87 + ML-KEM)
+      services.opentitan-provisioning = {
+        pa.tls = {
+          enable = true;
+          enableMlkemTls = true;
+          enableMldsaTls = true;
+          certFile = "${cryptoAssets.pqCerts}/pa-service-cert.pem";
+          keyFile = "${cryptoAssets.pqCerts}/pa-service-key.pem";
+          caCertFile = "${cryptoAssets.pqCerts}/ca-cert.pem";
+        };
+        spm.tls = {
+          enable = true;
+          enableMlkemTls = true;
+          enableMldsaTls = true;
+          certFile = "${cryptoAssets.pqCerts}/spm-service-cert.pem";
+          keyFile = "${cryptoAssets.pqCerts}/spm-service-key.pem";
+          caCertFile = "${cryptoAssets.pqCerts}/ca-cert.pem";
+        };
+        pb.tls = {
+          enable = true;
+          enableMlkemTls = true;
+          enableMldsaTls = true;
+          certFile = "${cryptoAssets.pqCerts}/pb-service-cert.pem";
+          keyFile = "${cryptoAssets.pqCerts}/pb-service-key.pem";
+          caCertFile = "${cryptoAssets.pqCerts}/ca-cert.pem";
+        };
+      };
+
+      # Specialisation: Classical RSA-4096 mTLS
+      specialisation.rsa.configuration = {
+        services.opentitan-provisioning = {
+          pa.tls = {
+            enable = lib.mkForce true;
+            enableMlkemTls = lib.mkForce false;
+            enableMldsaTls = lib.mkForce false;
+            certFile = lib.mkForce "${cryptoAssets.rsaCerts}/pa-service-cert.pem";
+            keyFile = lib.mkForce "${cryptoAssets.rsaCerts}/pa-service-key.pem";
+            caCertFile = lib.mkForce "${cryptoAssets.rsaCerts}/ca-cert.pem";
+          };
+          spm.tls = {
+            enable = lib.mkForce true;
+            enableMlkemTls = lib.mkForce false;
+            enableMldsaTls = lib.mkForce false;
+            certFile = lib.mkForce "${cryptoAssets.rsaCerts}/spm-service-cert.pem";
+            keyFile = lib.mkForce "${cryptoAssets.rsaCerts}/spm-service-key.pem";
+            caCertFile = lib.mkForce "${cryptoAssets.rsaCerts}/ca-cert.pem";
+          };
+          pb.tls = {
+            enable = lib.mkForce true;
+            enableMlkemTls = lib.mkForce false;
+            enableMldsaTls = lib.mkForce false;
+            certFile = lib.mkForce "${cryptoAssets.rsaCerts}/pb-service-cert.pem";
+            keyFile = lib.mkForce "${cryptoAssets.rsaCerts}/pb-service-key.pem";
+            caCertFile = lib.mkForce "${cryptoAssets.rsaCerts}/ca-cert.pem";
+          };
+        };
+      };
     };
 
     testScript = ''
       start_all()
 
-      # Step 1: Initialize SoftHSM token and SPM directory structure
-      machine.succeed("mkdir -p /var/lib/opentitan/tokens /var/lib/opentitan/config")
-      machine.succeed("chown -R opentitan:opentitan /var/lib/opentitan")
-      machine.succeed("echo -n 'cryptoki' > /var/lib/opentitan/hsm_pin")
-      machine.succeed("chown opentitan:opentitan /var/lib/opentitan/hsm_pin")
-      machine.succeed("chmod 0600 /var/lib/opentitan/hsm_pin")
-
-      machine.succeed(
-          "sudo -u opentitan SOFTHSM2_CONF=/etc/softhsm2.conf softhsm2-util --init-token --slot=0 --so-pin=cryptoki --label=spm-hsm --pin=cryptoki"
-      )
-
-      # Step 2: Install sku_auth.yml and sku_sival.yml in SPM config dir
-      machine.succeed("""
-      cat << 'EOF' > /var/lib/opentitan/config/sku_auth.yml
-      skuAuthCfgList:
-        "sival":
-          skuAuth: "$2a$10$7ZjR5zTQpig.aomnunzte.Ve1eW4GT2ACx1iy4fxtfzysprfrNMfG"
-          methods: ["DeriveTokens", "GetCaSubjectKeys", "EndorseCerts", "GetCaCerts", "GetOwnerFwBootMessage", "RegisterDevice"]
-      EOF
-
-      cat << 'EOF' > /var/lib/opentitan/config/sku_sival.yml
-      sku: "sival"
-      slotId: 0
-      numSessions: 3
-      certCountX509: 3
-      certCountCWT: 0
-      symmetricKeys: []
-      certs: []
-      privateKeys: []
-      publicKeys: []
-      attributes:
-          SeedSecHi: eg-kdf-hisec-v0
-          SeedSecLo: eg-kdf-losec-v0
-          WASKeyLabel: eg-kdf-hisec-v0
-          WASDisable: false
-          WrappingMechanism: RsaPkcs
-          WrappingKeyLabel: sku-eg-rsa-rma-v0.pub
-          OwnerFirmwareBootMessage: "ownership: OWND"
-      x509CertHashOrder:
-          - UDS
-          - CDI_0
-          - CDI_1
-      EOF
-      chown -R opentitan:opentitan /var/lib/opentitan/config
-      """)
-
-      # Step 3: Restart services and wait for them to reach active state
-      machine.succeed("systemctl restart opentitan-pb.service")
+      # Wait for HSM initialization and all provisioning services (PQ mode)
+      machine.wait_for_unit("opentitan-hsm-init.service")
       machine.wait_for_unit("opentitan-pb.service")
       machine.wait_for_open_port(5001)
-
-      machine.succeed("systemctl restart opentitan-spm.service")
       machine.wait_for_unit("opentitan-spm.service")
       machine.wait_for_open_port(5000)
-
-      machine.succeed("systemctl restart opentitan-pa.service")
       machine.wait_for_unit("opentitan-pa.service")
       machine.wait_for_open_port(5003)
 
-      # Step 4: Verify services are active
-      machine.succeed("systemctl is-active opentitan-pb.service")
-      machine.succeed("systemctl is-active opentitan-spm.service")
-      machine.succeed("systemctl is-active opentitan-pa.service")
-
-      # Step 5: Test session connection with tls_test
+      # 1. TLS Test (PQ: ML-DSA-87 + ML-KEM)
+      print("=== Running TLS Test (PQ) ===")
       print(machine.succeed(
-          "tls_test --pa_target=127.0.0.1:5003 --sku=sival --sku_auth_pw=test_password"
+          "tls_test"
+          " --pa_target=localhost:5003"
+          " --sku=sival"
+          " --sku_auth_pw=test_password"
+          " --enable_mtls=true"
+          " --enable_mlkem_tls=true"
+          " --enable_mldsa_tls=true"
+          " --ca_root_certs=${cryptoAssets.pqCerts}/ca-cert.pem"
+          " --client_cert=${cryptoAssets.pqCerts}/ate-client-cert.pem"
+          " --client_key=${cryptoAssets.pqCerts}/ate-client-key.pem"
+      ))
+
+      # 2. PA Loadtest (PQ: ML-DSA-87 + ML-KEM + ML-DSA DICE + all 5 SKUs including sival_pqc)
+      print("=== Running PA Loadtest (PQ) ===")
+      print(machine.succeed(
+          "sudo -u opentitan env SOFTHSM2_CONF=/etc/softhsm2.conf SPM_HSM_PIN_USER=cryptoki HSMTOOL_PIN=cryptoki"
+          " pa_loadtest"
+          " --pa_address=localhost:5003"
+          " --enable_tls=true"
+          " --enable_mlkem_tls=true"
+          " --enable_mldsa_tls=true"
+          " --enable_mldsa_dice=true"
+          " --ca_root_certs=${cryptoAssets.pqCerts}/ca-cert.pem"
+          " --client_cert=${cryptoAssets.pqCerts}/ate-client-cert.pem"
+          " --client_key=${cryptoAssets.pqCerts}/ate-client-key.pem"
+          " --spm_config_dir=/var/lib/opentitan/config"
+          " --hsm_so=${testPkgs.softhsm}/lib/softhsm/libsofthsm2.so"
+          " --sku_names=sival,cr01,pi01,ti01,sival_pqc"
+          " --parallel_clients=5"
+          " --total_duts=10"
+          " --sku_auth=test_password"
+      ))
+
+      # 3. Switch to Classical RSA-4096 specialisation
+      print("=== Switching to RSA Specialisation ===")
+      machine.succeed("/run/current-system/specialisation/rsa/bin/switch-to-configuration test")
+      machine.wait_for_unit("opentitan-pb.service")
+      machine.wait_for_open_port(5001)
+      machine.wait_for_unit("opentitan-spm.service")
+      machine.wait_for_open_port(5000)
+      machine.wait_for_unit("opentitan-pa.service")
+      machine.wait_for_open_port(5003)
+
+      # 4. TLS Test (RSA-4096)
+      print("=== Running TLS Test (RSA) ===")
+      print(machine.succeed(
+          "tls_test"
+          " --pa_target=localhost:5003"
+          " --sku=sival"
+          " --sku_auth_pw=test_password"
+          " --enable_mtls=true"
+          " --enable_mlkem_tls=false"
+          " --enable_mldsa_tls=false"
+          " --ca_root_certs=${cryptoAssets.rsaCerts}/ca-cert.pem"
+          " --client_cert=${cryptoAssets.rsaCerts}/ate-client-cert.pem"
+          " --client_key=${cryptoAssets.rsaCerts}/ate-client-key.pem"
+      ))
+
+      # 5. PA Loadtest (RSA-4096)
+      print("=== Running PA Loadtest (RSA) ===")
+      print(machine.succeed(
+          "sudo -u opentitan env SOFTHSM2_CONF=/etc/softhsm2.conf SPM_HSM_PIN_USER=cryptoki HSMTOOL_PIN=cryptoki"
+          " pa_loadtest"
+          " --pa_address=localhost:5003"
+          " --enable_tls=true"
+          " --enable_mlkem_tls=false"
+          " --enable_mldsa_tls=false"
+          " --enable_mldsa_dice=false"
+          " --ca_root_certs=${cryptoAssets.rsaCerts}/ca-cert.pem"
+          " --client_cert=${cryptoAssets.rsaCerts}/ate-client-cert.pem"
+          " --client_key=${cryptoAssets.rsaCerts}/ate-client-key.pem"
+          " --spm_config_dir=/var/lib/opentitan/config"
+          " --hsm_so=${testPkgs.softhsm}/lib/softhsm/libsofthsm2.so"
+          " --sku_names=sival,cr01,pi01,ti01"
+          " --parallel_clients=5"
+          " --total_duts=10"
+          " --sku_auth=test_password"
       ))
     '';
   };
