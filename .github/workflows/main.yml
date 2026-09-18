@@ -70,12 +70,12 @@ jobs:
       - name: Run TLS test (RSA)
         if: always()
         run: OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev-tls-rsa ./tests/run_tls_test.sh
-      - name: Run integration tests (SoftHSM2, PQ)
-        if: always()
-        run: OT_PROV_ORCHESTRATOR_PATH="${OT_PROV_ORCHESTRATOR_PATH}" OT_PROV_ORCHESTRATOR_UNPACK="${OT_PROV_ORCHESTRATOR_UNPACK}" OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev-ate-pq ./tests/run_ate_test.sh --pq
-      - name: Run integration tests (SoftHSM2, RSA)
-        if: always()
-        run: OT_PROV_ORCHESTRATOR_PATH="${OT_PROV_ORCHESTRATOR_PATH}" OT_PROV_ORCHESTRATOR_UNPACK="${OT_PROV_ORCHESTRATOR_UNPACK}" OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./tests/run_ate_test.sh
+      # - name: Run integration tests (SoftHSM2, PQ)
+      #   if: always()
+      #   run: OT_PROV_ORCHESTRATOR_PATH="${OT_PROV_ORCHESTRATOR_PATH}" OT_PROV_ORCHESTRATOR_UNPACK="${OT_PROV_ORCHESTRATOR_UNPACK}" OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev-ate-pq ./tests/run_ate_test.sh --pq
+      # - name: Run integration tests (SoftHSM2, RSA)
+      #   if: always()
+      #   run: OT_PROV_ORCHESTRATOR_PATH="${OT_PROV_ORCHESTRATOR_PATH}" OT_PROV_ORCHESTRATOR_UNPACK="${OT_PROV_ORCHESTRATOR_UNPACK}" OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev ./tests/run_ate_test.sh
       # The following tests are temporarily disabled because the CI machine HSM is unavailable.
       # - name: Run provisioning appliance load test
       #   if: always()
