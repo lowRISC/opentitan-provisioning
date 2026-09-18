@@ -12,6 +12,7 @@
 #include <chrono>
 #include <iostream>
 #include <set>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -517,19 +518,29 @@ DLLEXPORT int GetCaCerts(ate_client_ptr client, const char* sku, size_t count,
     memcpy(certs[i].cert, resp.certs(i).blob().data(),
            resp.certs(i).blob().size());
     certs[i].cert_size = resp.certs(i).blob().size();
-    if (strncmp(labels[i], "root", 4) == 0) {
-      const char* root_cert_name = "OSAT_ROOT_CA";
-      // Include null terminator in what is copied, but not in the size field.
-      memcpy(certs[i].key_label, root_cert_name, strlen(root_cert_name) + 1);
-      certs[i].key_label_size = strlen(root_cert_name);
-    } else if (strncmp(labels[i], "dice", 4) == 0) {
-      const char* int_cert_name = "OSAT_ICA_DICE";
-      // Include null terminator in what is copied, but not in the size field.
-      memcpy(certs[i].key_label, int_cert_name, strlen(int_cert_name) + 1);
-      certs[i].key_label_size = strlen(int_cert_name);
+    const std::string_view label(
+        labels[i], strnlen(labels[i], kCertificateKeyLabelMaxSize));
+    std::string_view cert_label_name;
+    if (label == "root") {
+      cert_label_name = "OSAT_ROOT_CA";
+    } else if (label == "root_mldsa") {
+      cert_label_name = "OSAT_ROOT_CA_MLDSA";
+    } else if (label == "dice") {
+      cert_label_name = "OSAT_ICA_DICE";
+    } else if (label == "dice_mldsa") {
+      cert_label_name = "OSAT_ICA_DICE_MLDSA";
+    } else if (label == "ext") {
+      cert_label_name = "OSAT_ICA_EXT";
+    } else if (label == "ext_mldsa") {
+      cert_label_name = "OSAT_ICA_EXT_MLDSA";
     } else {
+      LOG(ERROR) << "Unknown CA certificate label: " << label;
       return static_cast<int>(absl::StatusCode::kInvalidArgument);
     }
+    // Include null terminator in what is copied, but not in the size field.
+    memcpy(certs[i].key_label, cert_label_name.data(),
+           cert_label_name.size() + 1);
+    certs[i].key_label_size = cert_label_name.size();
   }
 
   return 0;
