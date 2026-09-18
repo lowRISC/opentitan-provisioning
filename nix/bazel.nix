@@ -27,9 +27,11 @@ let
         base == "docs" ||
         base == "README.md" ||
         base == "nix" ||
+        base == "nix-logs" ||
         base == "flake.lock" ||
         pkgs.lib.hasPrefix "bazel-" base ||
-        pkgs.lib.hasSuffix ".nix" base
+        pkgs.lib.hasSuffix ".nix" base ||
+        pkgs.lib.hasSuffix ".log" base
       );
   };
 
@@ -59,9 +61,11 @@ let
         base == "docs" ||
         base == "README.md" ||
         base == "nix" ||
+        base == "nix-logs" ||
         base == "flake.lock" ||
         pkgs.lib.hasPrefix "bazel-" base ||
         pkgs.lib.hasSuffix ".nix" base ||
+        pkgs.lib.hasSuffix ".log" base ||
         (inSrc && type != "directory" && isCodeFile)
       );
   };
@@ -496,9 +500,10 @@ print(f"Materialized {len(elfs)} ELF binaries for autoPatchelf")
       mkdir -p $HOME /build/disk_cache
     '';
     installPhase = ''
-      mkdir -p $out/bin $out/disk_cache
+      mkdir -p $out/bin
       cp bazel-bin/external/*lowrisc_opentitan_head*/sw/host/hsmtool/hsmtool $out/bin/hsmtool
-      cp -r /build/disk_cache/* $out/disk_cache/
+      chmod -R u+w /build/disk_cache
+      tar -cf $out/disk_cache.tar -C /build/disk_cache .
     '';
   };
 
@@ -519,13 +524,14 @@ print(f"Materialized {len(elfs)} ELF binaries for autoPatchelf")
       commandArgs = commonCommandArgs ++ [
         "--disk_cache=/build/disk_cache"
       ];
-      nativeBuildInputs = commonNativeBuildInputs ++ [ pkgs.lndir ];
+      nativeBuildInputs = commonNativeBuildInputs;
       buildInputs = commonBuildInputs;
       bazelPreBuild = ''
         export HOME=/build/home
         export USER=nixbld
         mkdir -p $HOME /build/disk_cache
-        ${pkgs.lndir}/bin/lndir -silent ${bazelDepsCache}/disk_cache /build/disk_cache
+        tar --no-same-owner --no-same-permissions -xf ${bazelDepsCache}/disk_cache.tar -C /build/disk_cache
+        chmod -R u+w /build/disk_cache
       '';
     };
 
