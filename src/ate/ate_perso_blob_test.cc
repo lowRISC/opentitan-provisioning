@@ -37,12 +37,20 @@ class AtePersoBlobTest : public ::testing::Test {
     memset(test_response_.cert, 0, sizeof(test_response_.cert));
     memset(test_response_.cert, 0x33, test_response_.cert_size);
 
-    test_request_.key_label_size = test_request_.key_label_size;
+    test_request_.key_label_size = test_response_.key_label_size;
     memcpy(test_request_.key_label, test_response_.key_label,
            test_request_.key_label_size);
-    test_request_.tbs_size = 128;
+    const uint8_t kEcdsaSha256TbsDer[] = {
+        0x30, 0x14,                    // TBSCertificate ::= SEQUENCE (20 bytes)
+        0xA0, 0x03, 0x02, 0x01, 0x02,  // [0] EXPLICIT Version (v3)
+        0x02, 0x01, 0x01,              // serialNumber ::= INTEGER 1
+        0x30, 0x0A,                    // signature ::= AlgorithmIdentifier
+        0x06, 0x08,                    // OBJECT IDENTIFIER (8 bytes)
+        0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x04, 0x03, 0x02,  // ecdsa-with-SHA256
+    };
+    test_request_.tbs_size = sizeof(kEcdsaSha256TbsDer);
     memset(test_request_.tbs, 0, sizeof(test_request_.tbs));
-    memset(test_request_.tbs, 0x44, test_request_.tbs_size);
+    memcpy(test_request_.tbs, kEcdsaSha256TbsDer, sizeof(kEcdsaSha256TbsDer));
   }
 
   // Helper function to create a valid perso blob for testing
@@ -270,6 +278,114 @@ TEST_F(AtePersoBlobTest, PackPersoBlobOverflow) {
   memcpy(large_cert.key_label, "testkey1", 8);
 
   EXPECT_EQ(PackPersoBlob(1, &large_cert, 0, nullptr, &output_blob), -1);
+}
+
+TEST_F(AtePersoBlobTest, UnpackPersoBlobDetectsMldsaAndEcdsaOids) {
+  device_id_bytes_t device_id;
+  endorse_cert_signature_t signature;
+  sha256_hash_t perso_fw_hash = {.raw = {0}};
+  endorse_cert_request_t x509_tbs_certs[10];
+  endorse_cert_response_t x509_certs[10];
+  seed_t seeds[10];
+
+  // 1. Default SetUp fixture uses ECDSA P-256 with SHA-256.
+  {
+    perso_blob_t test_blob;
+    CreateTestPersoBlob(&test_blob);
+    size_t tbs_cert_count = 10;
+    size_t cert_count = 10;
+    size_t seed_count = 10;
+    EXPECT_EQ(UnpackPersoBlob(&test_blob, &device_id, &signature,
+                              &perso_fw_hash, x509_tbs_certs, &tbs_cert_count,
+                              x509_certs, &cert_count, seeds, &seed_count),
+              0);
+    EXPECT_EQ(tbs_cert_count, 1);
+    EXPECT_EQ(x509_tbs_certs[0].algorithm_type, kSigningAlgorithmTypeEcdsa);
+    EXPECT_EQ(x509_tbs_certs[0].hash_type, kHashTypeSha256);
+    EXPECT_EQ(x509_tbs_certs[0].curve_type, kCurveTypeP256);
+    EXPECT_EQ(x509_tbs_certs[0].signature_encoding, kSignatureEncodingDer);
+  }
+
+  // 2. ML-DSA-44 (2.16.840.1.101.3.4.3.17).
+  {
+    const uint8_t kMldsa44TbsDer[] = {
+        0x30, 0x15,                    // TBSCertificate ::= SEQUENCE (21 bytes)
+        0xA0, 0x03, 0x02, 0x01, 0x02,  // [0] EXPLICIT Version (v3)
+        0x02, 0x01, 0x01,              // serialNumber ::= INTEGER 1
+        0x30, 0x0B,                    // signature ::= AlgorithmIdentifier
+        0x06, 0x09,                    // OBJECT IDENTIFIER (9 bytes)
+        0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x03, 0x11,  // ML-DSA-44
+    };
+    test_request_.tbs_size = sizeof(kMldsa44TbsDer);
+    memset(test_request_.tbs, 0, sizeof(test_request_.tbs));
+    memcpy(test_request_.tbs, kMldsa44TbsDer, sizeof(kMldsa44TbsDer));
+
+    perso_blob_t test_blob;
+    CreateTestPersoBlob(&test_blob);
+    size_t tbs_cert_count = 10;
+    size_t cert_count = 10;
+    size_t seed_count = 10;
+    EXPECT_EQ(UnpackPersoBlob(&test_blob, &device_id, &signature,
+                              &perso_fw_hash, x509_tbs_certs, &tbs_cert_count,
+                              x509_certs, &cert_count, seeds, &seed_count),
+              0);
+    EXPECT_EQ(tbs_cert_count, 1);
+    EXPECT_EQ(x509_tbs_certs[0].algorithm_type, kSigningAlgorithmTypeMldsa);
+    EXPECT_EQ(x509_tbs_certs[0].mldsa_param_set, kMldsaParamSet44);
+  }
+
+  // 3. ML-DSA-87 (2.16.840.1.101.3.4.3.19).
+  {
+    const uint8_t kMldsa87TbsDer[] = {
+        0x30, 0x15,                    // TBSCertificate ::= SEQUENCE (21 bytes)
+        0xA0, 0x03, 0x02, 0x01, 0x02,  // [0] EXPLICIT Version (v3)
+        0x02, 0x01, 0x01,              // serialNumber ::= INTEGER 1
+        0x30, 0x0B,                    // signature ::= AlgorithmIdentifier
+        0x06, 0x09,                    // OBJECT IDENTIFIER (9 bytes)
+        0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x03, 0x13,  // ML-DSA-87
+    };
+    test_request_.tbs_size = sizeof(kMldsa87TbsDer);
+    memset(test_request_.tbs, 0, sizeof(test_request_.tbs));
+    memcpy(test_request_.tbs, kMldsa87TbsDer, sizeof(kMldsa87TbsDer));
+
+    perso_blob_t test_blob;
+    CreateTestPersoBlob(&test_blob);
+    size_t tbs_cert_count = 10;
+    size_t cert_count = 10;
+    size_t seed_count = 10;
+    EXPECT_EQ(UnpackPersoBlob(&test_blob, &device_id, &signature,
+                              &perso_fw_hash, x509_tbs_certs, &tbs_cert_count,
+                              x509_certs, &cert_count, seeds, &seed_count),
+              0);
+    EXPECT_EQ(tbs_cert_count, 1);
+    EXPECT_EQ(x509_tbs_certs[0].algorithm_type, kSigningAlgorithmTypeMldsa);
+    EXPECT_EQ(x509_tbs_certs[0].mldsa_param_set, kMldsaParamSet87);
+  }
+
+  // 4. Unsupported OID (e.g., ML-DSA-65 / non-supported algorithm) fails.
+  {
+    const uint8_t kUnsupportedTbsDer[] = {
+        0x30, 0x15,                    // TBSCertificate ::= SEQUENCE (21 bytes)
+        0xA0, 0x03, 0x02, 0x01, 0x02,  // [0] EXPLICIT Version (v3)
+        0x02, 0x01, 0x01,              // serialNumber ::= INTEGER 1
+        0x30, 0x0B,                    // signature ::= AlgorithmIdentifier
+        0x06, 0x09,                    // OBJECT IDENTIFIER (9 bytes)
+        0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x03, 0x12,  // ML-DSA-65
+    };
+    test_request_.tbs_size = sizeof(kUnsupportedTbsDer);
+    memset(test_request_.tbs, 0, sizeof(test_request_.tbs));
+    memcpy(test_request_.tbs, kUnsupportedTbsDer, sizeof(kUnsupportedTbsDer));
+
+    perso_blob_t test_blob;
+    CreateTestPersoBlob(&test_blob);
+    size_t tbs_cert_count = 10;
+    size_t cert_count = 10;
+    size_t seed_count = 10;
+    EXPECT_EQ(UnpackPersoBlob(&test_blob, &device_id, &signature,
+                              &perso_fw_hash, x509_tbs_certs, &tbs_cert_count,
+                              x509_certs, &cert_count, seeds, &seed_count),
+              -1);
+  }
 }
 
 }  // namespace

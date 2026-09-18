@@ -795,11 +795,13 @@ DLLEXPORT int RmaTokenFromJson(const dut_spi_frame_t* frame,
  *
  * @param dice_ca_sn The DICE CA subject key.
  * @param aux_ca_sn The auxiliary CA subject key.
+ * @param dice_mldsa_ca_sn Optional ML-DSA DICE CA subject key (or nullptr).
  * @param[out] result The generated JSON command.
  * @return The result of the operation.
  */
 DLLEXPORT int CaSubjectKeysToJson(const ca_subject_key_t* dice_ca_sn,
                                   const ca_subject_key_t* aux_ca_sn,
+                                  const ca_subject_key_t* dice_mldsa_ca_sn,
                                   dut_spi_frame_t* result);
 
 /**

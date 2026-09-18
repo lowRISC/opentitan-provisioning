@@ -308,6 +308,7 @@ DLLEXPORT int RmaTokenFromJson(const dut_spi_frame_t *frame,
 
 DLLEXPORT int CaSubjectKeysToJson(const ca_subject_key_t *dice_ca_sn,
                                   const ca_subject_key_t *aux_ca_sn,
+                                  const ca_subject_key_t *dice_mldsa_ca_sn,
                                   dut_spi_frame_t *result) {
   if (result == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
@@ -327,11 +328,22 @@ DLLEXPORT int CaSubjectKeysToJson(const ca_subject_key_t *dice_ca_sn,
     ca_key_ids_cmd.add_dice_auth_key_key_id(dice_ca_sn->data[i]);
     ca_key_ids_cmd.add_ext_auth_key_key_id(aux_ca_sn->data[i]);
   }
+  if (dice_mldsa_ca_sn != nullptr) {
+    for (size_t i = 0; i < kCaSubjectKeySize; ++i) {
+      ca_key_ids_cmd.add_dice_mldsa_auth_key_key_id(dice_mldsa_ca_sn->data[i]);
+    }
+  }
 
   std::string command;
   google::protobuf::util::JsonPrintOptions options;
   options.add_whitespace = false;
-  options.always_print_fields_with_no_presence = true;
+  // Set to false so that `dice_mldsa_auth_key_key_id` is omitted from the JSON
+  // output when `dice_mldsa_ca_sn == nullptr`, rather than serialized as an
+  // empty array (`[]`). On the DUT, `manuf_certgen_inputs_t` uses
+  // `UJSON_SERDE_STRUCT_WITH_PRESENCE` (so an empty array would still set
+  // `has_dice_mldsa_auth_key_key_id = true`), and older non-MLDSA firmware
+  // binaries reject unrecognized JSON fields.
+  options.always_print_fields_with_no_presence = false;
   options.preserve_proto_field_names = true;
   absl::Status status = google::protobuf::util::MessageToJsonString(
       ca_key_ids_cmd, &command, options);

@@ -65,6 +65,10 @@ message CaSubjectKeysJSON {
   // Required.
   // protolint:disable:next REPEATED_FIELD_NAMES_PLURALIZED
   repeated uint32 ext_auth_key_key_id = 2;
+  // dice_mldsa_auth_key_key_id contains the optional ML-DSA DICE CA serial
+  // number. It must contain 20 bytes to hold a SHA1 hash when present.
+  // protolint:disable:next REPEATED_FIELD_NAMES_PLURALIZED
+  repeated uint32 dice_mldsa_auth_key_key_id = 3;
 }
 
 // Provides the perso_blob_t data structure used by provisioning firmware.

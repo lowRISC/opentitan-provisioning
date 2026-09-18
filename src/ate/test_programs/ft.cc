@@ -264,7 +264,7 @@ int main(int argc, char** argv) {
       "EXT",
   };
   if (absl::GetFlag(FLAGS_enable_mldsa_dice)) {
-    ica_cert_labels.push_back("UDS_MLDSA");
+    ica_cert_labels.push_back("PQ_UDS_44");
     ica_cert_labels.push_back("EXT_MLDSA");
   }
 
@@ -277,8 +277,11 @@ int main(int argc, char** argv) {
   }
   const ca_subject_key_t* kDiceCaSk = &key_ids[0];
   const ca_subject_key_t* kExtCaSk = &key_ids[1];
+  const ca_subject_key_t* kDiceMldsaCaSk =
+      absl::GetFlag(FLAGS_enable_mldsa_dice) ? &key_ids[2] : nullptr;
   dut_spi_frame_t ca_key_ids_spi_frame;
-  if (CaSubjectKeysToJson(kDiceCaSk, kExtCaSk, &ca_key_ids_spi_frame) != 0) {
+  if (CaSubjectKeysToJson(kDiceCaSk, kExtCaSk, kDiceMldsaCaSk,
+                          &ca_key_ids_spi_frame) != 0) {
     LOG(ERROR) << "CaSubjectKeysToJson failed.";
     return -1;
   }
@@ -372,6 +375,11 @@ int main(int argc, char** argv) {
   size_t num_ca_certs = 0;
   endorse_cert_response_t* ca_certs = nullptr;
   if (absl::GetFlag(FLAGS_sku) == "pi01") {
+    // The pi01 SKU explicitly does not support ML-DSA certificates.
+    if (absl::GetFlag(FLAGS_enable_mldsa_dice)) {
+      LOG(ERROR) << "ML-DSA DICE certificates are not supported for pi01 SKU.";
+      return -1;
+    }
     constexpr size_t kNumDiceCaCerts = 2;
     endorse_cert_response_t dice_ca_certs[kNumDiceCaCerts];
     const char* kDiceCaCertLabels[] = {

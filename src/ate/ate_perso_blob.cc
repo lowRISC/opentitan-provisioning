@@ -11,6 +11,10 @@
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "openssl/bytestring.h"
+#include "openssl/mem.h"
+#include "openssl/nid.h"
+#include "openssl/obj.h"
 #include "src/ate/ate_api.h"
 
 namespace {
@@ -150,6 +154,50 @@ int ExtractCertObject(const uint8_t* buf, size_t buf_size,
   return 0;
 }
 
+// Inspects the ASN.1 DER X.509 TBSCertificate signature AlgorithmIdentifier OID
+// using BoringSSL CBS and OBJ_cbs2nid to populate signing algorithm parameters.
+// Returns 0 on success, or -1 if the TBS certificate is invalid or uses an
+// unsupported signing algorithm.
+int ConfigureTbsSigningAlgorithm(const uint8_t* tbs, size_t tbs_size,
+                                 endorse_cert_request_t* tbs_cert) {
+  CBS cbs, tbs_seq, alg_seq, oid;
+  CBS_init(&cbs, tbs, tbs_size);
+  if (!CBS_get_asn1(&cbs, &tbs_seq, CBS_ASN1_SEQUENCE) ||
+      !CBS_get_optional_asn1(
+          &tbs_seq, nullptr, nullptr,
+          CBS_ASN1_CONTEXT_SPECIFIC | CBS_ASN1_CONSTRUCTED | 0) ||
+      !CBS_get_asn1(&tbs_seq, nullptr, CBS_ASN1_INTEGER) ||
+      !CBS_get_asn1(&tbs_seq, &alg_seq, CBS_ASN1_SEQUENCE) ||
+      !CBS_get_asn1(&alg_seq, &oid, CBS_ASN1_OBJECT)) {
+    LOG(ERROR) << "Failed to parse X.509 TBSCertificate signature OID.";
+    return -1;
+  }
+
+  switch (OBJ_cbs2nid(&oid)) {
+    case NID_ecdsa_with_SHA256:
+      tbs_cert->algorithm_type = kSigningAlgorithmTypeEcdsa;
+      tbs_cert->hash_type = kHashTypeSha256;
+      tbs_cert->curve_type = kCurveTypeP256;
+      tbs_cert->signature_encoding = kSignatureEncodingDer;
+      tbs_cert->mldsa_param_set = kMldsaParamSetUnspecified;
+      return 0;
+    case NID_ML_DSA_44:
+      tbs_cert->algorithm_type = kSigningAlgorithmTypeMldsa;
+      tbs_cert->mldsa_param_set = kMldsaParamSet44;
+      return 0;
+    case NID_ML_DSA_87:
+      tbs_cert->algorithm_type = kSigningAlgorithmTypeMldsa;
+      tbs_cert->mldsa_param_set = kMldsaParamSet87;
+      return 0;
+    default: {
+      bssl::UniquePtr<char> oid_str(CBS_asn1_oid_to_text(&oid));
+      LOG(ERROR) << "Unsupported signing algorithm OID in TBSCertificate: "
+                 << (oid_str ? oid_str.get() : "<invalid>");
+      return -1;
+    }
+  }
+}
+
 // Helper function to extract a TBS certificate from a perso blob.
 int PackX509TbsCertStruct(const perso_tlv_cert_obj_t* cert_obj,
                           endorse_cert_request_t* tbs_cert) {
@@ -179,9 +227,11 @@ int PackX509TbsCertStruct(const perso_tlv_cert_obj_t* cert_obj,
   memcpy(tbs_cert->key_label, cert_obj->name, key_label_size);
   tbs_cert->key_label_size = key_label_size;
 
-  tbs_cert->hash_type = kHashTypeSha256;
-  tbs_cert->curve_type = kCurveTypeP256;
-  tbs_cert->signature_encoding = kSignatureEncodingDer;
+  if (ConfigureTbsSigningAlgorithm(
+          reinterpret_cast<const uint8_t*>(cert_obj->cert_body_p),
+          cert_obj->cert_body_size, tbs_cert) != 0) {
+    return -1;
+  }
 
   return 0;
 }
