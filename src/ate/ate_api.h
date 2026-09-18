@@ -255,6 +255,32 @@ typedef struct diversifier_bytes {
 } diversifier_bytes_t;
 
 /**
+ * Signing algorithm types supported by the provisioning service.
+ */
+typedef enum signing_algorithm_type {
+  /** Unspecified signing algorithm (defaults to ECDSA for legacy callers). */
+  kSigningAlgorithmTypeUnspecified = 0,
+  /** ECDSA signing algorithm. */
+  kSigningAlgorithmTypeEcdsa = 1,
+  /** ML-DSA (FIPS 204) post-quantum signing algorithm. */
+  kSigningAlgorithmTypeMldsa = 2,
+} signing_algorithm_type_t;
+
+/**
+ * ML-DSA parameter sets supported by the provisioning service.
+ */
+typedef enum mldsa_param_set {
+  /** Unspecified ML-DSA parameter set. */
+  kMldsaParamSetUnspecified = 0,
+  /** ML-DSA-44 (NIST Security Category 2). */
+  kMldsaParamSet44 = 1,
+  /** ML-DSA-65 (NIST Security Category 3). */
+  kMldsaParamSet65 = 2,
+  /** ML-DSA-87 (NIST Security Category 5). */
+  kMldsaParamSet87 = 3,
+} mldsa_param_set_t;
+
+/**
  * Hash types supported by the provisioning service.
  */
 typedef enum hash_type {
@@ -310,10 +336,14 @@ typedef struct seed {
  * Request parameters for endorsing certificates.
  */
 typedef struct endorse_cert_request {
+  /** Signing algorithm type (ECDSA or ML-DSA). */
+  signing_algorithm_type_t algorithm_type;
   /** Hash mechanism. */
   hash_type_t hash_type;
   /** ECC Curve type. */
   curve_type_t curve_type;
+  /** ML-DSA parameter set (Category 2/3/5). */
+  mldsa_param_set_t mldsa_param_set;
   /** Signature encoding type. */
   signature_encoding_t signature_encoding;
   /** Size of the key label. */
