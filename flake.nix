@@ -13,7 +13,7 @@
   outputs = { self, nixpkgs, flake-utils, bcr }:
     let
       overlay = final: prev: {
-        softhsm = final.callPackage ./nix/softhsm2.nix {};
+        softhsm = final.callPackage ./nix/packages/softhsm2.nix {};
         opentitan-provisioning = {
           pa_server = self.packages.${prev.stdenv.hostPlatform.system}.pa_server;
           spm_server = self.packages.${prev.stdenv.hostPlatform.system}.spm_server;
@@ -60,7 +60,7 @@
           };
 
           cryptoAssets = import ./nix/crypto-assets.nix { inherit pkgs; };
-          softhsm2 = pkgs.callPackage ./nix/softhsm2.nix {};
+          softhsm2 = pkgs.callPackage ./nix/packages/softhsm2.nix {};
 
           ciDepsCache = pkgs.writeText "opentitan-ci-deps-cache" ''
             ${bazelDepsCache}
