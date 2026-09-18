@@ -573,33 +573,54 @@ DLLEXPORT int EndorseCerts(ate_client_ptr client, const char* sku,
     std::string cert_label(req_params.key_label, req_params.key_label_size);
     signing_params->set_key_label(cert_label);
 
-    // Only ECDSA keys are supported at this time.
-    auto key = signing_params->mutable_ecdsa_params();
+    if (req_params.algorithm_type == kSigningAlgorithmTypeMldsa) {
+      auto key = signing_params->mutable_mldsa_params();
+      switch (req_params.mldsa_param_set) {
+        case kMldsaParamSet44:
+          key->set_param_sets(crypto::mldsa::MLDSA_PARAMETER_SETS_MLDSA_44);
+          break;
+        case kMldsaParamSet65:
+          key->set_param_sets(crypto::mldsa::MLDSA_PARAMETER_SETS_MLDSA_65);
+          break;
+        case kMldsaParamSet87:
+          key->set_param_sets(crypto::mldsa::MLDSA_PARAMETER_SETS_MLDSA_87);
+          break;
+        default:
+          LOG(ERROR)
+              << "EndorseCerts failed - unsupported ML-DSA parameter set: "
+              << req_params.mldsa_param_set;
+          return static_cast<int>(absl::StatusCode::kInvalidArgument);
+      }
+    } else {
+      // Legacy / Classical ECDSA path (kSigningAlgorithmTypeEcdsa or
+      // Unspecified).
+      auto key = signing_params->mutable_ecdsa_params();
 
-    switch (req_params.hash_type) {
-      case kHashTypeSha256:
-        key->set_hash_type(crypto::common::HashType::HASH_TYPE_SHA256);
-        break;
-      default:
-        return static_cast<int>(absl::StatusCode::kInvalidArgument);
-    }
+      switch (req_params.hash_type) {
+        case kHashTypeSha256:
+          key->set_hash_type(crypto::common::HashType::HASH_TYPE_SHA256);
+          break;
+        default:
+          return static_cast<int>(absl::StatusCode::kInvalidArgument);
+      }
 
-    switch (req_params.curve_type) {
-      case kCurveTypeP256:
-        key->set_curve(
-            crypto::common::EllipticCurveType::ELLIPTIC_CURVE_TYPE_NIST_P256);
-        break;
-      default:
-        return static_cast<int>(absl::StatusCode::kInvalidArgument);
-    }
+      switch (req_params.curve_type) {
+        case kCurveTypeP256:
+          key->set_curve(
+              crypto::common::EllipticCurveType::ELLIPTIC_CURVE_TYPE_NIST_P256);
+          break;
+        default:
+          return static_cast<int>(absl::StatusCode::kInvalidArgument);
+      }
 
-    switch (req_params.signature_encoding) {
-      case kSignatureEncodingDer:
-        key->set_encoding(crypto::ecdsa::EcdsaSignatureEncoding::
-                              ECDSA_SIGNATURE_ENCODING_DER);
-        break;
-      default:
-        return static_cast<int>(absl::StatusCode::kInvalidArgument);
+      switch (req_params.signature_encoding) {
+        case kSignatureEncodingDer:
+          key->set_encoding(crypto::ecdsa::EcdsaSignatureEncoding::
+                                ECDSA_SIGNATURE_ENCODING_DER);
+          break;
+        default:
+          return static_cast<int>(absl::StatusCode::kInvalidArgument);
+      }
     }
   }
 
