@@ -182,10 +182,12 @@ TEST_F(AteJsonTest, CaSubjectKeys) {
   aux_ca_key_id.data[19] = 255;
 
   dut_spi_frame_t frame;
-  EXPECT_EQ(CaSubjectKeysToJson(&dice_ca_key_id, &aux_ca_key_id, &frame), 0);
+  EXPECT_EQ(
+      CaSubjectKeysToJson(&dice_ca_key_id, &aux_ca_key_id, nullptr, &frame), 0);
 
   std::string json_string = std::string(reinterpret_cast<char*>(frame.payload),
                                         kDutRxSpiFrameSizeInBytes);
+  EXPECT_EQ(json_string.find("dice_mldsa_auth_key_key_id"), std::string::npos);
 
   // Use the proto representation of CaSubjectKeysJSON to verify the JSON
   // string.
@@ -237,6 +239,36 @@ TEST_F(AteJsonTest, CaSubjectKeys) {
                 ext_auth_key_key_id: 0
                 ext_auth_key_key_id: 255
               )pb"));
+}
+
+TEST_F(AteJsonTest, CaSubjectKeysWithMldsa) {
+  ca_subject_key_t dice_ca_key_id = {0};
+  ca_subject_key_t aux_ca_key_id = {0};
+  ca_subject_key_t dice_mldsa_ca_key_id = {0};
+  dice_ca_key_id.data[0] = 65;
+  aux_ca_key_id.data[0] = 123;
+  dice_mldsa_ca_key_id.data[0] = 42;
+  dice_mldsa_ca_key_id.data[19] = 99;
+
+  dut_spi_frame_t frame;
+  EXPECT_EQ(CaSubjectKeysToJson(&dice_ca_key_id, &aux_ca_key_id,
+                                &dice_mldsa_ca_key_id, &frame),
+            0);
+
+  std::string json_string = std::string(reinterpret_cast<char*>(frame.payload),
+                                        kDutRxSpiFrameSizeInBytes);
+  EXPECT_NE(json_string.find("dice_mldsa_auth_key_key_id"), std::string::npos);
+
+  ot::dut_commands::CaSubjectKeysJSON ca_key_ids_cmd;
+  google::protobuf::util::JsonParseOptions options;
+  options.ignore_unknown_fields = true;
+  absl::Status status = google::protobuf::util::JsonStringToMessage(
+      json_string, &ca_key_ids_cmd, options);
+  EXPECT_TRUE(status.ok());
+  EXPECT_EQ(ca_key_ids_cmd.dice_mldsa_auth_key_key_id_size(),
+            kCaSubjectKeySize);
+  EXPECT_EQ(ca_key_ids_cmd.dice_mldsa_auth_key_key_id(0), 42);
+  EXPECT_EQ(ca_key_ids_cmd.dice_mldsa_auth_key_key_id(19), 99);
 }
 
 TEST_F(AteJsonTest, PersoBlob) {
