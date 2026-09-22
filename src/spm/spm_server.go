@@ -76,15 +76,15 @@ func main() {
 		log.Fatalf("`port` parameter missing")
 	}
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
-	if err != nil {
-		log.Fatalf("Server failed to listen: %v", err)
-	}
-
 	// Start the SPM gRPC server.
 	server, err := startSPMServer()
 	if err != nil {
 		log.Fatalf("failed to start SPM server: %v", err)
+	}
+
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+	if err != nil {
+		log.Fatalf("Server failed to listen: %v", err)
 	}
 	log.Printf("SPM server is now listening on port: %d", *port)
 
