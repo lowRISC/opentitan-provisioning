@@ -185,9 +185,11 @@ if [ "${OTPROV_USE_GEM_ENGINE}" == true ]; then
   fi
 
   # Initialize a session with the HSM using the sautil command. Provided by
-  # the Gem engine.
+  # the Gem engine. Close any stale session first in case a previous run was
+  # interrupted before its EXIT trap could close Application ID 10:11.
   # The user is expected to set this environment variable to set the correct
   # HSM slot for certificate operations.
+  sautil -s "${OTPROV_GEM_SLOT_CERT_OPS}" -i 10:11 -c >/dev/null 2>&1 || true
   sautil -s "${OTPROV_GEM_SLOT_CERT_OPS}" -i 10:11 -o -p "${FLAGS_HSMTOOL_PIN}"
   CA_GEM_ENGINE_INIT=true
 fi

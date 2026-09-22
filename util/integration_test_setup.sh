@@ -144,6 +144,11 @@ if [[ -n "${OT_PROV_PQ_EN}" ]]; then
   bazelisk run //util:generate_test_hpke_keys -- "${DEPLOYMENT_DIR}/spm/sku/sival_pqc/ca/"
 fi
 
+# Build the SPM server synchronously before launching it in the background so
+# that the background `bazelisk run` does not race for the Bazel client lock
+# with subsequent `bazelisk run` commands in the test script.
+bazelisk build //src/spm:spm_server
+
 # Spawn the SPM server as a process and store its process ID.
 echo "Launching SPM server outside of container"
 bazelisk run //src/spm:spm_server -- \
@@ -157,4 +162,22 @@ bazelisk run //src/spm:spm_server -- \
   "--hsm_so=${HSMTOOL_MODULE}" \
   --spm_auth_config="sku_auth.yml" \
   "--spm_config_dir=${DEPLOYMENT_DIR}/spm" &
-echo $! > "${SPM_PID_FILE}"
+SPM_PID=$!
+echo "${SPM_PID}" > "${SPM_PID_FILE}"
+
+# Wait for the SPM server to bind its listening port before starting clients.
+SPM_WAIT_ELAPSED=0
+while ! bash -c "</dev/tcp/${OTPROV_IP_SPM}/${OTPROV_PORT_SPM}" 2>/dev/null; do
+  if ! kill -0 "${SPM_PID}" 2>/dev/null; then
+    echo "Error: SPM server (PID=${SPM_PID}) exited prematurely."
+    exit 1
+  fi
+  if [ "${SPM_WAIT_ELAPSED}" -ge 30 ]; then
+    echo "Error: Timed out waiting for SPM server on ${OTPROV_IP_SPM}:${OTPROV_PORT_SPM}."
+    exit 1
+  fi
+  echo "Waiting for SPM server to listen on ${OTPROV_IP_SPM}:${OTPROV_PORT_SPM}... ${SPM_WAIT_ELAPSED}s"
+  sleep 1
+  SPM_WAIT_ELAPSED=$((SPM_WAIT_ELAPSED + 1))
+done
+echo "SPM server is ready on ${OTPROV_IP_SPM}:${OTPROV_PORT_SPM}."
