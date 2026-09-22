@@ -531,8 +531,6 @@ DLLEXPORT int GetCaCerts(ate_client_ptr client, const char* sku, size_t count,
       cert_label_name = "OSAT_ICA_DICE_MLDSA";
     } else if (label == "ext") {
       cert_label_name = "OSAT_ICA_EXT";
-    } else if (label == "ext_mldsa") {
-      cert_label_name = "OSAT_ICA_EXT_MLDSA";
     } else {
       LOG(ERROR) << "Unknown CA certificate label: " << label;
       return static_cast<int>(absl::StatusCode::kInvalidArgument);

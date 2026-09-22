@@ -173,6 +173,12 @@ func buildCaSubjectKeysJSON(keys [][]byte) ([]byte, error) {
 	for i, b := range keys[1] {
 		caKeys.ExtAuthKeyKeyId[i] = uint32(b)
 	}
+	if len(keys) >= 3 {
+		caKeys.DiceMldsaAuthKeyKeyId = make([]uint32, 20)
+		for i, b := range keys[2] {
+			caKeys.DiceMldsaAuthKeyKeyId[i] = uint32(b)
+		}
+	}
 	return json.Marshal(caKeys)
 }
 
@@ -256,7 +262,7 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 	// Retrieve CA subject key IDs.
 	subjectKeyLabels := []string{"UDS", "EXT"}
 	if *enableMLDSADice && dut.SupportsMLDSA() {
-		subjectKeyLabels = append(subjectKeyLabels, "UDS_MLDSA", "EXT_MLDSA")
+		subjectKeyLabels = append(subjectKeyLabels, "PQ_UDS_44", "PQ_UDS_87")
 	}
 	caKeysReq := &pbp.GetCaSubjectKeysRequest{
 		Sku:        skuName,
@@ -300,7 +306,7 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 		Bundles:     []*pbp.EndorseCertBundle{},
 	}
 	for _, tbsCert := range persoBlob.X509TbsCerts {
-		if strings.Contains(tbsCert.KeyLabel, "MLDSA") {
+		if tbsCert.KeyLabel == "PQ_UDS_44" || tbsCert.KeyLabel == "PQ_UDS_87" {
 			// Sign with MLDSA
 			endorseReq.Bundles = append(endorseReq.Bundles, &pbp.EndorseCertBundle{
 				KeyParams: &pbc.SigningKeyParams{
@@ -352,9 +358,6 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 	if *enableMLDSADice && dut.SupportsMLDSA() {
 		caCertLabels = append(caCertLabels, "root_mldsa")
 		caCertLabels = append(caCertLabels, "dice_mldsa")
-		if skuName != "sival_pqc" {
-			caCertLabels = append(caCertLabels, "ext_mldsa")
-		}
 	}
 	caCertsReq := &pbp.GetCaCertsRequest{
 		Sku:        skuName,

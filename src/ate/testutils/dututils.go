@@ -243,7 +243,7 @@ func (d *Dut) ExpectedExtCerts(mldsa bool) (int, error) {
 
 		consumed := numDiceCerts
 		if mldsa && skuSupportsMldsa {
-			consumed += 1 // UDS_MLDSA
+			consumed += 2 // PQ_UDS_44 and PQ_UDS_87
 		}
 
 		if d.skuConfig.CertCountX509 < consumed {
@@ -251,9 +251,6 @@ func (d *Dut) ExpectedExtCerts(mldsa bool) (int, error) {
 		}
 
 		remaining := d.skuConfig.CertCountX509 - consumed
-		if mldsa && skuSupportsMldsa {
-			return remaining / 2, nil
-		}
 		return remaining, nil
 	}
 	return 0, nil
@@ -266,7 +263,7 @@ func (d *Dut) BuildTbsCerts(mldsa bool) error {
 	// Generate TBS certificates for the DUT. This requires accessing the HSM.
 	certLabels := []string{"UDS"}
 	if mldsa && skuSupportsMldsa {
-		certLabels = append(certLabels, "UDS_MLDSA")
+		certLabels = append(certLabels, "PQ_UDS_44", "PQ_UDS_87")
 	}
 
 	numExtCerts, err := d.ExpectedExtCerts(mldsa)
@@ -276,11 +273,6 @@ func (d *Dut) BuildTbsCerts(mldsa bool) error {
 
 	for i := 0; i < numExtCerts; i++ {
 		certLabels = append(certLabels, fmt.Sprintf("EXT_%d", i))
-	}
-	if mldsa && skuSupportsMldsa {
-		for i := 0; i < numExtCerts; i++ {
-			certLabels = append(certLabels, fmt.Sprintf("EXT_MLDSA_%d", i))
-		}
 	}
 
 	tbsCerts, privKeys, err := tbsgen.BuildTestTBSCerts(d.skuMgr, d.skuName, certLabels)
