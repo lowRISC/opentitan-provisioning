@@ -401,12 +401,12 @@ func (s *server) GetCaSubjectKeys(ctx context.Context, request *pbp.GetCaSubject
 		var kl string
 		if label == "UDS" {
 			kl = "SigningKey/Dice/v0"
-		} else if label == "UDS_MLDSA" {
+		} else if label == "PQ_UDS_44" || label == "PQ_UDS_87" {
 			kl = "SigningKey/Dice/Mldsa/v0"
 		} else if label == "EXT" {
 			kl = "SigningKey/Ext/v0"
 		} else {
-			kl = "SigningKey/Ext/Mldsa/v0"
+			return nil, status.Errorf(codes.InvalidArgument, "unsupported certificate label %q", label)
 		}
 
 		cert, ok := sku.Certs[kl]
@@ -442,8 +442,6 @@ func (s *server) GetCaCerts(ctx context.Context, request *pbp.GetCaCertsRequest)
 			kl = "SigningKey/Dice/Mldsa/v0"
 		} else if label == "ext" {
 			kl = "SigningKey/Ext/v0"
-		} else if label == "ext_mldsa" {
-			kl = "SigningKey/Ext/Mldsa/v0"
 		} else if label == "root" {
 			kl = "RootCA"
 		} else if label == "root_mldsa" {
@@ -529,16 +527,10 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 
 		var kl string
 		if bundle.KeyParams.KeyLabel == "UDS" {
-			switch bundle.KeyParams.Key.(type) {
-			case *pbc.SigningKeyParams_MldsaParams:
-				kl = "SigningKey/Dice/Mldsa/v0"
-			default:
-				kl = "SigningKey/Dice/v0"
-			}
-		} else if bundle.KeyParams.KeyLabel == "UDS_MLDSA" {
+			kl = "SigningKey/Dice/v0"
+		} else if bundle.KeyParams.KeyLabel == "PQ_UDS_44" ||
+			bundle.KeyParams.KeyLabel == "PQ_UDS_87" {
 			kl = "SigningKey/Dice/Mldsa/v0"
-		} else if strings.HasPrefix(bundle.KeyParams.KeyLabel, "EXT_MLDSA") {
-			kl = "SigningKey/Ext/Mldsa/v0"
 		} else {
 			kl = "SigningKey/Ext/v0"
 		}
@@ -725,9 +717,6 @@ func (s *server) VerifyDeviceData(ctx context.Context, request *pbs.VerifyDevice
 	if ok {
 		extIntermediates.AddCert(extICA)
 	}
-	if extMldsaICA, ok := sku.Certs["SigningKey/Ext/Mldsa/v0"]; ok {
-		extIntermediates.AddCert(extMldsaICA)
-	}
 
 	certChainDiceLeaf, err := sku.Config.GetUnsafeAttribute(skucfg.AttrNameCertChainDiceLeaf)
 	if err != nil {
@@ -772,7 +761,7 @@ func (s *server) VerifyDeviceData(ctx context.Context, request *pbs.VerifyDevice
 			} else {
 				diceIntermediates.AddCert(certObj)
 			}
-		case "UDS_MLDSA":
+		case "PQ_UDS_44", "PQ_UDS_87":
 			diceCerts = append(diceCerts, certObj)
 		case "CDI_0":
 			if certChainDiceLeaf == "CDI_0" {
@@ -798,20 +787,6 @@ func (s *server) VerifyDeviceData(ctx context.Context, request *pbs.VerifyDevice
 	// Verify the EXT certificate chains.
 	if len(extCerts) > 0 {
 		for i, ext := range extCerts {
-			// Only verify if the signature algorithm is supported by Go's x509 library.
-			// MLDSA certificates will have an UnknownSignatureAlgorithm.
-			if ext.SignatureAlgorithm == x509.UnknownSignatureAlgorithm {
-				// For MLDSA, we verify the signature using the HSM.
-				// We assume the issuer is the MLDSA EXT CA.
-				keyLabel, err := sku.Config.GetUnsafeAttribute("SigningKey/Ext/Mldsa/v0")
-				if err != nil {
-					return nil, status.Errorf(codes.Internal, "could not get HSM label for SigningKey/Ext/Mldsa/v0: %v", err)
-				}
-				if err := sku.SeHandle.VerifyMLDSASignature(keyLabel, ext.RawTBSCertificate, ext.Signature); err != nil {
-					return nil, status.Errorf(codes.InvalidArgument, "%q MLDSA certificate verification failed: %v", extNames[i], err)
-				}
-				continue
-			}
 			_, err := ext.Verify(x509.VerifyOptions{
 				Roots:         roots,
 				Intermediates: extIntermediates,

@@ -265,7 +265,7 @@ int main(int argc, char** argv) {
   };
   if (absl::GetFlag(FLAGS_enable_mldsa_dice)) {
     ica_cert_labels.push_back("PQ_UDS_44");
-    ica_cert_labels.push_back("EXT_MLDSA");
+    ica_cert_labels.push_back("PQ_UDS_87");
   }
 
   std::vector<ca_subject_key_t> key_ids(ica_cert_labels.size());
@@ -405,14 +405,22 @@ int main(int argc, char** argv) {
     ca_certs = dice_ca_certs;
   }
 
-  // Send the endorsed certs back to the device.
+  // Send the endorsed certs back to the device (excluding PQ_UDS_87, which is
+  // endorsed and sent to the registry, but not written to DUT flash).
+  std::vector<endorse_cert_response_t> certs_for_dut;
+  for (size_t i = 0; i < num_tbs_certs; ++i) {
+    if (std::string_view(pa_endorsed_certs[i].key_label,
+                         pa_endorsed_certs[i].key_label_size) != "PQ_UDS_87") {
+      certs_for_dut.push_back(pa_endorsed_certs[i]);
+    }
+  }
   perso_blob_t perso_blob_from_ate = {0};
   constexpr size_t kNumPersoBlobMaxNumSpiFrames = 1200;
   std::unique_ptr<dut_spi_frame_t[]> perso_blob_from_ate_spi_frames(
       new dut_spi_frame_t[kNumPersoBlobMaxNumSpiFrames]);
   size_t num_perso_blob_spi_frames = kNumPersoBlobMaxNumSpiFrames;
-  if (PackPersoBlob(num_tbs_certs, pa_endorsed_certs, num_ca_certs, ca_certs,
-                    &perso_blob_from_ate) != 0) {
+  if (PackPersoBlob(certs_for_dut.size(), certs_for_dut.data(), num_ca_certs,
+                    ca_certs, &perso_blob_from_ate) != 0) {
     LOG(ERROR) << "Failed to repack the perso blob.";
     return -1;
   }
