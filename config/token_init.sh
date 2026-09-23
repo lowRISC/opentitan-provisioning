@@ -282,6 +282,7 @@ function action_offline_ca_root_certgen() {
     echo "Action 'offline-ca-root-certgen' does not support --show." >&2
     exit 1
   fi
+  export OTPROV_GEM_SLOT_CERT_OPS="${OTPROV_GEM_SLOT_OFFLINE}"
   # Generate Root Certificate.
   run_hsm_init "${EG_COMMON_DIR}/ca_root_certgen.bash" "${CA_OFFLINE_ARGS[@]}" \
     --output_tar "${EG_COMMON_DIR}/${HSM_CA_ROOT_CERTS_TAR_GZ}"
@@ -292,6 +293,7 @@ function action_spm_sku_csr() {
     echo "Action 'spm-sku-csr' does not support --show." >&2
     exit 1
   fi
+  export OTPROV_GEM_SLOT_CERT_OPS="${OTPROV_GEM_SLOT_SPM}"
   # Export Intermediate CA CSRs from SPM HSM.
   for i in "${!SKU_DIRS[@]}"; do
     run_hsm_init "${SKU_DIRS[i]}/${CA_CERTGEN_SCRIPTS[i]}" "${CA_SPM_ARGS[@]}" \
@@ -305,6 +307,7 @@ function action_offline_sku_certgen() {
     echo "Action 'offline-sku-certgen' does not support --show." >&2
     exit 1
   fi
+  export OTPROV_GEM_SLOT_CERT_OPS="${OTPROV_GEM_SLOT_OFFLINE}"
   # Endorse Intermediate CA CSRs in offline HSM.
   for i in "${!SKU_DIRS[@]}"; do
     run_hsm_init "${SKU_DIRS[i]}/${CA_CERTGEN_SCRIPTS[i]}" "${CA_OFFLINE_ARGS[@]}" \
