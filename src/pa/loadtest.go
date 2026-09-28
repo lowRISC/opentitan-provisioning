@@ -350,7 +350,7 @@ func processDut(ctx context.Context, c *clientTask, skuName string, dut *dututil
 
 	// Get CA certificates.
 	var caCertLabels []string
-	if skuName == "sival" || skuName == "ti01" || skuName == "sival_pqc" {
+	if skuName == "sival" || skuName == "ti01" || skuName == "ti04" || skuName == "sival_pqc" {
 		caCertLabels = []string{"dice", "root"}
 	} else {
 		caCertLabels = []string{"dice", "ext", "root"}

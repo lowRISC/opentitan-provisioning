@@ -128,7 +128,7 @@ in
 
           SKUS=(--sku sival --sku cr01 --sku pi01 --sku ti01)
           if [ -d /var/lib/opentitan/config/spm/sku/sival_pqc ]; then
-            SKUS+=(--sku sival_pqc)
+            SKUS+=(--sku sival_pqc --sku ti04)
           fi
 
           /var/lib/opentitan/config/token_init.sh --action spm-init

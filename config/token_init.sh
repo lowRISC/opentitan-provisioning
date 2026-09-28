@@ -142,6 +142,7 @@ declare -A SKU_TO_DIR=(
   ["cr01"]="${EG_CR_DIR}"
   ["pi01"]="${EG_PI_DIR}"
   ["ti01"]="${EG_TI_DIR}"
+  ["ti04"]="${EG_TI_DIR}"
 )
 
 declare -A SKU_TO_KEYGEN_SCRIPT=(
@@ -150,6 +151,7 @@ declare -A SKU_TO_KEYGEN_SCRIPT=(
   ["cr01"]="cr01_spm_ca_keygen.bash"
   ["pi01"]="pi01_spm_ca_keygen.bash"
   ["ti01"]="ti01_spm_ca_keygen.bash"
+  ["ti04"]="ti04_spm_ca_keygen.bash"
 )
 
 declare -A SKU_TO_CERTGEN_SCRIPT=(
@@ -158,6 +160,7 @@ declare -A SKU_TO_CERTGEN_SCRIPT=(
   ["cr01"]="cr01_ca_intermediate_certgen.bash"
   ["pi01"]="pi01_ca_intermediate_certgen.bash"
   ["ti01"]="ti01_ca_intermediate_certgen.bash"
+  ["ti04"]="ti04_ca_intermediate_certgen.bash"
 )
 
 SKU_DIRS=()

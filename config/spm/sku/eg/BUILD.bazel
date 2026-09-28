@@ -9,6 +9,11 @@ filegroup(
         "//config/spm/sku/eg/cr:cr01_release",
         "//config/spm/sku/eg/pi:pi01_release",
         "//config/spm/sku/eg/ti:ti01_release",
-    ],
+    ] + select({
+        "//:pq_enabled": [
+            "//config/spm/sku/eg/ti:ti04_release",
+        ],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
 )

@@ -17,7 +17,7 @@ source util/integration_test_setup.sh
 
 SKU_NAMES="sival,cr01,pi01,ti01"
 if [[ -n "${OT_PROV_PQ_EN}" ]]; then
-  SKU_NAMES="${SKU_NAMES},sival_pqc"
+  SKU_NAMES="${SKU_NAMES},sival_pqc,ti04"
 fi
 
 # Run the PA loadtest.

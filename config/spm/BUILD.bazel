@@ -32,6 +32,11 @@ envsubst_template(
 )
 
 envsubst_template(
+    name = "sku_ti04",
+    template = ":sku_ti04.yml.tmpl",
+)
+
+envsubst_template(
     name = "sku_sival_pqc",
     template = ":sku_sival_pqc.yml.tmpl",
 )
@@ -48,6 +53,7 @@ filegroup(
     ] + select({
         "//:pq_enabled": [
             ":sku_sival_pqc",
+            ":sku_ti04",
         ],
         "//conditions:default": [],
     }),
