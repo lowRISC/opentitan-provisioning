@@ -7,6 +7,7 @@ load(
     "hsm_certgen",
     "hsm_certgen_tar",
     "hsm_certificate_authority_intermediate",
+    "hsm_certificate_authority_intermediate_mldsa",
     "hsm_config_tar",
 )
 load(
@@ -21,6 +22,10 @@ hsm_certificate_authority_intermediate(
     curve = HSMTOOL_CONST.ECC_CURVE.PRIME256V1,
 )
 
+hsm_certificate_authority_intermediate_mldsa(
+    name = "ti04-ica-dice-key-mldsa-v0",
+)
+
 hsm_certgen(
     name = "ti01_ca_int_dice",
     ca_key = "//config/spm/sku/eg/common:opentitan-ca-root-v0",
@@ -28,10 +33,24 @@ hsm_certgen(
     key = ":ti01-ica-dice-key-p256-v0",
 )
 
+hsm_certgen(
+    name = "ti04_ca_int_dice",
+    ca_key = "//config/spm/sku/eg/common:opentitan-mldsa-ca-root-v0",
+    config = ":ca_int_dice.conf",
+    key = ":ti04-ica-dice-key-mldsa-v0",
+)
+
 hsm_config_tar(
     name = "ti01_spm_ca_keygen",
     hsmtool_sequence = {
         ":ti01-ica-dice-key-p256-v0": "keygen",
+    },
+)
+
+hsm_config_tar(
+    name = "ti04_spm_ca_keygen",
+    hsmtool_sequence = {
+        ":ti04-ica-dice-key-mldsa-v0": "keygen",
     },
 )
 
@@ -42,11 +61,27 @@ hsm_certgen_tar(
     ],
 )
 
+hsm_certgen_tar(
+    name = "ti04_ca_intermediate_certgen",
+    certs = [
+        ":ti04_ca_int_dice",
+    ],
+)
+
 filegroup(
     name = "ti01_release",
     srcs = [
         ":ca_int_dice.conf",
         ":ti01_ca_intermediate_certgen",
         ":ti01_spm_ca_keygen",
+    ],
+)
+
+filegroup(
+    name = "ti04_release",
+    srcs = [
+        ":ca_int_dice.conf",
+        ":ti04_ca_intermediate_certgen",
+        ":ti04_spm_ca_keygen",
     ],
 )

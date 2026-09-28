@@ -141,7 +141,7 @@ let
           " --client_key=${cryptoAssets.pqCerts}/ate-client-key.pem"
           " --spm_config_dir=/var/lib/opentitan/config"
           " --hsm_so=${testPkgs.softhsm}/lib/softhsm/libsofthsm2.so"
-          " --sku_names=sival,cr01,pi01,ti01,sival_pqc"
+          " --sku_names=sival,cr01,pi01,ti01,sival_pqc,ti04"
           " --parallel_clients=5"
           " --total_duts=10"
           " --sku_auth=test_password"

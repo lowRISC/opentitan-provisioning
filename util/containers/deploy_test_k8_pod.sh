@@ -62,7 +62,7 @@ if [ -f "${TOKEN_INIT_SCRIPT}" ]; then
     export DEPLOY_ENV="${DEPLOY_ENV}"
     SKUS="--sku sival --sku cr01 --sku pi01 --sku ti01"
     if [[ -n "${OT_PROV_PQ_EN}" ]]; then
-        SKUS="${SKUS} --sku sival_pqc"
+        SKUS="${SKUS} --sku sival_pqc --sku ti04"
     fi
 
     if [[ "${DEPLOY_ENV}" == "dev" ]]; then
