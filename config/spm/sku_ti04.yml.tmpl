@@ -33,6 +33,9 @@ attributes:
     WASDisable: false
     WrappingMechanism: ${OTPROV_WrappingMechanism}
     WrappingKeyLabel: sku-eg-rsa-rma-v0.pub
+    SecondLayerWrappingMechanism: Hpke
+    HPKEPQPublicKeyPath: sku/eg/ti/ca/hpke_mlkem.pub
+    HPKEClassicalPublicKeyPath: sku/eg/ti/ca/hpke_ecdsa.pub.der
     SigningKey/Dice/v0: ti01-ica-dice-key-p256-v0.priv
     SigningKey/Dice/Mldsa/v0: ti04-ica-dice-key-mldsa-v0.priv
     SigningKey/Identity/v0: spm-hsm-id-v0.priv
