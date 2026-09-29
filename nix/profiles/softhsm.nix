@@ -140,10 +140,12 @@ in
           /var/lib/opentitan/config/token_init.sh --action offline-sku-certgen "''${SKUS[@]}"
         fi
 
-        # Copy HPKE keys for sival_pqc if staged in /var/lib/opentitan/release/hpke
+        # Copy HPKE keys for sival_pqc and ti04 if staged in /var/lib/opentitan/release/hpke
         if [ -d /var/lib/opentitan/release/hpke ] && [ -d /var/lib/opentitan/config/spm/sku/sival_pqc ]; then
           mkdir -p /var/lib/opentitan/config/spm/sku/sival_pqc/ca
           cp -f /var/lib/opentitan/release/hpke/* /var/lib/opentitan/config/spm/sku/sival_pqc/ca/
+          mkdir -p /var/lib/opentitan/config/spm/sku/eg/ti/ca
+          cp -f /var/lib/opentitan/release/hpke/* /var/lib/opentitan/config/spm/sku/eg/ti/ca/
         fi
 
         # 5. Ensure SKU config files and directories are linked into /var/lib/opentitan/config for spm_server

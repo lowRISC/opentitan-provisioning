@@ -140,8 +140,9 @@ chmod +x "${DEPLOYMENT_BIN_DIR}"/openocd
 
 if [[ -n "${OT_PROV_PQ_EN}" ]]; then
   echo "Generating test HPKE keys..."
-  mkdir -p "${DEPLOYMENT_DIR}/spm/sku/sival_pqc/ca/"
+  mkdir -p "${DEPLOYMENT_DIR}/spm/sku/sival_pqc/ca/" "${DEPLOYMENT_DIR}/spm/sku/eg/ti/ca/"
   bazelisk run //util:generate_test_hpke_keys -- "${DEPLOYMENT_DIR}/spm/sku/sival_pqc/ca/"
+  cp -f "${DEPLOYMENT_DIR}/spm/sku/sival_pqc/ca/hpke_"* "${DEPLOYMENT_DIR}/spm/sku/eg/ti/ca/"
 fi
 
 # Build the SPM server synchronously before launching it in the background so
