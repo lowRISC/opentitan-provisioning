@@ -15,7 +15,7 @@ single_version_override(
     module_name = "abseil-cpp",
     version = "20240722.0.bcr.1",
 )
-bazel_dep(name = "bazel_skylib", version = "1.8.1")
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "googletest", version = "1.15.2", repo_name = "com_google_googletest")
 single_version_override(
     module_name = "googletest",
@@ -31,7 +31,7 @@ bazel_dep(name = "upb", version = "0.0.0-20230907-e7430e6")
 
 bazel_dep(name = "rules_apple", version = "3.16.1")
 bazel_dep(name = "rules_swift", version = "2.1.1", repo_name = "build_bazel_rules_swift")
-bazel_dep(name = "rules_cc", version = "0.1.2")
+bazel_dep(name = "rules_cc", version = "0.2.19")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
 bazel_dep(name = "rules_proto", version = "7.0.2")
 bazel_dep(name = "aspect_rules_lint", version = "1.0.8")
@@ -88,16 +88,13 @@ archive_override(
     urls = ["https://github.com/lowRISC/opentitan/archive/refs/tags/Earlgrey-A2-Orchestrator-RC4.tar.gz"],
 )
 
-# OpenTitan at HEAD for hsmtool
-http_archive(
-    name = "lowrisc_opentitan_head",
-    integrity = "sha256-FDGAr+6VAVnlMet3TA9f0gX3Ho/0zkogaIpXD/GMFgg=",
-    patch_cmds = [
-        "find . -type f \\( -name BUILD -o -name \"*.bazel\" -o -name \"*.bzl\" \\) -exec sed -i 's|@crate_index|@hsmtool_head_index|g' {} +",
-        "sed -i '1s/^/#![feature(let_chains)]\\n/' sw/host/hsmtool/src/lib.rs",
-    ],
-    strip_prefix = "opentitan-9d860390d78396493feaf5649d4237c11cb26310",
-    urls = ["https://github.com/lowRISC/opentitan/archive/9d860390d78396493feaf5649d4237c11cb26310.tar.gz"],
+# OpenTitan Signing Infrastructure (hsmtool)
+bazel_dep(name = "opentitan_signing_infra", version = "0.0.0")
+archive_override(
+    module_name = "opentitan_signing_infra",
+    integrity = "sha256-v7WqgkRbp0J9xz9PRTF+935XE2aQBKO37eajLUtIOQ8=",
+    strip_prefix = "opentitan-signing-infra-2026-09-03-release-1",
+    urls = ["https://github.com/lowRISC/opentitan-signing-infra/archive/refs/tags/2026-09-03-release-1.tar.gz"],
 )
 
 # -------------------------------------------------------------------------
@@ -244,6 +241,29 @@ single_version_override(
     version = "0.59.2",
 )
 
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.repository_set(
+    name = "rust_host",
+    edition = "2021",
+    exec_triple = "x86_64-unknown-linux-gnu",
+    sha256s = {
+        "2025-09-18/rustc-nightly-x86_64-unknown-linux-gnu.tar.xz": "3697c632f64ad996dfc4b8c826b6332ea51504319fef544f1d763b7644ff4cee",
+        "2025-09-18/clippy-nightly-x86_64-unknown-linux-gnu.tar.xz": "aff1e22238eadb53c72912631e06e61e038bd498d228a329e734939500ff067a",
+        "2025-09-18/cargo-nightly-x86_64-unknown-linux-gnu.tar.xz": "eeb668d8fd913cbc21b6d3691af7c5488b12d3e0a57535638aca3ffa25d1f1cd",
+        "2025-09-18/llvm-tools-nightly-x86_64-unknown-linux-gnu.tar.xz": "cd30d2990a70cf76ca8cfa368c09aa8c5cda615deef3862197a9a847534fc23b",
+        "2025-09-18/rust-std-nightly-x86_64-unknown-linux-gnu.tar.xz": "f5c86f20f71f0ae3a42f2bfc41791e7615aa2e239276b57506a0db0ce471c253",
+    },
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    target_triple = "x86_64-unknown-linux-gnu",
+    versions = ["nightly/2025-09-18"],
+)
+use_repo(rust, "rust_toolchains")
+
+register_toolchains("@rust_toolchains//:all")
+
 crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
 crate.from_cargo(
     name = "provisioning_index",
@@ -251,42 +271,7 @@ crate.from_cargo(
     manifests = ["@lowrisc_opentitan//third_party/rust:Cargo.toml"],
     supported_platform_triples = ["x86_64-unknown-linux-gnu"],
 )
-crate.from_cargo(
-    name = "hsmtool_head_index",
-    cargo_lockfile = "@lowrisc_opentitan_head//third_party/rust:Cargo.lock",
-    manifests = ["@lowrisc_opentitan_head//third_party/rust:Cargo.toml"],
-    supported_platform_triples = ["x86_64-unknown-linux-gnu"],
-)
-crate.annotation(
-    crate = "cryptoki",
-    repositories = ["hsmtool_head_index"],
-)
-crate.annotation(
-    additive_build_file_content = """
-        filegroup(
-            name = "cryptoki-sys-binding-srcs",
-            srcs = [
-                "src/bindings/x86_64-unknown-linux-gnu.rs",
-            ],
-            visibility = ["//visibility:public"],
-        )
-    """,
-    crate = "cryptoki-sys",
-    extra_aliased_targets = {
-        "cryptoki-sys-binding-srcs": "cryptoki-sys-binding-srcs",
-    },
-    repositories = ["hsmtool_head_index"],
-)
-crate.annotation(
-    build_script_env = {
-        "PKG_CONFIG_PATH": "$(OPENSSL_PKG_CONFIG_PATH)",
-        "OPENSSL_STATIC": "1",
-    },
-    build_script_toolchains = ["@lowrisc_opentitan_head//third_party/rust:openssl_pkg_config_path"],
-    crate = "openssl-sys",
-    repositories = ["hsmtool_head_index"],
-)
-use_repo(crate, "crate_index", "hsmtool_head_index", "provisioning_index")
+use_repo(crate, "crate_index", "provisioning_index")
 
 register_toolchains("@lowrisc_opentitan//third_party/rust:bindgen_toolchain")
 
@@ -438,16 +423,4 @@ use_repo(
     "sphincsplus_fips205_ipd",
     "sphincsplus_sha256_kat",
     "sphincsplus_shake256_kat",
-)
-
-# -------------------------------------------------------------------------
-# Rust Extensions
-# -------------------------------------------------------------------------
-
-http_archive(
-    name = "lowrisc_serde_annotate",
-    integrity = "sha256-pT+WAj/aVJADXzwHjNmKXIDh+7yWiy8ti8dENmDb7z4=",
-    patch_cmds = ["find . -type f \\( -name BUILD -o -name \"*.bazel\" -o -name \"*.bzl\" \\) -exec sed -i 's|@crate_index|@hsmtool_head_index|g' {} +"],
-    strip_prefix = "serde-annotate-0.0.13",
-    url = "https://github.com/lowRISC/serde-annotate/archive/refs/tags/v0.0.13.tar.gz",
 )
