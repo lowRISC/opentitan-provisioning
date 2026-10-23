@@ -81,11 +81,52 @@ archive_override(
 bazel_dep(name = "lowrisc_opentitan")
 archive_override(
     module_name = "lowrisc_opentitan",
-    integrity = "sha256-dlAOmYr6B0VvdsvDoDQkM1GM3Fc9qYxgmEnXQG+d07k=",
+    integrity = "sha256-+3AXVnRhryirCw0jYnBiGJSCMx2xBwyuS+E2U6TTFmo=",
     patch_strip = 0,
     patches = ["third_party/lowrisc/lowrisc_opentitan_libclang.patch"],
-    strip_prefix = "opentitan-Earlgrey-A2-Orchestrator-RC4",
-    urls = ["https://github.com/lowRISC/opentitan/archive/refs/tags/Earlgrey-A2-Orchestrator-RC4.tar.gz"],
+    strip_prefix = "opentitan-Earlgrey-A2-Provisioning-RC18",
+    urls = ["https://github.com/lowRISC/opentitan/archive/refs/tags/Earlgrey-A2-Provisioning-RC18.tar.gz"],
+)
+
+# Provisioning extension module, use --override_module to point to the non-dummy implementation.
+# See sw/device/silicon_creator/manuf/extensions/README.md#customizing-ft-provisioning-flows
+bazel_dep(name = "ot_provisioning_exts", version = "1.0.1")
+
+# Dummy repository, can be overriden on the command-line to point to ot-sku
+archive_override(
+    module_name = "ot_provisioning_exts",
+    integrity = "sha256-+3AXVnRhryirCw0jYnBiGJSCMx2xBwyuS+E2U6TTFmo=",
+    strip_prefix = "opentitan-Earlgrey-A2-Provisioning-RC18/sw/device/silicon_creator/manuf/extensions",
+    urls = ["https://github.com/lowRISC/opentitan/archive/refs/tags/Earlgrey-A2-Provisioning-RC18.tar.gz"],
+)
+
+# We import the repo rule.
+provisioning_exts_hook = use_repo_rule("@ot_provisioning_exts//:hook.bzl", "hook")
+
+# Crucially, this repository is injected into the OT module so it can freely depend on everything the OT repo depends on.
+# At the same time, it can also depend on everything in @ot_provisioning_exts, which can contain arbitrary stuff.
+provisioning_exts_hook(name = "provisioning_exts")
+
+ot_crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
+ot_crate.from_cargo(
+    name = "ot_crate_index_override_opentitan_provisioning",
+    cargo_lockfile = "@lowrisc_opentitan//third_party/rust:Cargo.lock",
+    manifests = ["@lowrisc_opentitan//third_party/rust:Cargo.toml"],
+)
+ot_crate.annotation(
+    crate = "libudev-sys",
+    patch_args = ["-p1"],
+    patches = ["@lowrisc_opentitan//third_party/rust/patches:libudev-sys-0.1.4.patch"],
+    repositories = ["ot_crate_index_override_opentitan_provisioning"],
+)
+inject_repo(
+    ot_crate,
+    ot_openssl = "openssl",
+)
+use_repo(ot_crate, "ot_crate_index_override_opentitan_provisioning")
+override_repo(
+    ot_crate,
+    crate_index = "ot_crate_index_override_opentitan_provisioning",
 )
 
 # OpenTitan Signing Infrastructure (hsmtool)
