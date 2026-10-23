@@ -720,7 +720,7 @@ hsm_config_script = rule(
             allow_single_file = True,
         ),
         "_hsmtool": attr.label(
-            default = "@lowrisc_opentitan_head//sw/host/hsmtool",
+            default = "@opentitan_signing_infra//hsmtool",
             allow_single_file = True,
             cfg = "exec",
             executable = True,
@@ -836,7 +836,7 @@ hsm_certgen_script = rule(
             allow_single_file = True,
         ),
         "_hsmtool": attr.label(
-            default = "@lowrisc_opentitan_head//sw/host/hsmtool",
+            default = "@opentitan_signing_infra//hsmtool",
             allow_single_file = True,
             cfg = "exec",
             executable = True,

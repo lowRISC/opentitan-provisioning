@@ -80,7 +80,7 @@ pkg_tar(
     name = "hsmutils",
     srcs = [
         "//third_party/openssl:openssl_bin",
-        "@lowrisc_opentitan_head//sw/host/hsmtool",
+        "@opentitan_signing_infra//hsmtool",
     ],
     extension = "tar.xz",
 )

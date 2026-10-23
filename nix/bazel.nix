@@ -12,7 +12,7 @@ let
   # 1. Temporarily replace sha256Hash with pkgs.lib.fakeHash (or "").
   # 2. Run: nix build path:.#all
   # 3. Copy the computed SHA-256 mismatch hash back here.
-  sha256Hash = "sha256-0k8kErJBVYKmQXGPEdFUFJQVnKCUIx92KPXdkBqBf+Q=";
+  sha256Hash = "sha256-6i7EovGL2VjXOEoyTFrfK2RV1+2eKgRmfW9qOlph4yQ=";
 
   # Full source tree for Stage 3 builds (services and testBinaries).
   rawSource = pkgs.lib.cleanSourceWith {
@@ -75,7 +75,6 @@ let
     cd $out
     rm -f .bazelversion MODULE.bazel.lock
     sed -i 's|register_toolchains("@llvm_toolchain_host//:all")|# register_toolchains("@llvm_toolchain_host//:all")|g' MODULE.bazel
-    sed -i 's|"OPENSSL_STATIC": "1"|"OPENSSL_STATIC": "0"|g' MODULE.bazel
     cat << 'EOF' > util/get_workspace_status.sh
 #!/bin/sh
 echo "BUILD_SCM_REVISION 0.1.0"
@@ -297,7 +296,6 @@ for root, dirs, files in os.walk("src"):
   commonCommandArgs = [
     "--define=env=dev"
     "--define=pq=true"
-    "--@lowrisc_opentitan_head//third_party/rust:openssl_pkg_config_path=${pkgs.openssl.dev}/lib/pkgconfig:${pkgs.systemd.dev}/lib/pkgconfig"
     "--action_env=PATH=${actionPath}:/bin:/usr/bin"
     "--host_action_env=PATH=${actionPath}:/bin:/usr/bin"
     "--action_env=PKG_CONFIG=${pkgs.pkg-config.pkg-config}/bin/pkg-config"
@@ -359,7 +357,7 @@ for root, dirs, files in os.walk("src"):
       "//src/pa:loadtest"
       "//src/ate/test_programs:tls_test"
       "//src/spm/services/testutils:tbsgen"
-      "@lowrisc_opentitan_head//sw/host/hsmtool"
+      "@opentitan_signing_infra//hsmtool"
       "//config:release"
     ];
     nativeBuildInputs = commonNativeBuildInputs ++ [ stripVendorRefsHook ];
@@ -464,7 +462,7 @@ print(f"Materialized {len(elfs)} ELF binaries for autoPatchelf")
   # Stage 2.5: Pre-warmed Bazel disk cache & external binary derivation.
   # Built from cleanedVendorSource (which excludes code in src/), so this derivation
   # NEVER rebuilds when Go/Rust/C++ files in src/ are edited.
-  # Pre-compiles @lowrisc_opentitan_head//sw/host/hsmtool (300+ Rust crates),
+  # Pre-compiles @opentitan_signing_infra//hsmtool (Rust crates),
   # SQLite, gRPC, Protobuf, C++ Abseil, and all .proto generated targets.
   bazelDepsCache = buildBazel8Derivation {
     name = "opentitan-provisioning-bazel-deps-cache";
@@ -484,7 +482,7 @@ print(f"Materialized {len(elfs)} ELF binaries for autoPatchelf")
       "--disk_cache=/build/disk_cache"
     ];
     targets = [
-      "@lowrisc_opentitan_head//sw/host/hsmtool"
+      "@opentitan_signing_infra//hsmtool"
       "@org_modernc_sqlite//:sqlite"
       "@org_golang_google_grpc//:grpc"
       "@com_google_protobuf//:protoc"
@@ -501,7 +499,7 @@ print(f"Materialized {len(elfs)} ELF binaries for autoPatchelf")
     '';
     installPhase = ''
       mkdir -p $out/bin
-      cp bazel-bin/external/*lowrisc_opentitan_head*/sw/host/hsmtool/hsmtool $out/bin/hsmtool
+      cp bazel-bin/external/*opentitan_signing_infra*/hsmtool/hsmtool $out/bin/hsmtool
       chmod -R u+w /build/disk_cache
       tar -cf $out/disk_cache.tar -C /build/disk_cache .
     '';
