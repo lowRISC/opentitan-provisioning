@@ -12,7 +12,7 @@ let
   # 1. Temporarily replace sha256Hash with pkgs.lib.fakeHash (or "").
   # 2. Run: nix build path:.#all
   # 3. Copy the computed SHA-256 mismatch hash back here.
-  sha256Hash = "sha256-02zsMIPA3R1Pwkd4wzHu5c5m2/z72AWsyHHc8Bswhe0=";
+  sha256Hash = "sha256-6i7EovGL2VjXOEoyTFrfK2RV1+2eKgRmfW9qOlph4yQ=";
 
   # Full source tree for Stage 3 builds (services and testBinaries).
   rawSource = pkgs.lib.cleanSourceWith {
