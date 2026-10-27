@@ -12,16 +12,13 @@ use std::time::Duration;
 
 use anyhow::Result;
 use arrayvec::ArrayVec;
+use clap::{Args, FromArgMatches};
 use crc::{Crc, CRC_32_ISO_HDLC};
 use regex::Regex;
 
 use cp_lib::reset_and_lock;
 use opentitanlib::app::TransportWrapper;
 use opentitanlib::backend;
-use opentitanlib::backend::chip_whisperer::ChipWhispererOpts;
-use opentitanlib::backend::proxy::ProxyOpts;
-use opentitanlib::backend::ti50emulator::Ti50EmulatorOpts;
-use opentitanlib::backend::verilator::VerilatorOpts;
 use opentitanlib::bootstrap::{BootstrapOptions, BootstrapProtocol};
 use opentitanlib::console::spi::SpiConsoleDevice;
 use opentitanlib::dif::lc_ctrl::{DifLcCtrlState, LcCtrlReg};
@@ -53,48 +50,16 @@ pub struct DutSpiFrame {
 
 #[no_mangle]
 pub extern "C" fn OtLibFpgaTransportInit(fpga: *mut c_char) -> *const TransportWrapper {
-    // Unsupported backends.
-    let empty_proxy_opts = ProxyOpts {
-        proxy: None,
-        port: 0,
-    };
-    let empty_ti50emul_opts = Ti50EmulatorOpts {
-        instance_prefix: String::from(""),
-        executable_directory: PathBuf::from_str("").unwrap(),
-        executable: String::from(""),
-    };
-    let empty_verilator_opts = VerilatorOpts {
-        verilator_bin: String::from(""),
-        verilator_rom: String::from(""),
-        verilator_flash: vec![],
-        verilator_otp: String::from(""),
-        verilator_timeout: Duration::from_millis(0),
-        verilator_args: vec![],
-    };
-
     // SAFETY: The FPGA string must be defined by the caller and be valid.
     let fpga_cstr = unsafe { CStr::from_ptr(fpga) };
     let fpga_in = fpga_cstr.to_str().unwrap();
 
-    // Only the hyper310 backend is currently supported.
-    let backend_opts = backend::BackendOpts {
-        interface: String::from(fpga_in),
-        disable_dft_on_reset: false,
-        conf: vec![],
-        usb_vid: None,
-        usb_pid: None,
-        usb_serial: None,
-        opts: ChipWhispererOpts { uarts: None },
-        openocd_adapter_config: None,
-        // Unsupported backends.
-        verilator_opts: empty_verilator_opts,
-        proxy_opts: empty_proxy_opts,
-        ti50emulator_opts: empty_ti50emul_opts,
-        qemu_opts: Some(opentitanlib::backend::qemu::QemuOpts {
-            qemu_monitor_tty: None,
-            qemu_quit: false,
-        }),
-    };
+    let mut cmd = clap::Command::new("otlib_wrapper");
+    cmd = backend::BackendOpts::augment_args(cmd);
+    let matches = cmd
+        .try_get_matches_from(["otlib_wrapper", "--interface", fpga_in])
+        .unwrap();
+    let backend_opts = backend::BackendOpts::from_arg_matches(&matches).unwrap();
 
     // Create transport.
     let transport = backend::create(&backend_opts).unwrap();
@@ -250,6 +215,7 @@ pub extern "C" fn OtLibConsoleWaitForRx(
         &*spi,
         Some(device_console_tx_ready_pin),
         /*ignore_frame_num=*/ true,
+        /*interface=*/ None,
     )
     .unwrap();
 
@@ -301,6 +267,7 @@ pub extern "C" fn OtLibConsoleRx(
         &*spi,
         Some(device_console_tx_ready_pin),
         /*ignore_frame_num=*/ true,
+        /*interface=*/ None,
     )
     .unwrap();
 
@@ -409,6 +376,7 @@ pub extern "C" fn OtLibConsoleTx(
         &*spi,
         Some(device_console_tx_ready_pin),
         /*ignore_frame_num=*/ true,
+        /*interface=*/ None,
     )
     .unwrap();
 
