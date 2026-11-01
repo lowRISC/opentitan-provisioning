@@ -17,7 +17,8 @@ let
   defaultPinFile = pkgs.writeText "default-hsm-pin" "cryptoki";
   defaultSkuAuth = ../../config/spm/sku_auth.yml.tmpl;
   stateDir = "/var/lib/luna";
-  clientName = config.networking.hostName or "ClientName";
+  clientName = "192.168.100.1";
+  hsmServerIp = "192.168.100.2";
 
   # Seed Chrystoki.conf once; `vtl addServer` modifies it in-place afterwards.
   chrystokiSeed = pkgs.writeText "Chrystoki.conf" ''
@@ -52,12 +53,23 @@ let
       ClientCertFile = ${stateDir}/cert/client/${clientName}.pem;
       ClientPrivKeyFile = ${stateDir}/cert/client/${clientName}Key.pem;
       ServerCAFile = ${stateDir}/cert/server/CAFile.pem;
+      ServerName00 = ${hsmServerIp};
+      ServerPort00 = 1792;
+      ServerHtl00 = 0;
     }
   '';
 in
 {
   nixpkgs.config.allowUnfreePredicate = pkg:
     builtins.elem (lib.getName pkg) [ "luna-hsm-client" "610" ];
+
+  # Configure the USB-to-Ethernet interface (RTL8153) for direct point-to-point link to Luna HSM eth2
+  networking.interfaces.enp0s20f0u2.ipv4.addresses = lib.mkDefault [
+    {
+      address = clientName;
+      prefixLength = 24;
+    }
+  ];
 
   # Configure SPM to use Thales Luna PKCS#11 module and default PIN file
   services.opentitan-provisioning.spm.hsm = {
