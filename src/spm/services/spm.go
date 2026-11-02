@@ -331,10 +331,10 @@ func (s *server) DeriveTokens(ctx context.Context, request *pbp.DeriveTokensRequ
 					return nil, status.Errorf(codes.Internal, "PQ public key does not implement crypto.Encapsulator")
 				}
 			} else {
-				// Fallback for raw ML-KEM-768 key
-				pqEnc, err = mlkem.NewEncapsulationKey768(pqBytes)
+				// Fallback for raw ML-KEM-1024 key
+				pqEnc, err = mlkem.NewEncapsulationKey1024(pqBytes)
 				if err != nil {
-					return nil, status.Errorf(codes.Internal, "could not parse raw PQ public key (assumed ML-KEM-768): %v", err)
+					return nil, status.Errorf(codes.Internal, "could not parse raw PQ public key (assumed ML-KEM-1024): %v", err)
 				}
 			}
 
@@ -343,7 +343,7 @@ func (s *server) DeriveTokens(ctx context.Context, request *pbp.DeriveTokensRequ
 				return nil, status.Errorf(codes.Internal, "could not create HPKE hybrid public key: %v", err)
 			}
 
-			wrappedKey, err = hpke.Seal(hpkeHybridPub, hpke.HKDFSHA256(), hpke.AES256GCM(), []byte("token-seed-wrap"), wrappedKey)
+			wrappedKey, err = hpke.Seal(hpkeHybridPub, hpke.HKDFSHA384(), hpke.AES256GCM(), []byte("token-seed-wrap"), wrappedKey)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "could not HPKE seal the token seed: %v", err)
 			}

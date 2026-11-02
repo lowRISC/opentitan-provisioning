@@ -68,10 +68,10 @@ let
     nativeBuildInputs = [ pkgs.openssl ];
   } ''
     mkdir -p $out
-    openssl ecparam -name prime256v1 -genkey -noout -out ecdsa.key
+    openssl ecparam -name secp384r1 -genkey -noout -out ecdsa.key
     openssl ec -in ecdsa.key -pubout -outform DER -out $out/hpke_ecdsa.pub.der
 
-    openssl genpkey -algorithm mlkem768 -out mlkem.key
+    openssl genpkey -algorithm mlkem1024 -out mlkem.key
     openssl pkey -in mlkem.key -pubout -outform DER -out mlkem.pub.der
     openssl asn1parse -in mlkem.pub.der -inform DER -strparse 17 -noout -out $out/hpke_mlkem.pub
   '';
