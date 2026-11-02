@@ -44,8 +44,8 @@ const (
 // Supported mechanisms:
 //   - "none": No second layer of wrapping is applied.
 //   - "Hpke": Uses Hybrid Public Key Encryption (HPKE) with a hybrid public key
-//     composed of a Post-Quantum (PQ) key (ML-KEM-768) and a classical key (ECDH).
-//     The HPKE suite used is typically KDF: HKDF-SHA256, AEAD: AES-256-GCM.
+//     composed of a Post-Quantum (PQ) key (ML-KEM-1024) and a classical key (ECDH P-384).
+//     The HPKE suite used is typically KDF: HKDF-SHA384, AEAD: AES-256-GCM.
 //     The keys are loaded from paths specified by HPKEPQPublicKeyPath and
 //     HPKEClassicalPublicKeyPath.
 type SecondLayerWrappingMechanism string

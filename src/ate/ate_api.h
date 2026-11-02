@@ -53,19 +53,19 @@ enum {
   kRsa3072CiphertextSize = 384,
 
   /**
-   * Second-layer Hybrid HPKE (MLKEM768-P256 + AES-256-GCM) component sizes in
+   * Second-layer Hybrid HPKE (MLKEM1024-P384 + AES-256-GCM) component sizes in
    * bytes.
    */
-  kMlkem768CiphertextSize = 1088,
-  kEcdhP256PubKeySize = 65,
+  kMlkem1024CiphertextSize = 1568,
+  kEcdhP384PubKeySize = 97,
   kAesGcmTagSize = 16,
 
   /**
    * Maximum wrapped seed size in bytes, sized to accommodate two-layer Hybrid
-   * HPKE wrapping of an RSA-3072 wrapped seed (384 + 1088 + 65 + 16 = 1553B).
+   * HPKE wrapping of an RSA-3072 wrapped seed (384 + 1568 + 97 + 16 = 2065B).
    */
-  kWrappedSeedMaxSize = kRsa3072CiphertextSize + kMlkem768CiphertextSize +
-                        kEcdhP256PubKeySize + kAesGcmTagSize,
+  kWrappedSeedMaxSize = kRsa3072CiphertextSize + kMlkem1024CiphertextSize +
+                        kEcdhP384PubKeySize + kAesGcmTagSize,
 
   /** CA subject key size in bytes. This is equivalent to 160 bits. */
   kCaSubjectKeySize = 20,

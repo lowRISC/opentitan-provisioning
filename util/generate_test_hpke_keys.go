@@ -21,8 +21,8 @@ func main() {
 	}
 	outDir := os.Args[1]
 
-	// Generate ECDSA P-256 Key
-	ecdsaPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	// Generate ECDSA P-384 Key
+	ecdsaPriv, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -35,8 +35,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Generate ML-KEM-768 Key
-	mlkemPriv, err := mlkem.GenerateKey768()
+	// Generate ML-KEM-1024 Key
+	mlkemPriv, err := mlkem.GenerateKey1024()
 	if err != nil {
 		log.Fatal(err)
 	}
