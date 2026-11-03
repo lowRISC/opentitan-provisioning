@@ -29,15 +29,27 @@ else
   BIN_DEVICE="hyper310"
 fi
 
-FPGA_SKUS=(
-  "sival"
-)
-# If OT_PROV_ORCHESTRATOR_PATH is set, then update the FPGA_SKUS to include the
-# SKUs that are supported by the FPGA.
-if [[ -n "${OT_PROV_ORCHESTRATOR_PATH}" ]]; then
-  FPGA_SKUS+=("cr01" "pi01" "ti01")
-  if [[ -n "${OT_PROV_PQ_EN}" ]]; then
-    FPGA_SKUS+=("ti04")
+# Populates the FPGA_SKUS array with the list of SKUs to test.
+#
+# Callers may override the default SKU list by passing FPGA_SKUS in the
+# environment as a space-separated string (e.g., FPGA_SKUS="sival ti04").
+# Because environment variables are imported by Bash as scalar strings,
+# `read -r -a` is used to split the string into a Bash array so the test loop
+# can iterate over each SKU individually.
+if [[ -n "${FPGA_SKUS:-}" ]]; then
+  read -r -a FPGA_SKUS <<< "${FPGA_SKUS}"
+  return
+else
+  FPGA_SKUS=(
+    "sival"
+  )
+  # If OT_PROV_ORCHESTRATOR_PATH is set, then update the FPGA_SKUS to include the
+  # SKUs that are supported by the FPGA.
+  if [[ -n "${OT_PROV_ORCHESTRATOR_PATH}" ]]; then
+    FPGA_SKUS+=("cr01" "pi01" "ti01")
+    if [[ -n "${OT_PROV_PQ_EN}" ]]; then
+      FPGA_SKUS+=("ti04")
+    fi
   fi
 fi
 
