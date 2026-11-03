@@ -39,6 +39,9 @@ ABSL_FLAG(std::string, ft_personalize_bin, "",
           "FT Personalize Binary (device binary).");
 ABSL_FLAG(std::string, ft_fw_bundle_bin, "",
           "FT Personalize / Transport image bundle (device binary).");
+ABSL_FLAG(bool, use_flash_scramble, false,
+          "Use GPIO signaling for Stage 1 flash scramble instead of console "
+          "logging.");
 
 /**
  * PA configuration flags.
@@ -297,8 +300,15 @@ int main(int argc, char** argv) {
   // Transition to mission mode and start running the personalization firmware.
   dut->DutLcTransition(openocd_path, tokens[1].data, kTokenSize128,
                        kDifLcCtrlStateProd);
-  dut->DutBootstrap(ft_perso_bin_path);
-  dut->DutConsoleWaitForRx("Bootstrap requested.", /*timeout_ms=*/1000);
+  if (absl::GetFlag(FLAGS_use_flash_scramble)) {
+    dut->DutReleaseStage1Pins();
+    dut->DutBootstrap(ft_perso_bin_path);
+    LOG(INFO) << "Waiting for Stage 1 flash scramble GPIO signaling ...";
+    dut->DutWaitForFlashScramble(/*timeout_ms=*/30000);
+  } else {
+    dut->DutBootstrap(ft_perso_bin_path);
+    dut->DutConsoleWaitForRx("Bootstrap requested.", /*timeout_ms=*/1000);
+  }
   dut->DutBootstrap(ft_fw_bundle_path);
   dut->DutConsoleTx("Waiting For RMA Unlock Token Hash ...",
                     rma_token_spi_frame.payload, kDutRxSpiFrameSizeInBytes,
@@ -316,7 +326,7 @@ int main(int argc, char** argv) {
                     &num_pb_spi_frames,
                     /*skip_crc_check=*/true,
                     /*quiet=*/true,
-                    /*timeout_ms=*/10000);
+                    /*timeout_ms=*/30000);
   perso_blob_t perso_blob_from_dut = {0};
   if (PersoBlobFromJson(pb_spi_frames.get(), num_pb_spi_frames,
                         &perso_blob_from_dut)) {

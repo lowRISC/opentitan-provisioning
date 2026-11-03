@@ -23,6 +23,8 @@ void OtLibFpgaLoadBitstream(void* transport, const char* fpga_bitstream);
 void OtLibLoadSramElf(void* transport, const char* openocd, const char* elf,
                       bool wait_for_done, uint64_t timeout_ms);
 void OtLibBootstrap(void* transport, const char* bin);
+void OtLibReleaseStage1Pins(void* transport);
+void OtLibWaitForFlashScramble(void* transport, uint64_t timeout_ms);
 void OtLibConsoleWaitForRx(void* transport, const char* msg,
                            uint64_t timeout_ms);
 void OtLibConsoleRx(void* transport, const char* sync_msg,
@@ -59,6 +61,16 @@ void DutLib::DutLoadSramElf(const std::string& openocd, const std::string& elf,
 void DutLib::DutBootstrap(const std::string& bin) {
   LOG(INFO) << "in DutLib::DutBootstrap";
   OtLibBootstrap(transport_, bin.c_str());
+}
+
+void DutLib::DutReleaseStage1Pins() {
+  LOG(INFO) << "in DutLib::DutReleaseStage1Pins";
+  OtLibReleaseStage1Pins(transport_);
+}
+
+void DutLib::DutWaitForFlashScramble(uint64_t timeout_ms) {
+  LOG(INFO) << "in DutLib::DutWaitForFlashScramble";
+  OtLibWaitForFlashScramble(transport_, timeout_ms);
 }
 
 void DutLib::DutConsoleWaitForRx(const char* msg, uint64_t timeout_ms) {

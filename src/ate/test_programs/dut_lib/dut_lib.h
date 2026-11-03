@@ -38,6 +38,16 @@ class DutLib {
    */
   void DutBootstrap(const std::string& bin);
   /**
+   * Calls opentitanlib to release Stage 1 multiplexed pins (IOA0, IOA1, IOA4)
+   * to Alternate mode before bootstrap.
+   */
+  void DutReleaseStage1Pins();
+  /**
+   * Calls opentitanlib test util to wait for flash scramble completion over
+   * GPIO signaling (IOA4 start, IOA1 success, IOA0 error).
+   */
+  void DutWaitForFlashScramble(uint64_t timeout_ms);
+  /**
    * Calls opentitanlib test util to wait for a message over the SPI console.
    */
   void DutConsoleWaitForRx(const char* msg, uint64_t timeout_ms);
