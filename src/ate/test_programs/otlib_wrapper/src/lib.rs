@@ -358,6 +358,16 @@ pub extern "C" fn OtLibConsoleTx(
     spi_frame_size: usize,
     timeout_ms: u64,
 ) {
+    const DUT_RX_SPI_FRAME_SIZE_IN_BYTES: usize = 256;
+    assert!(
+        !spi_frame.is_null(),
+        "spi_frame buffer pointer must not be null"
+    );
+    assert!(
+        spi_frame_size > 0 && spi_frame_size % DUT_RX_SPI_FRAME_SIZE_IN_BYTES == 0,
+        "spi_frame_size ({spi_frame_size}) must be a non-zero multiple of frame size ({DUT_RX_SPI_FRAME_SIZE_IN_BYTES})"
+    );
+
     // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
     // the call to `OtLibFpgaTransportInit(...)` above.
     let transport: &TransportWrapper = unsafe { &*transport };

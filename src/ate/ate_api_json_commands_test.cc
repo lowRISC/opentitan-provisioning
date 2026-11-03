@@ -184,6 +184,7 @@ TEST_F(AteJsonTest, CaSubjectKeys) {
   dut_spi_frame_t frame;
   EXPECT_EQ(
       CaSubjectKeysToJson(&dice_ca_key_id, &aux_ca_key_id, nullptr, &frame), 0);
+  EXPECT_EQ(frame.size, kDutRxSpiFrameSizeInBytes);
 
   std::string json_string = std::string(reinterpret_cast<char*>(frame.payload),
                                         kDutRxSpiFrameSizeInBytes);
@@ -254,9 +255,10 @@ TEST_F(AteJsonTest, CaSubjectKeysWithMldsa) {
   EXPECT_EQ(CaSubjectKeysToJson(&dice_ca_key_id, &aux_ca_key_id,
                                 &dice_mldsa_ca_key_id, &frame),
             0);
+  EXPECT_EQ(frame.size, kDutRxSpiFrameSizeInBytes);
 
-  std::string json_string = std::string(reinterpret_cast<char*>(frame.payload),
-                                        kDutRxSpiFrameSizeInBytes);
+  std::string json_string =
+      std::string(reinterpret_cast<char*>(frame.payload), frame.size);
   EXPECT_NE(json_string.find("dice_mldsa_auth_key_key_id"), std::string::npos);
 
   ot::dut_commands::CaSubjectKeysJSON ca_key_ids_cmd;

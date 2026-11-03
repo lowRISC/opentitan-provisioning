@@ -48,7 +48,10 @@ class DutLib {
                     size_t* num_frames, bool skip_crc_check, bool quiet,
                     uint64_t timeout_ms);
   /**
-   * Calls opentitanlib test util to send a message over the SPI console.
+   * Calls opentitanlib test util to send one or more SPI frames over the
+   * console. `spi_frame` points to contiguous frame payload(s), and
+   * `spi_frame_size` must be a non-zero multiple of
+   * `kDutRxSpiFrameSizeInBytes` (256 bytes).
    */
   void DutConsoleTx(const std::string& sync_msg, const uint8_t* spi_frame,
                     size_t spi_frame_size, uint64_t timeout_ms);

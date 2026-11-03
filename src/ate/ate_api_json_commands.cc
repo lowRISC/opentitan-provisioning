@@ -5,6 +5,7 @@
 #include <google/protobuf/util/json_util.h>
 
 #include <algorithm>
+#include <cassert>
 
 #include "absl/log/log.h"
 #include "absl/status/status.h"
@@ -13,25 +14,67 @@
 #include "src/ate/proto/dut_commands.pb.h"
 
 namespace {
+/**
+ * Rounds a size up to the nearest multiple of kDutRxSpiFrameSizeInBytes.
+ */
+inline size_t RoundUpToFrameMultiple(size_t size) {
+  return ((size + kDutRxSpiFrameSizeInBytes - 1) / kDutRxSpiFrameSizeInBytes) *
+         kDutRxSpiFrameSizeInBytes;
+}
+
+/**
+ * Pads a JSON message with whitespace immediately before its final closing '}'
+ * to ensure the message reaches target_size bytes (matching upstream
+ * OpenTitan's send_with_padding).
+ *
+ * Preconditions: json must be non-null, non-empty, and end with '}'.
+ * Returns an error if the JSON message already exceeds target_size.
+ */
+absl::Status PadJsonMessageBeforeClosingBrace(std::string *json,
+                                              size_t target_size) {
+  assert(json != nullptr);
+  assert(!json->empty() && json->back() == '}');
+  if (json->size() > target_size) {
+    return absl::InvalidArgumentError(
+        absl::StrFormat("JSON message size %zu exceeds target size %zu",
+                        json->size(), target_size));
+  }
+  if (json->size() < target_size) {
+    json->insert(json->size() - 1, target_size - json->size(), ' ');
+  }
+  return absl::OkStatus();
+}
+
+/**
+ * Prepares a host-to-device SPI transmission frame, rounding up and padding
+ * the payload to a multiple of kDutRxSpiFrameSizeInBytes.
+ */
 int RxSpiFrameSet(dut_spi_frame_t *frame, const std::string &payload) {
   if (frame == nullptr) {
     LOG(ERROR) << "Invalid result buffer";
     return -1;
   }
+
   // This is an unlikely error.
-  if (payload.size() > sizeof(frame->payload)) {
+  size_t padded_size = RoundUpToFrameMultiple(payload.size());
+  if (padded_size > sizeof(frame->payload)) {
     LOG(ERROR) << "Output buffer size is too small"
-               << " (expected: >=" << payload.size()
+               << " (expected: >=" << padded_size
                << ", got: " << sizeof(frame->payload) << ")";
     return -1;
   }
 
+  std::string padded_payload = payload;
+  absl::Status status =
+      PadJsonMessageBeforeClosingBrace(&padded_payload, padded_size);
+  if (!status.ok()) {
+    LOG(ERROR) << "Failed to pad JSON frame: " << status.message();
+    return -1;
+  }
+
   // Add the JSON data to the frame.
-  memcpy(frame->payload, payload.data(), payload.size());
-  // Pad the remaining portion of the frame with whitespace.
-  std::fill(frame->payload + payload.size(),
-            frame->payload + kDutRxSpiFrameSizeInBytes, ' ');
-  frame->size = kDutRxSpiFrameSizeInBytes;
+  memcpy(frame->payload, padded_payload.data(), padded_size);
+  frame->size = padded_size;
 
   return 0;
 }

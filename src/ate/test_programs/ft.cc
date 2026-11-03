@@ -11,6 +11,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
@@ -303,7 +304,7 @@ int main(int argc, char** argv) {
                     rma_token_spi_frame.payload, kDutRxSpiFrameSizeInBytes,
                     /*timeout_ms=*/1000);
   dut->DutConsoleTx("Waiting for certificate inputs ...",
-                    ca_key_ids_spi_frame.payload, kDutRxSpiFrameSizeInBytes,
+                    ca_key_ids_spi_frame.payload, ca_key_ids_spi_frame.size,
                     /*timeout_ms=*/1000);
 
   // Receive the TBS certs and other provisioning data from the DUT.
@@ -430,21 +431,18 @@ int main(int argc, char** argv) {
     LOG(ERROR) << "PersoBlobToJson failed.";
     return -1;
   }
-  const char* perso_blob_sync_msg = "Importing endorsed certificates ...";
-  const char* empty_sync_msg = "";
+  std::vector<uint8_t> perso_blob_tx_buffer;
+  perso_blob_tx_buffer.reserve(num_perso_blob_spi_frames *
+                               kDutRxSpiFrameSizeInBytes);
   for (size_t i = 0; i < num_perso_blob_spi_frames; ++i) {
-    if (i == 0) {
-      dut->DutConsoleTx(perso_blob_sync_msg,
-                        perso_blob_from_ate_spi_frames[i].payload,
-                        kDutRxSpiFrameSizeInBytes,
-                        /*timeout_ms=*/1000);
-    } else {
-      dut->DutConsoleTx(empty_sync_msg,
-                        perso_blob_from_ate_spi_frames[i].payload,
-                        kDutRxSpiFrameSizeInBytes,
-                        /*timeout_ms=*/1000);
-    }
+    perso_blob_tx_buffer.insert(perso_blob_tx_buffer.end(),
+                                perso_blob_from_ate_spi_frames[i].payload,
+                                perso_blob_from_ate_spi_frames[i].payload +
+                                    perso_blob_from_ate_spi_frames[i].size);
   }
+  dut->DutConsoleTx("Importing endorsed certificates ...",
+                    perso_blob_tx_buffer.data(), perso_blob_tx_buffer.size(),
+                    /*timeout_ms=*/1000);
 
   // Capture the hash of all installed certificates.
   dut_spi_frame_t cert_hash_spi_frame;
