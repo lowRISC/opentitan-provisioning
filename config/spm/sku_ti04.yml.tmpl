@@ -5,7 +5,7 @@
 sku: "ti04"
 slotId: 0
 numSessions: 3
-certCountX509: 5
+certCountX509: 3
 certCountCWT: 0
 symmetricKeys:
   - name: eg-kdf-hisec-v0
@@ -40,10 +40,8 @@ attributes:
     SigningKey/Dice/Mldsa/v0: ti04-ica-dice-key-mldsa-v0.priv
     SigningKey/Identity/v0: spm-hsm-id-v0.priv
     SigningKey/Identity/Mldsa/v0: spm-hsm-id-mldsa-v0.priv
-    CertChainDiceLeaf: CDI_1
+    CertChainDiceLeaf: UDS
     OwnerFirmwareBootMessage: "pie_rot_earlgrey_mfg"
 x509CertHashOrder:
     - UDS
-    - CDI_0
-    - CDI_1
     - PQ_UDS_44
