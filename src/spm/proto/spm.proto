@@ -70,6 +70,8 @@ message EndorseDataRequest {
   crypto.cert.SigningKeyParams key_params = 2;
   // Data payload to endorse. Required.
   bytes data = 3;
+  // Optional secondary PQC signing key parameters used to co-endorse `data`.
+  crypto.cert.SigningKeyParams pqc_key_params = 4;
 }
 
 // Endorse data response.
@@ -78,6 +80,10 @@ message EndorseDataResponse {
   bytes pubkey = 1;
   // ASN.1 DER signature of data payload.
   bytes signature = 2;
+  // ASN.1 DER SubjectPublicKeyInfo PQC public key used to co-sign the payload.
+  bytes pqc_pubkey = 3;
+  // Raw PQC signature bytes over the data payload (when `pqc_key_params` set).
+  bytes pqc_signature = 4;
 }
 
 // Verify device data request.

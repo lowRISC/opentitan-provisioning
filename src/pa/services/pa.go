@@ -20,6 +20,7 @@ import (
 	certpb "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/cert_go_pb"
 	commonpb "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/common_go_pb"
 	ecdsapb "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/ecdsa_go_pb"
+	mldsapb "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/mldsa_go_pb"
 	pbs "github.com/lowRISC/opentitan-provisioning/src/spm/proto/spm_go_pb"
 	"github.com/lowRISC/opentitan-provisioning/src/transport/auth_service"
 )
@@ -198,7 +199,7 @@ func (s *server) RegisterDevice(ctx context.Context, request *pap.RegistrationRe
 		return nil, status.Errorf(st.Code(), "SPM.VerifyDeviceData returned error: %s", st.Message())
 	}
 
-	// Endorse data payload.
+	// Endorse data payload with both ECDSA P-256 and ML-DSA-87 identity keys.
 	edRequest := &pbs.EndorseDataRequest{
 		Sku: request.DeviceData.Sku,
 		KeyParams: &certpb.SigningKeyParams{
@@ -211,12 +212,24 @@ func (s *server) RegisterDevice(ctx context.Context, request *pap.RegistrationRe
 				},
 			},
 		},
+		PqcKeyParams: &certpb.SigningKeyParams{
+			KeyLabel: "SigningKey/Identity/Mldsa/v0",
+			Key: &certpb.SigningKeyParams_MldsaParams{
+				MldsaParams: &mldsapb.MldsaParams{
+					ParamSets: mldsapb.MldsaParameterSets_MLDSA_PARAMETER_SETS_MLDSA_87,
+				},
+			},
+		},
 		Data: deviceDataBytes,
 	}
 	edResponse, err := s.spmClient.EndorseData(ctx, edRequest)
 	if err != nil {
 		st := status.Convert(err)
 		return nil, status.Errorf(st.Code(), "SPM.EndorseData returned error: %s", st.Message())
+	}
+	if len(edResponse.Pubkey) == 0 || len(edResponse.Signature) == 0 ||
+		len(edResponse.PqcPubkey) == 0 || len(edResponse.PqcSignature) == 0 {
+		return nil, status.Errorf(codes.Internal, "SPM.EndorseData returned incomplete two-layer endorsement")
 	}
 
 	return rs.RegisterDevice(ctx, request, edResponse)
