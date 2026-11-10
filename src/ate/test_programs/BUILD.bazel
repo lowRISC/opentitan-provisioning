@@ -86,12 +86,14 @@ sh_test(
     data = [
         ":ate_dll_smoke",
         "//src/ate",
+        "//third_party/openssl:openssl_bin",
         "//util:ate_client_container.sh",
         "//util/containers/ate_client:container_files",
     ],
     env = {
         "SMOKE_EXE": "$(rootpath :ate_dll_smoke)",
         "ATE_DLL": "$(rootpath //src/ate)",
+        "OPENSSL": "$(rootpath //third_party/openssl:openssl_bin)",
     },
     tags = [
         "external",

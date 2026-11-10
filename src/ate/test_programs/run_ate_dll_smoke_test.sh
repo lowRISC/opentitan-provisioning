@@ -37,23 +37,28 @@ ate_client_ensure_base_image "${REPO_TOP}"
 ate_client_stage_bundle "${WORK_DIR}" "${SMOKE_EXE}" "${ATE_DLL}"
 ate_client_build_image "${REPO_TOP}" "${WORK_DIR}"
 
-# Throwaway credentials. They only need to parse: no handshake is performed.
+# Throwaway ML-DSA-87 credentials. They only need to parse: no handshake is performed.
 echo "Generating test credentials..."
 mkdir -p "${CERTS_DIR}"
-"${OPENSSL_BIN}" req -x509 -newkey rsa:2048 -nodes -days 1 \
-  -keyout "${CERTS_DIR}/ca-key.pem" \
+export OPENSSL_CONF=/dev/null
+"${OPENSSL_BIN}" genpkey -algorithm mldsa87 \
+  -provparam ml-dsa.output_formats=seed-only \
+  -out "${CERTS_DIR}/ca-key.pem"
+"${OPENSSL_BIN}" req -x509 -key "${CERTS_DIR}/ca-key.pem" -days 1 \
   -out "${CERTS_DIR}/ca-cert.pem" \
-  -subj "/CN=ate-dll-smoke-ca" 2>/dev/null
-"${OPENSSL_BIN}" req -newkey rsa:2048 -nodes \
-  -keyout "${CERTS_DIR}/ate-client-key.pem" \
+  -subj "/CN=ate-dll-smoke-ca"
+"${OPENSSL_BIN}" genpkey -algorithm mldsa87 \
+  -provparam ml-dsa.output_formats=seed-only \
+  -out "${CERTS_DIR}/ate-client-key.pem"
+"${OPENSSL_BIN}" req -new -key "${CERTS_DIR}/ate-client-key.pem" \
   -out "${CERTS_DIR}/ate-client.csr" \
-  -subj "/CN=ate-dll-smoke-client" 2>/dev/null
+  -subj "/CN=ate-dll-smoke-client"
 "${OPENSSL_BIN}" x509 -req -days 1 \
   -in "${CERTS_DIR}/ate-client.csr" \
   -CA "${CERTS_DIR}/ca-cert.pem" \
   -CAkey "${CERTS_DIR}/ca-key.pem" \
   -CAcreateserial \
-  -out "${CERTS_DIR}/ate-client-cert.pem" 2>/dev/null
+  -out "${CERTS_DIR}/ate-client-cert.pem"
 rm -f "${CERTS_DIR}/ate-client.csr"
 
 failures=0

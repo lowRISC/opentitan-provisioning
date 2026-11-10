@@ -30,8 +30,6 @@ var (
 	clientKey           = flag.String("client_key", "", "File path to the PEM encoding of the client's private key.")
 	clientCert          = flag.String("client_cert", "", "File path to the PEM encoding of the client's certificate chain.")
 	caRootCerts         = flag.String("ca_root_certs", "", "File path to the PEM encoding of the CA root certificates.")
-	enableMLKEMTLS      = flag.Bool("enable_mlkem_tls", false, "Enable MLKEM TLS configuration; optional")
-	enableMLDSATLS      = flag.Bool("enable_mldsa_tls", false, "Enable MLDSA certificate verification TLS configuration; optional")
 )
 
 type customResolverBuilder struct {
@@ -89,10 +87,7 @@ func main() {
 
 	var opts []grpc.DialOption
 	if *enableMTLS {
-		creds, err := (&grpconn.Config{
-			EnableMLKEMTLS: *enableMLKEMTLS,
-			EnableMLDSATLS: *enableMLDSATLS,
-		}).LoadClientCredentials(*caRootCerts, *clientCert, *clientKey)
+		creds, err := grpconn.LoadClientCredentials(*caRootCerts, *clientCert, *clientKey)
 		if err != nil {
 			log.Fatalf("Failed to load client credentials: %v", err)
 		}

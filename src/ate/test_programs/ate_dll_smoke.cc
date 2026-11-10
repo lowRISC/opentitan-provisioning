@@ -56,7 +56,7 @@ LONG WINAPI CrashFilter(EXCEPTION_POINTERS *info) {
 
 void PrintUsage(const char *argv0) {
   std::printf(
-      "usage: %s [--dll=ate.dll] [--mtls] [--mlkem] [--mldsa]\n"
+      "usage: %s [--dll=ate.dll] [--mtls]\n"
       "          [--cert=PATH] [--key=PATH] [--ca=PATH] [--target=ADDR]\n"
       "          [--sku=NAME --sku_auth=PASSWORD]\n"
       "\n"
@@ -85,17 +85,11 @@ int main(int argc, char **argv) {
   const char *sku = "";
   const char *sku_auth = "";
   bool mtls = false;
-  bool mlkem = false;
-  bool mldsa = false;
 
   for (int i = 1; i < argc; ++i) {
     const char *value = nullptr;
     if (std::strcmp(argv[i], "--mtls") == 0) {
       mtls = true;
-    } else if (std::strcmp(argv[i], "--mlkem") == 0) {
-      mlkem = true;
-    } else if (std::strcmp(argv[i], "--mldsa") == 0) {
-      mldsa = true;
     } else if ((value = FlagValue(argv[i], "--dll")) != nullptr) {
       dll_path = value;
     } else if ((value = FlagValue(argv[i], "--cert")) != nullptr) {
@@ -120,8 +114,7 @@ int main(int argc, char **argv) {
   SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
   SetUnhandledExceptionFilter(CrashFilter);
 
-  std::printf("[ate_dll_smoke] dll=%s mtls=%d mlkem=%d mldsa=%d\n", dll_path,
-              mtls, mlkem, mldsa);
+  std::printf("[ate_dll_smoke] dll=%s mtls=%d\n", dll_path, mtls);
   std::fflush(stdout);
 
   HMODULE dll = LoadLibraryA(dll_path);
@@ -153,8 +146,6 @@ int main(int argc, char **argv) {
   options.pem_root_certs = ca;
   options.sku_tokens = "";
   options.enable_mtls = mtls;
-  options.enable_mlkem_tls = mlkem;
-  options.enable_mldsa_tls = mldsa;
 
   std::printf("[ate_dll_smoke] calling CreateClient...\n");
   std::fflush(stdout);

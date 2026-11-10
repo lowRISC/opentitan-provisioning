@@ -47,8 +47,6 @@ var (
 	clientKey       = flag.String("client_key", "", "File path to the PEM encoding of the client's private key")
 	configDir       = flag.String("spm_config_dir", "", "Path to the SKU configuration directory.")
 	enableTLS       = flag.Bool("enable_tls", false, "Enable mTLS secure channel; optional")
-	enableMLKEMTLS  = flag.Bool("enable_mlkem_tls", false, "Enable MLKEM TLS configuration; optional")
-	enableMLDSATLS  = flag.Bool("enable_mldsa_tls", false, "Enable MLDSA certificate verification TLS configuration; optional")
 	hsmSOLibPath    = flag.String("hsm_so", "", "File path to the HSM's PKCS#11 shared library.")
 	paAddress       = flag.String("pa_address", "", "the PA server address to connect to; required")
 	parallelClients = flag.Int("parallel_clients", 1, "The total number of clients to run concurrently")
@@ -93,10 +91,7 @@ type clientGroup struct {
 func (c *clientTask) setup(ctx context.Context, skuName string) error {
 	opts := []grpc.DialOption{grpc.WithBlock()}
 	if *enableTLS {
-		credentials, err := (&grpconn.Config{
-			EnableMLKEMTLS: *enableMLKEMTLS,
-			EnableMLDSATLS: *enableMLDSATLS,
-		}).LoadClientCredentials(*caRootCerts, *clientCert, *clientKey)
+		credentials, err := grpconn.LoadClientCredentials(*caRootCerts, *clientCert, *clientKey)
 		if err != nil {
 			return err
 		}

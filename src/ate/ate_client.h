@@ -62,13 +62,6 @@ class AteClient {
     // is established with insecure credentials.
     bool enable_mtls = false;
 
-    // Set to true to enforce ML-KEM post-quantum key exchange in TLS.
-    bool enable_mlkem_tls = false;
-
-    // Set to true to enforce ML-DSA post-quantum certificate verification in
-    // TLS.
-    bool enable_mldsa_tls = false;
-
     // Client certificate in PEM format. Required when `enable_mtls` set to
     // true.
     std::string pem_cert_chain;

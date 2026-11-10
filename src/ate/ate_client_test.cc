@@ -364,7 +364,6 @@ TEST(MldsaTlsTest, CreateClientWithOptions) {
   AteClient::Options options;
   options.pa_target = "localhost:5000";
   options.enable_mtls = true;
-  options.enable_mldsa_tls = true;
   options.pem_root_certs = CertToPem(ca_cert.get());
   options.pem_cert_chain = CertToPem(client_cert.get());
   options.pem_private_key = KeyToPem(client_key.get());
@@ -387,12 +386,18 @@ TEST(MldsaTlsTest, CreateClientWithOptions) {
   options.pem_cert_chain = CertToPem(rsa_cert.get());
   EXPECT_EQ(AteClient::Create(options), nullptr);
 
-  // Success when enable_mldsa_tls is false even with RSA credentials
-  options.enable_mldsa_tls = false;
-  options.pem_private_key = KeyToPem(rsa_key.get());
-  options.pem_root_certs = CertToPem(rsa_cert.get());
-  options.pem_cert_chain = CertToPem(rsa_cert.get());
-  EXPECT_NE(AteClient::Create(options), nullptr);
+  // Failure when any credential string is empty
+  options.pem_cert_chain = CertToPem(client_cert.get());
+  options.pem_private_key = "";
+  EXPECT_EQ(AteClient::Create(options), nullptr);
+
+  options.pem_private_key = KeyToPem(client_key.get());
+  options.pem_cert_chain = "";
+  EXPECT_EQ(AteClient::Create(options), nullptr);
+
+  options.pem_cert_chain = CertToPem(client_cert.get());
+  options.pem_root_certs = "";
+  EXPECT_EQ(AteClient::Create(options), nullptr);
 }
 
 class FakePaService final : public pa::ProvisioningApplianceService::Service {
@@ -446,8 +451,6 @@ TEST(MldsaTlsTest, EndToEndMldsaHandshake) {
   AteClient::Options options;
   options.pa_target = absl::StrFormat("ipv4:127.0.0.1:%d", port);
   options.enable_mtls = true;
-  options.enable_mlkem_tls = true;
-  options.enable_mldsa_tls = true;
   options.pem_root_certs = ca_pem;
   options.pem_cert_chain = client_cert_pem;
   options.pem_private_key = client_key_pem;

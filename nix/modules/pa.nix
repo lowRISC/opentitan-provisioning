@@ -9,18 +9,6 @@ let
     options = {
       enable = mkEnableOption "mTLS secure channel for PA server";
 
-      enableMlkemTls = mkOption {
-        type = types.bool;
-        default = true;
-        description = "Enable MLKEM TLS configuration.";
-      };
-
-      enableMldsaTls = mkOption {
-        type = types.bool;
-        default = true;
-        description = "Enable MLDSA certificate verification TLS configuration.";
-      };
-
       certFile = mkOption {
         type = types.nullOr types.path;
         default = null;
@@ -48,8 +36,6 @@ let
   ++ optional cfg.enableRegistry "-enable_registry"
   ++ optional (cfg.registryAddress != null) "-registry_address=${cfg.registryAddress}"
   ++ optional cfg.tls.enable "-enable_tls"
-  ++ optional cfg.tls.enableMlkemTls "-enable_mlkem_tls"
-  ++ optional cfg.tls.enableMldsaTls "-enable_mldsa_tls"
   ++ optional (cfg.tls.certFile != null) "-service_cert=${toString cfg.tls.certFile}"
   ++ optional (cfg.tls.keyFile != null) "-service_key=${toString cfg.tls.keyFile}"
   ++ optional (cfg.tls.caCertFile != null) "-ca_root_certs=${toString cfg.tls.caCertFile}"

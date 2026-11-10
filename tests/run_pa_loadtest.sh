@@ -27,8 +27,6 @@ bazelisk run //src/pa:loadtest -- \
    --client_cert="${DEPLOYMENT_DIR}/certs/out/ate-client-cert.pem" \
    --client_key="${DEPLOYMENT_DIR}/certs/out/ate-client-key.pem" \
    --enable_tls=true \
-   --enable_mlkem_tls=${ENABLE_MLKEM_TLS} \
-   --enable_mldsa_tls=${ENABLE_MLDSA_TLS} \
    --enable_mldsa_dice=${ENABLE_MLDSA_DICE} \
    --hsm_so="${HSMTOOL_MODULE}" \
    --pa_address="${OTPROV_DNS_PA}:${OTPROV_PORT_PA}" \

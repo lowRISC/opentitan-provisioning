@@ -22,107 +22,34 @@ import (
 )
 
 func TestApplyMLKEMConfig(t *testing.T) {
-	tests := []struct {
-		name           string
-		enableMLKEM    bool
-		expectMinVer   uint16
-		expectCurve    bool
-	}{
-		{
-			name:           "Disabled",
-			enableMLKEM:    false,
-			expectMinVer:   0, // Default 0 means allow lower versions (implementation dependent, usually 1.0 or 1.2)
-			expectCurve:    false,
-		},
-		{
-			name:           "Enabled",
-			enableMLKEM:    true,
-			expectMinVer:   tls.VersionTLS13,
-			expectCurve:    true,
-		},
+	tlsConfig := &tls.Config{}
+	applyMLKEMConfig(tlsConfig)
+
+	if tlsConfig.MinVersion != tls.VersionTLS13 {
+		t.Errorf("Expected MinVersion %v, got %v", tls.VersionTLS13, tlsConfig.MinVersion)
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg := &Config{EnableMLKEMTLS: tc.enableMLKEM}
-			tlsConfig := &tls.Config{}
-			
-			cfg.applyMLKEMConfig(tlsConfig)
-
-			if tc.enableMLKEM {
-				if tlsConfig.MinVersion != tc.expectMinVer {
-					t.Errorf("Expected MinVersion %v, got %v", tc.expectMinVer, tlsConfig.MinVersion)
-				}
-
-				found := false
-				for _, curve := range tlsConfig.CurvePreferences {
-					if curve == tls.X25519MLKEM768 {
-						found = true
-						break
-					}
-				}
-				if !tc.expectCurve {
-					t.Errorf("Expected MLKEM curve to be present")
-				} else if !found {
-					t.Errorf("Expected MLKEM curve to be present")
-				}
-			} else {
-				// When disabled, we expect no changes to the default (empty) tlsConfig
-				if tlsConfig.MinVersion != 0 {
-					t.Errorf("Expected MinVersion 0, got %v", tlsConfig.MinVersion)
-				}
-				if len(tlsConfig.CurvePreferences) > 0 {
-					t.Errorf("Expected no CurvePreferences, got %v", tlsConfig.CurvePreferences)
-				}
-			}
-		})
+	found := false
+	for _, curve := range tlsConfig.CurvePreferences {
+		if curve == tls.X25519MLKEM768 {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Expected MLKEM curve to be present")
 	}
 }
 
 func TestApplyMLDSAConfig(t *testing.T) {
-	tests := []struct {
-		name            string
-		enableMLDSA     bool
-		expectMinVer    uint16
-		expectVerifySet bool
-	}{
-		{
-			name:            "Disabled",
-			enableMLDSA:     false,
-			expectMinVer:    0,
-			expectVerifySet: false,
-		},
-		{
-			name:            "Enabled",
-			enableMLDSA:     true,
-			expectMinVer:    tls.VersionTLS13,
-			expectVerifySet: true,
-		},
+	tlsConfig := &tls.Config{}
+	applyMLDSAConfig(tlsConfig)
+
+	if tlsConfig.MinVersion != tls.VersionTLS13 {
+		t.Errorf("Expected MinVersion %v, got %v", tls.VersionTLS13, tlsConfig.MinVersion)
 	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg := &Config{EnableMLDSATLS: tc.enableMLDSA}
-			tlsConfig := &tls.Config{}
-
-			cfg.applyMLDSAConfig(tlsConfig)
-
-			if tc.enableMLDSA {
-				if tlsConfig.MinVersion != tc.expectMinVer {
-					t.Errorf("Expected MinVersion %v, got %v", tc.expectMinVer, tlsConfig.MinVersion)
-				}
-				if (tlsConfig.VerifyPeerCertificate != nil) != tc.expectVerifySet {
-					t.Errorf("Expected VerifyPeerCertificate to be set")
-				}
-			} else {
-				if tlsConfig.MinVersion != 0 {
-					t.Errorf("Expected MinVersion 0, got %v", tlsConfig.MinVersion)
-				}
-				if tlsConfig.VerifyPeerCertificate != nil {
-					t.Errorf("Expected VerifyPeerCertificate to be nil, got %v", tlsConfig.VerifyPeerCertificate)
-				}
-			}
-		})
+	if tlsConfig.VerifyPeerCertificate == nil {
+		t.Errorf("Expected VerifyPeerCertificate to be set")
 	}
 }
 
@@ -341,20 +268,21 @@ func TestMLDSATLSHandshake(t *testing.T) {
 
 	// Test 1: Successful Mutual ML-DSA Handshake
 	t.Run("Successful Mutual MLDSA", func(t *testing.T) {
-		cfg := &Config{EnableMLDSATLS: true}
 		serverTLS := &tls.Config{
 			Certificates: []tls.Certificate{serverMLDSACert},
 			ClientAuth:   tls.RequireAndVerifyClientCert,
 			ClientCAs:    caPool,
 		}
-		cfg.applyMLDSAConfig(serverTLS)
+		applyMLKEMConfig(serverTLS)
+		applyMLDSAConfig(serverTLS)
 
 		clientTLS := &tls.Config{
 			Certificates: []tls.Certificate{clientMLDSACert},
 			RootCAs:      caPool,
 			ServerName:   "localhost",
 		}
-		cfg.applyMLDSAConfig(clientTLS)
+		applyMLKEMConfig(clientTLS)
+		applyMLDSAConfig(clientTLS)
 
 		cConn, sConn := net.Pipe()
 		var wg sync.WaitGroup
@@ -385,7 +313,6 @@ func TestMLDSATLSHandshake(t *testing.T) {
 
 	// Test 2: Server with ML-DSA rejects RSA Client
 	t.Run("MLDSA Server Rejects RSA Client", func(t *testing.T) {
-		cfg := &Config{EnableMLDSATLS: true}
 		serverPool := x509.NewCertPool()
 		serverPool.AddCert(caCert)
 		serverPool.AddCert(rsaCACert)
@@ -395,7 +322,7 @@ func TestMLDSATLSHandshake(t *testing.T) {
 			ClientAuth:   tls.RequireAndVerifyClientCert,
 			ClientCAs:    serverPool,
 		}
-		cfg.applyMLDSAConfig(serverTLS)
+		applyMLDSAConfig(serverTLS)
 
 		clientTLS := &tls.Config{
 			Certificates: []tls.Certificate{clientRSACert},
@@ -429,7 +356,6 @@ func TestMLDSATLSHandshake(t *testing.T) {
 
 	// Test 3: Client with ML-DSA rejects RSA Server
 	t.Run("MLDSA Client Rejects RSA Server", func(t *testing.T) {
-		cfg := &Config{EnableMLDSATLS: true}
 		clientPool := x509.NewCertPool()
 		clientPool.AddCert(caCert)
 		clientPool.AddCert(rsaCACert)
@@ -443,7 +369,7 @@ func TestMLDSATLSHandshake(t *testing.T) {
 			RootCAs:      clientPool,
 			ServerName:   "localhost",
 		}
-		cfg.applyMLDSAConfig(clientTLS)
+		applyMLDSAConfig(clientTLS)
 
 		cConn, sConn := net.Pipe()
 		var wg sync.WaitGroup
@@ -514,10 +440,8 @@ func TestLoadCredentialsMLDSA(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	cfgMLDSA := &Config{EnableMLDSATLS: true}
-
 	// Loading ML-DSA server and client credentials should succeed
-	serverCreds, err := cfgMLDSA.LoadServerCredentials(caPath, serverCertPath, serverKeyPath)
+	serverCreds, err := LoadServerCredentials(caPath, serverCertPath, serverKeyPath)
 	if err != nil {
 		t.Errorf("LoadServerCredentials failed for ML-DSA: %v", err)
 	}
@@ -525,7 +449,7 @@ func TestLoadCredentialsMLDSA(t *testing.T) {
 		t.Errorf("Expected serverCreds != nil")
 	}
 
-	clientCreds, err := cfgMLDSA.LoadClientCredentials(caPath, serverCertPath, serverKeyPath)
+	clientCreds, err := LoadClientCredentials(caPath, serverCertPath, serverKeyPath)
 	if err != nil {
 		t.Errorf("LoadClientCredentials failed for ML-DSA: %v", err)
 	}
@@ -533,15 +457,15 @@ func TestLoadCredentialsMLDSA(t *testing.T) {
 		t.Errorf("Expected clientCreds != nil")
 	}
 
-	// Loading RSA credentials when EnableMLDSATLS is true should fail
-	_, err = cfgMLDSA.LoadServerCredentials(caPath, rsaCertPath, rsaKeyPath)
+	// Loading RSA credentials should fail
+	_, err = LoadServerCredentials(caPath, rsaCertPath, rsaKeyPath)
 	if err == nil {
-		t.Errorf("Expected error loading RSA cert for ML-DSA server, got nil")
+		t.Errorf("Expected error loading RSA cert for server, got nil")
 	}
 
-	_, err = cfgMLDSA.LoadClientCredentials(caPath, rsaCertPath, rsaKeyPath)
+	_, err = LoadClientCredentials(caPath, rsaCertPath, rsaKeyPath)
 	if err == nil {
-		t.Errorf("Expected error loading RSA cert for ML-DSA client, got nil")
+		t.Errorf("Expected error loading RSA cert for client, got nil")
 	}
 }
 

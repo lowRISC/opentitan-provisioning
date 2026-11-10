@@ -116,23 +116,13 @@ if ! podman run --rm --network=bridge --entrypoint=/bin/bash \
   PA_HOST="${OTPROV_IP_PA}"
 fi
 
-PQ_FLAGS=()
-if [[ "${ENABLE_MLKEM_TLS}" == "true" ]]; then
-  PQ_FLAGS+=("--mlkem")
-fi
-if [[ "${ENABLE_MLDSA_TLS}" == "true" ]]; then
-  PQ_FLAGS+=("--mldsa")
-fi
-
 echo "Running Windows ATE DLL test in the ATE machine container ..."
 echo "  target:  ${PA_HOST}:${OTPROV_PORT_PA}"
 echo "  network: ${NETWORK}"
-echo "  mlkem:   ${ENABLE_MLKEM_TLS}  mldsa: ${ENABLE_MLDSA_TLS}"
 
 status=0
 ate_client_run "${NETWORK}" "${CERTS_DIR}" \
   --mtls \
-  "${PQ_FLAGS[@]}" \
   --cert=certs/ate-client-cert.pem \
   --key=certs/ate-client-key.pem \
   --ca=certs/ca-cert.pem \
