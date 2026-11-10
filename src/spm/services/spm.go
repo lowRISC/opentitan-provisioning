@@ -388,6 +388,10 @@ func mldsaParameterSetFromProto(i pbm.MldsaParameterSets) se.MldsaParameterSet {
 	}
 }
 
+func isMLDSASignatureAlgo(algo x509.SignatureAlgorithm) bool {
+	return algo == x509.MLDSA44 || algo == x509.MLDSA65 || algo == x509.MLDSA87
+}
+
 // GetCaSubjectKeys retrieves the CA certificate(s) subject keys for a SKU.
 func (s *server) GetCaSubjectKeys(ctx context.Context, request *pbp.GetCaSubjectKeysRequest) (*pbp.GetCaSubjectKeysResponse, error) {
 	sku, ok := s.skuManager.GetSku(request.Sku)
@@ -739,6 +743,7 @@ func (s *server) VerifyDeviceData(ctx context.Context, request *pbs.VerifyDevice
 	}
 
 	diceCerts := []*x509.Certificate{}
+	diceNames := []string{}
 	extCerts := []*x509.Certificate{}
 	extNames := []string{}
 	for _, cert := range persoBlob.X509Certs {
@@ -758,20 +763,24 @@ func (s *server) VerifyDeviceData(ctx context.Context, request *pbs.VerifyDevice
 		case "UDS":
 			if certChainDiceLeaf == "UDS" {
 				diceCerts = append(diceCerts, certObj)
+				diceNames = append(diceNames, cert.KeyLabel)
 			} else {
 				diceIntermediates.AddCert(certObj)
 			}
 		case "PQ_UDS_44", "PQ_UDS_87":
 			diceCerts = append(diceCerts, certObj)
+			diceNames = append(diceNames, cert.KeyLabel)
 		case "CDI_0":
 			if certChainDiceLeaf == "CDI_0" {
 				diceCerts = append(diceCerts, certObj)
+				diceNames = append(diceNames, cert.KeyLabel)
 			} else if certChainDiceLeaf == "CDI_1" {
 				diceIntermediates.AddCert(certObj)
 			}
 		case "CDI_1":
 			if certChainDiceLeaf == "CDI_1" {
 				diceCerts = append(diceCerts, certObj)
+				diceNames = append(diceNames, cert.KeyLabel)
 			} else {
 				return nil, status.Errorf(codes.InvalidArgument, "CDI_1 certificate %q is not expected for this SKU %q", cert.KeyLabel, request.DeviceData.Sku)
 			}
@@ -798,10 +807,10 @@ func (s *server) VerifyDeviceData(ctx context.Context, request *pbs.VerifyDevice
 	}
 
 	// Verify the DICE certificate chain.
-	for _, cert := range diceCerts {
+	for i, cert := range diceCerts {
 		// Only verify if the signature algorithm is supported by Go's x509 library.
-		// MLDSA certificates will have an UnknownSignatureAlgorithm.
-		if cert.SignatureAlgorithm == x509.UnknownSignatureAlgorithm {
+		// MLDSA certificates will have an UnknownSignatureAlgorithm or an MLDSA signature algorithm.
+		if cert.SignatureAlgorithm == x509.UnknownSignatureAlgorithm || isMLDSASignatureAlgo(cert.SignatureAlgorithm) {
 			// For MLDSA, we verify the signature using the HSM.
 			// We assume the issuer is the MLDSA DICE CA (UDS ICA).
 			keyLabel, err := sku.Config.GetUnsafeAttribute("SigningKey/Dice/Mldsa/v0")
@@ -809,7 +818,7 @@ func (s *server) VerifyDeviceData(ctx context.Context, request *pbs.VerifyDevice
 				return nil, status.Errorf(codes.Internal, "could not get HSM label for SigningKey/Dice/Mldsa/v0: %v", err)
 			}
 			if err := sku.SeHandle.VerifyMLDSASignature(keyLabel, cert.RawTBSCertificate, cert.Signature); err != nil {
-				return nil, status.Errorf(codes.InvalidArgument, "%q MLDSA certificate verification failed: %v", cert.Subject.CommonName, err)
+				return nil, status.Errorf(codes.InvalidArgument, "%q MLDSA certificate verification failed: %v", diceNames[i], err)
 			}
 			continue
 		}
@@ -818,7 +827,7 @@ func (s *server) VerifyDeviceData(ctx context.Context, request *pbs.VerifyDevice
 			Intermediates: diceIntermediates,
 		})
 		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "%q certificate chain is invalid: %v", cert.Subject.CommonName, err)
+			return nil, status.Errorf(codes.InvalidArgument, "%q certificate chain is invalid: %v", diceNames[i], err)
 		}
 	}
 

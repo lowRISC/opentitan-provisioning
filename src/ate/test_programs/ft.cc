@@ -11,6 +11,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
@@ -38,6 +39,9 @@ ABSL_FLAG(std::string, ft_personalize_bin, "",
           "FT Personalize Binary (device binary).");
 ABSL_FLAG(std::string, ft_fw_bundle_bin, "",
           "FT Personalize / Transport image bundle (device binary).");
+ABSL_FLAG(bool, use_flash_scramble, false,
+          "Use GPIO signaling for Stage 1 flash scramble instead of console "
+          "logging.");
 
 /**
  * PA configuration flags.
@@ -296,14 +300,21 @@ int main(int argc, char** argv) {
   // Transition to mission mode and start running the personalization firmware.
   dut->DutLcTransition(openocd_path, tokens[1].data, kTokenSize128,
                        kDifLcCtrlStateProd);
-  dut->DutBootstrap(ft_perso_bin_path);
-  dut->DutConsoleWaitForRx("Bootstrap requested.", /*timeout_ms=*/1000);
+  if (absl::GetFlag(FLAGS_use_flash_scramble)) {
+    dut->DutReleaseStage1Pins();
+    dut->DutBootstrap(ft_perso_bin_path);
+    LOG(INFO) << "Waiting for Stage 1 flash scramble GPIO signaling ...";
+    dut->DutWaitForFlashScramble(/*timeout_ms=*/30000);
+  } else {
+    dut->DutBootstrap(ft_perso_bin_path);
+    dut->DutConsoleWaitForRx("Bootstrap requested.", /*timeout_ms=*/1000);
+  }
   dut->DutBootstrap(ft_fw_bundle_path);
   dut->DutConsoleTx("Waiting For RMA Unlock Token Hash ...",
                     rma_token_spi_frame.payload, kDutRxSpiFrameSizeInBytes,
                     /*timeout_ms=*/1000);
   dut->DutConsoleTx("Waiting for certificate inputs ...",
-                    ca_key_ids_spi_frame.payload, kDutRxSpiFrameSizeInBytes,
+                    ca_key_ids_spi_frame.payload, ca_key_ids_spi_frame.size,
                     /*timeout_ms=*/1000);
 
   // Receive the TBS certs and other provisioning data from the DUT.
@@ -315,7 +326,7 @@ int main(int argc, char** argv) {
                     &num_pb_spi_frames,
                     /*skip_crc_check=*/true,
                     /*quiet=*/true,
-                    /*timeout_ms=*/10000);
+                    /*timeout_ms=*/30000);
   perso_blob_t perso_blob_from_dut = {0};
   if (PersoBlobFromJson(pb_spi_frames.get(), num_pb_spi_frames,
                         &perso_blob_from_dut)) {
@@ -430,21 +441,18 @@ int main(int argc, char** argv) {
     LOG(ERROR) << "PersoBlobToJson failed.";
     return -1;
   }
-  const char* perso_blob_sync_msg = "Importing endorsed certificates ...";
-  const char* empty_sync_msg = "";
+  std::vector<uint8_t> perso_blob_tx_buffer;
+  perso_blob_tx_buffer.reserve(num_perso_blob_spi_frames *
+                               kDutRxSpiFrameSizeInBytes);
   for (size_t i = 0; i < num_perso_blob_spi_frames; ++i) {
-    if (i == 0) {
-      dut->DutConsoleTx(perso_blob_sync_msg,
-                        perso_blob_from_ate_spi_frames[i].payload,
-                        kDutRxSpiFrameSizeInBytes,
-                        /*timeout_ms=*/1000);
-    } else {
-      dut->DutConsoleTx(empty_sync_msg,
-                        perso_blob_from_ate_spi_frames[i].payload,
-                        kDutRxSpiFrameSizeInBytes,
-                        /*timeout_ms=*/1000);
-    }
+    perso_blob_tx_buffer.insert(perso_blob_tx_buffer.end(),
+                                perso_blob_from_ate_spi_frames[i].payload,
+                                perso_blob_from_ate_spi_frames[i].payload +
+                                    perso_blob_from_ate_spi_frames[i].size);
   }
+  dut->DutConsoleTx("Importing endorsed certificates ...",
+                    perso_blob_tx_buffer.data(), perso_blob_tx_buffer.size(),
+                    /*timeout_ms=*/1000);
 
   // Capture the hash of all installed certificates.
   dut_spi_frame_t cert_hash_spi_frame;

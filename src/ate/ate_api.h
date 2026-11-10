@@ -191,8 +191,8 @@ typedef struct dut_spi_frame {
   /**
    * The number bytes contained in the payload above.
    *
-   * This value is fixed to kDutRxSpiFrameSizeInBytes for SPI frames sent from
-   * the ATE to the DUT.
+   * For SPI frames sent from the ATE to the DUT, this value is a non-zero
+   * multiple of kDutRxSpiFrameSizeInBytes.
    */
   size_t size;
 } dut_spi_frame_t;

@@ -358,6 +358,16 @@ pub extern "C" fn OtLibConsoleTx(
     spi_frame_size: usize,
     timeout_ms: u64,
 ) {
+    const DUT_RX_SPI_FRAME_SIZE_IN_BYTES: usize = 256;
+    assert!(
+        !spi_frame.is_null(),
+        "spi_frame buffer pointer must not be null"
+    );
+    assert!(
+        spi_frame_size > 0 && spi_frame_size % DUT_RX_SPI_FRAME_SIZE_IN_BYTES == 0,
+        "spi_frame_size ({spi_frame_size}) must be a non-zero multiple of frame size ({DUT_RX_SPI_FRAME_SIZE_IN_BYTES})"
+    );
+
     // SAFETY: The transport wrapper pointer passed from C side should be the pointer returned by
     // the call to `OtLibFpgaTransportInit(...)` above.
     let transport: &TransportWrapper = unsafe { &*transport };
@@ -574,4 +584,116 @@ pub extern "C" fn OtLibCheckTransportImgBoot(
         }
     }
     println!("Owner Firmware has booted.");
+}
+
+#[no_mangle]
+pub extern "C" fn OtLibReleaseStage1Pins(transport: *const TransportWrapper) {
+    // SAFETY: `transport` is a live pointer to a `TransportWrapper` object.
+    let transport: &TransportWrapper = unsafe { &*transport };
+    for pin_name in &["IOA0", "IOA1", "IOA4"] {
+        let pin = transport
+            .gpio_pin(pin_name)
+            .expect(&format!("Failed to get pin {}", pin_name));
+        pin.set_pull_mode(PullMode::None)
+            .expect(&format!("Failed to set pull mode to None on {}", pin_name));
+        pin.set_mode(PinMode::Alternate)
+            .expect(&format!("Failed to set mode to Alternate on {}", pin_name));
+    }
+}
+
+fn wait_for_flash_scramble_inner(transport: &TransportWrapper, timeout: Duration) -> Result<()> {
+    let t0 = std::time::Instant::now();
+
+    let error_pin = transport.gpio_pin("IOA0")?;
+    error_pin.set_mode(PinMode::Input)?;
+    error_pin.set_pull_mode(PullMode::PullDown)?;
+
+    let success_pin = transport.gpio_pin("IOA1")?;
+    success_pin.set_mode(PinMode::Input)?;
+    success_pin.set_pull_mode(PullMode::PullDown)?;
+
+    let start_pin = transport.gpio_pin("IOA4")?;
+    start_pin.set_mode(PinMode::Input)?;
+    start_pin.set_pull_mode(PullMode::PullDown)?;
+
+    let uart = transport.uart("console").ok();
+    let mut console = UartConsole {
+        timeout: Some(Duration::from_millis(10)),
+        timestamp: true,
+        newline: true,
+        ..Default::default()
+    };
+    let mut stdout = std::io::stdout();
+
+    // Wait for Stage 1 to boot and assert TestStart (IOA4) HIGH, signaling PINMUX is ready.
+    while !start_pin.read()? {
+        if let Some(ref u) = uart {
+            let _ = console.interact(&**u, None, Some(&mut stdout));
+        } else {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+
+        if t0.elapsed() > timeout {
+            return Err(anyhow::anyhow!(
+                "Timed out waiting for TestStart signal (IOA4) from device"
+            ));
+        }
+    }
+
+    while !success_pin.read()? {
+        if let Some(ref u) = uart {
+            let _ = console.interact(&**u, None, Some(&mut stdout));
+        } else {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+
+        if error_pin.read()? {
+            return Err(anyhow::anyhow!(
+                "Stage 1 execution failed: TestError pin (IOA0) went HIGH!"
+            ));
+        }
+
+        if t0.elapsed() > timeout {
+            return Err(anyhow::anyhow!(
+                "Timed out waiting for bootstrap signal from device"
+            ));
+        }
+    }
+
+    // Flush any remaining UART output.
+    if let Some(ref u) = uart {
+        let _ = console.interact(&**u, None, Some(&mut stdout));
+    }
+
+    let success_asserted = success_pin.read()?;
+    let start_asserted = start_pin.read()?;
+    let error_asserted = error_pin.read()?;
+    println!(
+        "Host verified physical GPIOs for Stage 1 handshake: TestStart (IOA4) = {}, TestDone (IOA1) = {}, TestError (IOA0) = {}",
+        start_asserted, success_asserted, error_asserted
+    );
+
+    Ok(())
+}
+
+#[no_mangle]
+pub extern "C" fn OtLibWaitForFlashScramble(
+    transport: *const TransportWrapper,
+    timeout_ms: u64,
+) {
+    // SAFETY: `transport` is a live pointer to a `TransportWrapper` object.
+    let transport: &TransportWrapper = unsafe { &*transport };
+    let timeout = Duration::from_millis(timeout_ms);
+
+    let result = wait_for_flash_scramble_inner(transport, timeout);
+
+    // Guaranteed cleanup: always reset pins to PullMode::None and PinMode::Alternate.
+    for pin_name in &["IOA0", "IOA1", "IOA4"] {
+        if let Ok(pin) = transport.gpio_pin(pin_name) {
+            let _ = pin.set_pull_mode(PullMode::None);
+            let _ = pin.set_mode(PinMode::Alternate);
+        }
+    }
+
+    result.expect("Stage 1 flash scramble GPIO wait failed.");
 }
