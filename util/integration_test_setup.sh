@@ -41,12 +41,8 @@ DEPLOYMENT_DIR="${OPENTITAN_VAR_DIR}/config"
 SPM_PID_FILE="/tmp/spm.pid"
 
 if [[ -n "${OT_PROV_PQ_EN}" ]]; then
-  export ENABLE_MLKEM_TLS="${ENABLE_MLKEM_TLS:-true}"
-  export ENABLE_MLDSA_TLS="${ENABLE_MLDSA_TLS:-true}"
   export ENABLE_MLDSA_DICE="${ENABLE_MLDSA_DICE:-true}"
 else
-  export ENABLE_MLKEM_TLS="${ENABLE_MLKEM_TLS:-false}"
-  export ENABLE_MLDSA_TLS="${ENABLE_MLDSA_TLS:-false}"
   export ENABLE_MLDSA_DICE="${ENABLE_MLDSA_DICE:-false}"
 fi
 
@@ -154,8 +150,6 @@ bazelisk build //src/spm:spm_server
 echo "Launching SPM server outside of container"
 bazelisk run //src/spm:spm_server -- \
   --enable_tls=true \
-  --enable_mlkem_tls=${ENABLE_MLKEM_TLS} \
-  --enable_mldsa_tls=${ENABLE_MLDSA_TLS} \
   --service_cert="${DEPLOYMENT_DIR}/certs/out/spm-service-cert.pem" \
   --service_key="${DEPLOYMENT_DIR}/certs/out/spm-service-key.pem" \
   --ca_root_certs=${DEPLOYMENT_DIR}/certs/out/ca-cert.pem \

@@ -178,8 +178,6 @@ DLLEXPORT int CreateClient(
 
   // convert from ate_client_ptr to AteClient::Options
   o.enable_mtls = options->enable_mtls;
-  o.enable_mlkem_tls = options->enable_mlkem_tls;
-  o.enable_mldsa_tls = options->enable_mldsa_tls;
   o.pa_target = options->pa_target;
   if (options->load_balancing_policy != nullptr) {
     o.load_balancing_policy = options->load_balancing_policy;

@@ -36,19 +36,12 @@ func loadCertPool(rootsFilename string) (*x509.CertPool, error) {
 	return certPool, nil
 }
 
-type Config struct {
-	EnableMLKEMTLS bool
-	EnableMLDSATLS bool
-}
-
-func (c *Config) applyMLKEMConfig(tlsConfig *tls.Config) {
-	if c.EnableMLKEMTLS {
-		// Strictly prefer MLKEM. This enforces that clients must support MLKEM key exchange.
-		tlsConfig.CurvePreferences = []tls.CurveID{
-			tls.X25519MLKEM768,
-		}
-		tlsConfig.MinVersion = tls.VersionTLS13
+func applyMLKEMConfig(tlsConfig *tls.Config) {
+	// Strictly prefer MLKEM. This enforces that clients must support MLKEM key exchange.
+	tlsConfig.CurvePreferences = []tls.CurveID{
+		tls.X25519MLKEM768,
 	}
+	tlsConfig.MinVersion = tls.VersionTLS13
 }
 
 func isMLDSAPublicKeyAlgo(algo x509.PublicKeyAlgorithm) bool {
@@ -103,41 +96,39 @@ func verifyMLDSAPeerCertificate(_ [][]byte, verifiedChains [][]*x509.Certificate
 	return lastErr
 }
 
-func (c *Config) applyMLDSAConfig(tlsConfig *tls.Config) {
-	if c.EnableMLDSATLS {
-		// ML-DSA requires TLS 1.3.
-		tlsConfig.MinVersion = tls.VersionTLS13
+func applyMLDSAConfig(tlsConfig *tls.Config) {
+	// ML-DSA requires TLS 1.3.
+	tlsConfig.MinVersion = tls.VersionTLS13
 
-		for i := range tlsConfig.Certificates {
-			if isMLDSAPrivateKey(tlsConfig.Certificates[i].PrivateKey) {
-				tlsConfig.Certificates[i].SupportedSignatureAlgorithms = []tls.SignatureScheme{
-					tls.MLDSA44,
-					tls.MLDSA65,
-					tls.MLDSA87,
-				}
+	for i := range tlsConfig.Certificates {
+		if isMLDSAPrivateKey(tlsConfig.Certificates[i].PrivateKey) {
+			tlsConfig.Certificates[i].SupportedSignatureAlgorithms = []tls.SignatureScheme{
+				tls.MLDSA44,
+				tls.MLDSA65,
+				tls.MLDSA87,
 			}
 		}
+	}
 
-		// Chain ML-DSA certificate verification onto any existing VerifyPeerCertificate
-		// hook. Standard TLS verification against RootCAs/ClientCAs runs before this hook;
-		// here we strictly enforce that the peer certificate and all certificates in its
-		// verified chain (intermediates and root) use ML-DSA keys and signatures.
-		prevVerifyPeerCertificate := tlsConfig.VerifyPeerCertificate
-		tlsConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-			if prevVerifyPeerCertificate != nil {
-				if err := prevVerifyPeerCertificate(rawCerts, verifiedChains); err != nil {
-					return err
-				}
+	// Chain ML-DSA certificate verification onto any existing VerifyPeerCertificate
+	// hook. Standard TLS verification against RootCAs/ClientCAs runs before this hook;
+	// here we strictly enforce that the peer certificate and all certificates in its
+	// verified chain (intermediates and root) use ML-DSA keys and signatures.
+	prevVerifyPeerCertificate := tlsConfig.VerifyPeerCertificate
+	tlsConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+		if prevVerifyPeerCertificate != nil {
+			if err := prevVerifyPeerCertificate(rawCerts, verifiedChains); err != nil {
+				return err
 			}
-			return verifyMLDSAPeerCertificate(rawCerts, verifiedChains)
 		}
+		return verifyMLDSAPeerCertificate(rawCerts, verifiedChains)
 	}
 }
 
 // LoadServerCredentials returns server side mTLS transport credentials.
 // `rootsFilename` should point to the client CA root certificates in PEM
 // format.
-func (c *Config) LoadServerCredentials(rootsFilename, certFilename, keyFilename string) (credentials.TransportCredentials, error) {
+func LoadServerCredentials(rootsFilename, certFilename, keyFilename string) (credentials.TransportCredentials, error) {
 	certPool, err := loadCertPool(rootsFilename)
 	if err != nil {
 		return nil, err
@@ -148,7 +139,7 @@ func (c *Config) LoadServerCredentials(rootsFilename, certFilename, keyFilename 
 		return nil, err
 	}
 
-	if c.EnableMLDSATLS && !isMLDSAPrivateKey(cert.PrivateKey) {
+	if !isMLDSAPrivateKey(cert.PrivateKey) {
 		return nil, fmt.Errorf("server certificate key is not an MLDSA private key (got %T)", cert.PrivateKey)
 	}
 
@@ -159,8 +150,8 @@ func (c *Config) LoadServerCredentials(rootsFilename, certFilename, keyFilename 
 		InsecureSkipVerify: false,
 	}
 
-	c.applyMLKEMConfig(tlsConfig)
-	c.applyMLDSAConfig(tlsConfig)
+	applyMLKEMConfig(tlsConfig)
+	applyMLDSAConfig(tlsConfig)
 
 	return credentials.NewTLS(tlsConfig), nil
 }
@@ -168,7 +159,7 @@ func (c *Config) LoadServerCredentials(rootsFilename, certFilename, keyFilename 
 // LoadClientCredentials returns client side mTLS transport credentials.
 // `rootsFilename` should point to the server CA root certificates in PEM
 // format.
-func (c *Config) LoadClientCredentials(rootsFilename, certFilename, keyFilename string) (credentials.TransportCredentials, error) {
+func LoadClientCredentials(rootsFilename, certFilename, keyFilename string) (credentials.TransportCredentials, error) {
 	certPool, err := loadCertPool(rootsFilename)
 	if err != nil {
 		return nil, err
@@ -179,7 +170,7 @@ func (c *Config) LoadClientCredentials(rootsFilename, certFilename, keyFilename 
 		return nil, err
 	}
 
-	if c.EnableMLDSATLS && !isMLDSAPrivateKey(cert.PrivateKey) {
+	if !isMLDSAPrivateKey(cert.PrivateKey) {
 		return nil, fmt.Errorf("client certificate key is not an MLDSA private key (got %T)", cert.PrivateKey)
 	}
 
@@ -188,8 +179,8 @@ func (c *Config) LoadClientCredentials(rootsFilename, certFilename, keyFilename 
 		RootCAs:      certPool,
 	}
 
-	c.applyMLKEMConfig(tlsConfig)
-	c.applyMLDSAConfig(tlsConfig)
+	applyMLKEMConfig(tlsConfig)
+	applyMLDSAConfig(tlsConfig)
 
 	return credentials.NewTLS(tlsConfig), nil
 }

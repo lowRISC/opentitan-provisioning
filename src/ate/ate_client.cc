@@ -201,69 +201,44 @@ namespace {
 // `options`.
 std::shared_ptr<grpc::ChannelCredentials> BuildCredentials(
     const AteClient::Options& options) {
-  std::shared_ptr<grpc::ChannelCredentials> channel_creds;
-
-  if (options.enable_mldsa_tls) {
-    if (!options.pem_private_key.empty()) {
-      grpc::Status status = ValidateMldsaPrivateKey(options.pem_private_key);
-      if (!status.ok()) {
-        LOG(ERROR) << status.error_message();
-        return nullptr;
-      }
-    }
-    if (!options.pem_cert_chain.empty()) {
-      grpc::Status status = VerifyMldsaCertificates(options.pem_cert_chain);
-      if (!status.ok()) {
-        LOG(ERROR) << "Client certificate verification failed: "
-                   << status.error_message();
-        return nullptr;
-      }
-    }
-    if (!options.pem_root_certs.empty()) {
-      grpc::Status status = VerifyMldsaCertificates(options.pem_root_certs);
-      if (!status.ok()) {
-        LOG(ERROR) << "Root CA certificate verification failed: "
-                   << status.error_message();
-        return nullptr;
-      }
-    }
+  grpc::Status status = ValidateMldsaPrivateKey(options.pem_private_key);
+  if (!status.ok()) {
+    LOG(ERROR) << status.error_message();
+    return nullptr;
+  }
+  status = VerifyMldsaCertificates(options.pem_cert_chain);
+  if (!status.ok()) {
+    LOG(ERROR) << "Client certificate verification failed: "
+               << status.error_message();
+    return nullptr;
+  }
+  status = VerifyMldsaCertificates(options.pem_root_certs);
+  if (!status.ok()) {
+    LOG(ERROR) << "Root CA certificate verification failed: "
+               << status.error_message();
+    return nullptr;
   }
 
-  if (options.enable_mldsa_tls || options.enable_mlkem_tls) {
-    grpc::experimental::TlsChannelCredentialsOptions tls_options;
+  grpc::experimental::TlsChannelCredentialsOptions tls_options;
 
-    std::vector<grpc::experimental::IdentityKeyCertPair> identity_pairs;
-    if (!options.pem_private_key.empty() && !options.pem_cert_chain.empty()) {
-      identity_pairs.push_back(
-          {options.pem_private_key, options.pem_cert_chain});
-    }
+  std::vector<grpc::experimental::IdentityKeyCertPair> identity_pairs = {
+      {options.pem_private_key, options.pem_cert_chain}};
 
-    auto cert_provider =
-        std::make_shared<grpc::experimental::StaticDataCertificateProvider>(
-            options.pem_root_certs, identity_pairs);
-    tls_options.set_certificate_provider(cert_provider);
-    tls_options.watch_root_certs();
-    if (!identity_pairs.empty()) {
-      tls_options.watch_identity_key_cert_pairs();
-    }
+  auto cert_provider =
+      std::make_shared<grpc::experimental::StaticDataCertificateProvider>(
+          options.pem_root_certs, identity_pairs);
+  tls_options.set_certificate_provider(cert_provider);
+  tls_options.watch_root_certs();
+  tls_options.watch_identity_key_cert_pairs();
 
-    tls_options.set_min_tls_version(grpc_tls_version::TLS1_3);
+  tls_options.set_min_tls_version(grpc_tls_version::TLS1_3);
 
-    if (options.enable_mldsa_tls) {
-      auto verifier = grpc::experimental::ExternalCertificateVerifier::Create<
-          MldsaCertificateVerifier>();
-      tls_options.set_certificate_verifier(verifier);
-    }
+  auto verifier = grpc::experimental::ExternalCertificateVerifier::Create<
+      MldsaCertificateVerifier>();
+  tls_options.set_certificate_verifier(verifier);
 
-    channel_creds = grpc::experimental::TlsCredentials(tls_options);
-  } else {
-    grpc::SslCredentialsOptions credentials_opts;
-    credentials_opts.pem_root_certs = options.pem_root_certs;
-    credentials_opts.pem_private_key = options.pem_private_key;
-    credentials_opts.pem_cert_chain = options.pem_cert_chain;
-    channel_creds = grpc::SslCredentials(credentials_opts);
-  }
-
+  std::shared_ptr<grpc::ChannelCredentials> channel_creds =
+      grpc::experimental::TlsCredentials(tls_options);
   if (!channel_creds) {
     return nullptr;
   }
@@ -442,8 +417,6 @@ std::ostream& operator<<(std::ostream& os, const AteClient::Options& options) {
   os << "options.load_balancing_policy = " << options.load_balancing_policy
      << std::endl;
   os << "options.enable_mtls = " << options.enable_mtls << std::endl;
-  os << "options.enable_mlkem_tls = " << options.enable_mlkem_tls << std::endl;
-  os << "options.enable_mldsa_tls = " << options.enable_mldsa_tls << std::endl;
   os << "options.pem_cert_chain = " << options.pem_cert_chain << std::endl;
   os << "options.pem_private_key = " << options.pem_private_key << std::endl;
   os << "options.pem_root_certs = " << options.pem_root_certs << std::endl;
