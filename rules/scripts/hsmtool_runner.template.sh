@@ -15,6 +15,7 @@ usage () {
   echo "  --input_tar <input.tar.gz>   Path to the input tarball."
   echo "  --wipe                       Execute destroy commands before initializing the assets."
   echo "  --show                       Execute show commands to dump the asset attributes."
+  echo "  --skip_existing              Skip keys that already exist in the HSM token."
   echo "  --output_tar <output.tar.gz> Path to the output tarball. Optional."
   echo "  --help                       Show this help message."
   exit 1
@@ -23,7 +24,9 @@ usage () {
 readonly OUTDIR_HSM="hsm"
 readonly OUTDIR_PUB="pub"
 
-readonly INIT_HJSON=@@INIT_HJSON@@
+readonly INIT_HJSONS=(@@INIT_HJSONS@@)
+readonly INIT_KEY_PUB_LABELS=(@@INIT_KEY_PUB_LABELS@@)
+readonly INIT_KEY_PRIV_LABELS=(@@INIT_KEY_PRIV_LABELS@@)
 readonly DESTROY_HJSON=@@DESTROY_HJSON@@
 readonly SHOW_HJSON=@@SHOW_HJSON@@
 readonly HSMTOOL_BIN_DEFAULT=@@HSMTOOL_BIN@@
@@ -38,8 +41,9 @@ FLAGS_IN_TAR=""
 FLAGS_OUT_TAR=""
 FLAGS_WIPE=false
 FLAGS_SHOW=false
+FLAGS_SKIP_EXISTING=false
 
-LONGOPTS="hsm_module:,token:,softhsm_config:,hsm_pin:,input_tar:,output_tar:,wipe,show,help"
+LONGOPTS="hsm_module:,token:,softhsm_config:,hsm_pin:,input_tar:,output_tar:,wipe,show,skip_existing,help"
 OPTS=$(getopt -o "" --long "${LONGOPTS}" -n "$0" -- "$@")
 
 if [ $? != 0 ] ; then echo "Failed parsing options." >&2 ; exit 1 ; fi
@@ -78,6 +82,10 @@ while true; do
       ;;
     --show)
       FLAGS_SHOW=true
+      shift
+      ;;
+    --skip_existing)
+      FLAGS_SKIP_EXISTING=true
       shift
       ;;
     --help)
@@ -184,8 +192,54 @@ if [[ "${FLAGS_WIPE}" == true ]]; then
   env "${hsmtool_vars[@]}" "${hsmtool_args[@]}" exec "${DESTROY_HJSON}"
 fi
 
+object_exists () {
+  local label="$1"
+  env "${hsmtool_vars[@]}" "${hsmtool_args[@]}" object show --label "${label}" 2>/dev/null | grep -q '"CKA_CLASS"'
+}
+
+echo "Checking existing keys in HSM"
+hjsons_to_exec=()
+for i in "${!INIT_HJSONS[@]}"; do
+  pub_label="${INIT_KEY_PUB_LABELS[$i]}"
+  priv_label="${INIT_KEY_PRIV_LABELS[$i]}"
+
+  if [[ -n "${pub_label}" ]]; then
+    pub_exists=false
+    if object_exists "${pub_label}"; then
+      pub_exists=true
+    fi
+
+    priv_exists=false
+    if object_exists "${priv_label}"; then
+      priv_exists=true
+    fi
+
+    if [[ "${pub_exists}" == true ]] || [[ "${priv_exists}" == true ]]; then
+      if [[ "${FLAGS_SKIP_EXISTING}" == true ]]; then
+        if [[ "${pub_exists}" == false ]]; then
+          echo "Error: Key partially exists in HSM (found: ${priv_label}, missing: ${pub_label})." >&2
+          exit 1
+        fi
+        if [[ "${priv_exists}" == false ]]; then
+          echo "Error: Key partially exists in HSM (found: ${pub_label}, missing: ${priv_label})." >&2
+          exit 1
+        fi
+        echo "Skipping existing key: ${pub_label} ${priv_label}"
+        continue
+      else
+        echo "Error: Key object already exists in HSM (${pub_label} ${priv_label}). Pass --skip_existing to skip existing keys." >&2
+        exit 1
+      fi
+    fi
+  fi
+
+  hjsons_to_exec+=("${INIT_HJSONS[$i]}")
+done
+
 echo "Running hsmtool"
-env "${hsmtool_vars[@]}" "${hsmtool_args[@]}" exec "${INIT_HJSON}"
+for hjson in "${hjsons_to_exec[@]}"; do
+  env "${hsmtool_vars[@]}" "${hsmtool_args[@]}" exec "${hjson}"
+done
 
 if [[ -n "${FLAGS_OUT_TAR}" ]]; then
   echo "Exporting HSM data to ${FLAGS_OUT_TAR}"

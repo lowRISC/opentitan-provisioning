@@ -12,6 +12,7 @@ usage () {
   echo "  --cert_validity_days <days>  Certificate validity period in days. Optional (default: 7300)."
   echo "  --wipe                       Wipe the SPM wrapping key before exporting secrets from the offline HSM."
   echo "  --show                       Show the HSM contents."
+  echo "  --skip_existing              Skip keys that already exist in the HSM token."
   echo "  --help                       Show this help message."
 
   echo "Available actions:"
@@ -36,10 +37,11 @@ usage () {
 FLAG_ACTION=""
 FlAGS_WIPE=""
 FLAGS_SHOW=""
+FLAGS_SKIP_EXISTING=""
 FLAGS_CERT_VALIDITY_DAYS=""
 FLAGS_SKUS_ARRAY=()
 
-LONGOPTS="action:,sku:,cert_validity_days:,days:,wipe,show,help"
+LONGOPTS="action:,sku:,cert_validity_days:,days:,wipe,show,skip_existing,help"
 OPTS=$(getopt -o "" --long "${LONGOPTS}" -n "$0" -- "$@")
 
 if [ $? != 0 ] ; then echo "Failed parsing options." >&2 ; exit 1 ; fi
@@ -70,6 +72,10 @@ while true; do
       ;;
     --show)
       FLAGS_SHOW="--show"
+      shift
+      ;;
+    --skip_existing)
+      FLAGS_SKIP_EXISTING="--skip_existing"
       shift
       ;;
     --help)
@@ -234,7 +240,7 @@ function run_hsm_init() {
 }
 
 function action_spm_init() {
-  run_hsm_init "${SPM_SKU_DIR}/spm_init.bash" "${SPM_ARGS[@]}" ${FLAGS_SHOW}
+  run_hsm_init "${SPM_SKU_DIR}/spm_init.bash" "${SPM_ARGS[@]}" ${FLAGS_SHOW} ${FLAGS_SKIP_EXISTING}
   if [[ -n "${FLAGS_SHOW}" ]]; then
     exit 0
   fi
@@ -246,7 +252,7 @@ function action_spm_init() {
 function action_offline_common_init() {
   # Run the SKU initilization script in the offline HSM partition.
   # Creates root CA private key and RMA wrap/unwrap key.
-  run_hsm_init "${EG_COMMON_DIR}/offline_init.bash" "${OFFLINE_ARGS[@]}" ${FLAGS_SHOW}
+  run_hsm_init "${EG_COMMON_DIR}/offline_init.bash" "${OFFLINE_ARGS[@]}" ${FLAGS_SHOW} ${FLAGS_SKIP_EXISTING}
 }
 
 function action_offline_common_export() {
@@ -257,7 +263,7 @@ function action_offline_common_export() {
   # Exports RMA public key and high and low security seeds from the offline HSM
   # partition. Always run the command with --wipe to ensure the SPM wrapping key
   # is destroyed if it exists.
-  run_hsm_init "${EG_COMMON_DIR}/offline_export.bash" "${OFFLINE_ARGS[@]}" ${FlAGS_WIPE} \
+  run_hsm_init "${EG_COMMON_DIR}/offline_export.bash" "${OFFLINE_ARGS[@]}" ${FlAGS_WIPE} ${FLAGS_SKIP_EXISTING} \
     --input_tar "${SPM_SKU_DIR}/spm_hsm_init.tar.gz" \
     --output_tar "${EG_COMMON_DIR}/hsm_offline_export.tar.gz"
 }
@@ -270,12 +276,12 @@ function action_spm_sku_init() {
     done
   else
     # Generate SPM private keys.
-    run_hsm_init "${EG_COMMON_DIR}/spm_sku_init.bash" "${SPM_ARGS[@]}" \
+    run_hsm_init "${EG_COMMON_DIR}/spm_sku_init.bash" "${SPM_ARGS[@]}" ${FLAGS_SKIP_EXISTING} \
       --input_tar "${EG_COMMON_DIR}/hsm_offline_export.tar.gz"
 
     # Generate Intermediate CA private keys.
     for i in "${!SKU_DIRS[@]}"; do
-      run_hsm_init "${SKU_DIRS[i]}/${CA_KEYGEN_SCRIPTS[i]}" "${SPM_ARGS[@]}"
+      run_hsm_init "${SKU_DIRS[i]}/${CA_KEYGEN_SCRIPTS[i]}" "${SPM_ARGS[@]}" ${FLAGS_SKIP_EXISTING}
     done
   fi
 }
