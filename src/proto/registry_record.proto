@@ -25,4 +25,10 @@ message RegistryRecord {
   bytes auth_pubkey = 5;
   // ASN.1 DER encoded ECDSA signature over the entire DeviceData payload.
   bytes auth_signature = 6;
+  // ASN.1 DER encoded SubjectPublicKeyInfo PQC authority public key that
+  // matches the private key used to generate the PQC endorsement signature
+  // below.
+  bytes pqc_auth_pubkey = 7;
+  // PQC (ML-DSA) signature over the entire DeviceData payload.
+  bytes pqc_auth_signature = 8;
 }

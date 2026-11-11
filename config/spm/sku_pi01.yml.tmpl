@@ -21,6 +21,7 @@ privateKeys:
     - name: pi01-ica-dice-key-p256-v0.priv
     - name: pi01-ica-ext-key-p256-v0.priv
     - name: spm-hsm-id-v0.priv
+    - name: spm-hsm-id-mldsa-v0.priv
 publicKeys:
     - name: sku-eg-rsa-rma-v0.pub
 attributes:
@@ -33,6 +34,7 @@ attributes:
     SigningKey/Dice/v0: pi01-ica-dice-key-p256-v0.priv
     SigningKey/Ext/v0: pi01-ica-ext-key-p256-v0.priv
     SigningKey/Identity/v0: spm-hsm-id-v0.priv
+    SigningKey/Identity/Mldsa/v0: spm-hsm-id-mldsa-v0.priv
     CertChainDiceLeaf: UDS
     OwnerFirmwareBootMessage: "...sleeping..."
 cwtCertHashOrder:

@@ -18,6 +18,7 @@ certs:
 privateKeys:
     - name: sival-dice-key-p256-v0.priv
     - name: spm-hsm-id-v0.priv
+    - name: spm-hsm-id-mldsa-v0.priv
 publicKeys:
     - name: sku-eg-rsa-rma-v0.pub
 attributes:
@@ -29,6 +30,7 @@ attributes:
     WrappingKeyLabel: sku-eg-rsa-rma-v0.pub
     SigningKey/Dice/v0: sival-dice-key-p256-v0.priv
     SigningKey/Identity/v0: spm-hsm-id-v0.priv
+    SigningKey/Identity/Mldsa/v0: spm-hsm-id-mldsa-v0.priv
     CertChainDiceLeaf: CDI_1
     OwnerFirmwareBootMessage: "ownership: OWND"
 x509CertHashOrder:

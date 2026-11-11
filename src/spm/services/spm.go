@@ -12,6 +12,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/ecdh"
 	"crypto/hpke"
+	"crypto/mldsa"
 	"crypto/mlkem"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -608,53 +609,47 @@ func (s *server) EndorseCerts(ctx context.Context, request *pbp.EndorseCertsRequ
 	}, nil
 }
 
-func (s *server) EndorseData(ctx context.Context, request *pbs.EndorseDataRequest) (*pbs.EndorseDataResponse, error) {
-	log.Printf("SPM.EndorseDataRequest - Sku:%q", request.Sku)
-	sku, ok := s.skuManager.GetSku(request.Sku)
-	if !ok {
-		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.Sku)
+func endorsePayload(skuName string, sku *skumgr.Sku, keyParams *pbc.SigningKeyParams, data []byte) ([]byte, []byte, error) {
+	if keyParams == nil {
+		return nil, nil, status.Errorf(codes.InvalidArgument, "missing signing key parameters")
 	}
 
 	// Retrieve signing key label.
-	keyLabel, err := sku.Config.GetUnsafeAttribute(request.KeyParams.KeyLabel)
+	keyLabel, err := sku.Config.GetUnsafeAttribute(keyParams.KeyLabel)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "unable to find key label %q in SKU configuration: %v", request.KeyParams.KeyLabel, err)
+		return nil, nil, status.Errorf(codes.InvalidArgument, "unable to find key label %q in SKU configuration: %v", keyParams.KeyLabel, err)
 	}
 
-	// Sign data payload with the endorsement key.
-	var asn1Pubkey, asn1Sig []byte
-	switch key := request.KeyParams.Key.(type) {
+	// Sign data payload with the endorsement key and self-verify.
+	switch key := keyParams.Key.(type) {
 	case *pbc.SigningKeyParams_EcdsaParams:
 		sigAlg := ecdsaSignatureAlgorithmFromHashType(key.EcdsaParams.HashType)
 		params := se.EndorseCertParams{
 			KeyLabel:           keyLabel,
 			SignatureAlgorithm: &sigAlg,
 		}
-		asn1Pubkey, asn1Sig, err = sku.SeHandle.EndorseData(request.Data, params)
+		asn1Pubkey, asn1Sig, err := sku.SeHandle.EndorseData(data, params)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "could not endorse data payload for sku %q: %v", request.Sku, err)
+			return nil, nil, status.Errorf(codes.Internal, "could not endorse data payload for sku %q: %v", skuName, err)
 		}
 		pub, err := x509.ParsePKIXPublicKey(asn1Pubkey)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "could not parse public key: %v, asn1: %x", err, asn1Pubkey)
+			return nil, nil, status.Errorf(codes.Internal, "could not parse public key: %v, asn1: %x", err, asn1Pubkey)
 		}
 		ecdsaPubKey, ok := pub.(*ecdsa.PublicKey)
 		if !ok {
-			return nil, status.Errorf(codes.Internal, "public key is not an ECDSA key, but %T", pub)
+			return nil, nil, status.Errorf(codes.Internal, "public key is not an ECDSA key, but %T", pub)
 		}
 
-		dataHash := sha256.Sum256(request.Data)
+		dataHash := sha256.Sum256(data)
 		var sig struct{ R, S *big.Int }
-		_, err = asn1.Unmarshal(asn1Sig, &sig)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "could not unmarshal signature: %v, asn1: %x", err, asn1Sig)
+		if _, err := asn1.Unmarshal(asn1Sig, &sig); err != nil {
+			return nil, nil, status.Errorf(codes.Internal, "could not unmarshal signature: %v, asn1: %x", err, asn1Sig)
 		}
-
-		// Verify the signature.
-		verified := ecdsa.Verify(ecdsaPubKey, dataHash[:], sig.R, sig.S)
-		if !verified {
-			return nil, status.Errorf(codes.Internal, "could not verify signature for hash %x", dataHash[:])
+		if !ecdsa.Verify(ecdsaPubKey, dataHash[:], sig.R, sig.S) {
+			return nil, nil, status.Errorf(codes.Internal, "could not verify signature for hash %x", dataHash[:])
 		}
+		return asn1Pubkey, asn1Sig, nil
 	case *pbc.SigningKeyParams_MldsaParams:
 		params := se.EndorseCertParams{
 			KeyLabel: keyLabel,
@@ -662,17 +657,48 @@ func (s *server) EndorseData(ctx context.Context, request *pbs.EndorseDataReques
 				ParameterSets: mldsaParameterSetFromProto(key.MldsaParams.ParamSets),
 			},
 		}
-		asn1Pubkey, asn1Sig, err = sku.SeHandle.EndorseData(request.Data, params)
+		asn1Pubkey, sigBytes, err := sku.SeHandle.EndorseData(data, params)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "could not endorse data payload for sku %q: %v", request.Sku, err)
+			return nil, nil, status.Errorf(codes.Internal, "could not endorse data payload for sku %q: %v", skuName, err)
 		}
+		mldsaPubKey, err := se.ParseMLDSA87PublicKeySPKI(asn1Pubkey)
+		if err != nil {
+			return nil, nil, status.Errorf(codes.Internal, "could not parse MLDSA public key: %v, asn1: %x", err, asn1Pubkey)
+		}
+		if err := mldsa.Verify(mldsaPubKey, data, sigBytes, nil); err != nil {
+			return nil, nil, status.Errorf(codes.Internal, "could not verify MLDSA signature: %v", err)
+		}
+		return asn1Pubkey, sigBytes, nil
 	default:
-		return nil, status.Errorf(codes.Unimplemented, "unsupported key format")
+		return nil, nil, status.Errorf(codes.Unimplemented, "unsupported key format")
+	}
+}
+
+func (s *server) EndorseData(ctx context.Context, request *pbs.EndorseDataRequest) (*pbs.EndorseDataResponse, error) {
+	log.Printf("SPM.EndorseDataRequest - Sku:%q", request.Sku)
+	sku, ok := s.skuManager.GetSku(request.Sku)
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "unable to find sku %q. Try calling InitSession first", request.Sku)
+	}
+
+	asn1Pubkey, asn1Sig, err := endorsePayload(request.Sku, sku, request.KeyParams, request.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	var pqcPubkey, pqcSig []byte
+	if request.PqcKeyParams != nil {
+		pqcPubkey, pqcSig, err = endorsePayload(request.Sku, sku, request.PqcKeyParams, request.Data)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &pbs.EndorseDataResponse{
-		Pubkey:    asn1Pubkey,
-		Signature: asn1Sig,
+		Pubkey:       asn1Pubkey,
+		Signature:    asn1Sig,
+		PqcPubkey:    pqcPubkey,
+		PqcSignature: pqcSig,
 	}, nil
 }
 

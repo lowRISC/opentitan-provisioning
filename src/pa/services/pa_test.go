@@ -8,8 +8,10 @@ package pa
 import (
 	"context"
 	"net"
+	"strings"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -19,6 +21,12 @@ import (
 
 	pbp "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
 	"github.com/lowRISC/opentitan-provisioning/src/pa/services/pa"
+	certpb "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/cert_go_pb"
+	commonpb "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/common_go_pb"
+	ecdsapb "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/ecdsa_go_pb"
+	mldsapb "github.com/lowRISC/opentitan-provisioning/src/proto/crypto/mldsa_go_pb"
+	dpb "github.com/lowRISC/opentitan-provisioning/src/proto/device_id_go_pb"
+	dtd "github.com/lowRISC/opentitan-provisioning/src/proto/device_testdata"
 	pbr "github.com/lowRISC/opentitan-provisioning/src/proxy_buffer/proto/proxy_buffer_go_pb"
 	pbs "github.com/lowRISC/opentitan-provisioning/src/spm/proto/spm_go_pb"
 )
@@ -113,8 +121,9 @@ type endorseCertsResponse struct {
 }
 
 type endorseDataResponse struct {
-	response *pbs.EndorseDataResponse
-	err      error
+	lastRequest *pbs.EndorseDataRequest
+	response    *pbs.EndorseDataResponse
+	err         error
 }
 
 type verifyDeviceDataResponse struct {
@@ -152,6 +161,7 @@ func (c *fakeSpmClient) EndorseCerts(ctx context.Context, request *pbp.EndorseCe
 }
 
 func (c *fakeSpmClient) EndorseData(ctx context.Context, request *pbs.EndorseDataRequest, opts ...grpc.CallOption) (*pbs.EndorseDataResponse, error) {
+	c.endorseData.lastRequest = request
 	return c.endorseData.response, c.endorseData.err
 }
 
@@ -280,6 +290,158 @@ func TestEndorseCerts(t *testing.T) {
 			if got != nil {
 				if diff := cmp.Diff(tt.spmResponse, got, protocmp.Transform()); diff != "" {
 					t.Errorf("call returned unexpected diff (-want +got):\n%s", diff)
+				}
+			}
+		})
+	}
+}
+
+func TestRegisterDevice(t *testing.T) {
+	ctx := context.Background()
+	spmClient := &fakeSpmClient{}
+	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(bufferDialer(t, spmClient)))
+	if err != nil {
+		t.Fatalf("failed to connect to test server: %v", err)
+	}
+	defer conn.Close()
+
+	client := pbp.NewProvisioningApplianceServiceClient(conn)
+
+	deviceData := proto.Clone(&dtd.DeviceDataOk).(*dpb.DeviceData)
+	deviceData.Sku = "sival"
+	deviceDataBytes, err := proto.Marshal(deviceData)
+	if err != nil {
+		t.Fatalf("failed to marshal test device data: %v", err)
+	}
+	req := &pbp.RegistrationRequest{
+		DeviceData: deviceData,
+	}
+
+	wantEndorseReq := &pbs.EndorseDataRequest{
+		Sku: "sival",
+		KeyParams: &certpb.SigningKeyParams{
+			KeyLabel: "SigningKey/Identity/v0",
+			Key: &certpb.SigningKeyParams_EcdsaParams{
+				EcdsaParams: &ecdsapb.EcdsaParams{
+					HashType: commonpb.HashType_HASH_TYPE_SHA256,
+					Curve:    commonpb.EllipticCurveType_ELLIPTIC_CURVE_TYPE_NIST_P256,
+					Encoding: ecdsapb.EcdsaSignatureEncoding_ECDSA_SIGNATURE_ENCODING_DER,
+				},
+			},
+		},
+		PqcKeyParams: &certpb.SigningKeyParams{
+			KeyLabel: "SigningKey/Identity/Mldsa/v0",
+			Key: &certpb.SigningKeyParams_MldsaParams{
+				MldsaParams: &mldsapb.MldsaParams{
+					ParamSets: mldsapb.MldsaParameterSets_MLDSA_PARAMETER_SETS_MLDSA_87,
+				},
+			},
+		},
+		Data: deviceDataBytes,
+	}
+
+	tests := []struct {
+		name           string
+		verifyErr      error
+		endorseResp    *pbs.EndorseDataResponse
+		endorseErr     error
+		expCode        codes.Code
+		expErrSubstr   string
+		checkEndorseRq bool
+	}{
+		{
+			name:         "verify_device_data_error",
+			verifyErr:    status.Errorf(codes.InvalidArgument, "invalid device data"),
+			expCode:      codes.InvalidArgument,
+			expErrSubstr: "SPM.VerifyDeviceData returned error: invalid device data",
+		},
+		{
+			name:         "endorse_data_spm_error",
+			endorseErr:   status.Errorf(codes.InvalidArgument, "endorse failed"),
+			expCode:      codes.InvalidArgument,
+			expErrSubstr: "SPM.EndorseData returned error: endorse failed",
+		},
+		{
+			name: "missing_ecdsa_pubkey",
+			endorseResp: &pbs.EndorseDataResponse{
+				Signature:    []byte("ecdsa-sig"),
+				PqcPubkey:    []byte("pqc-pub"),
+				PqcSignature: []byte("pqc-sig"),
+			},
+			expCode:      codes.Internal,
+			expErrSubstr: "SPM.EndorseData returned incomplete two-layer endorsement",
+		},
+		{
+			name: "missing_ecdsa_signature",
+			endorseResp: &pbs.EndorseDataResponse{
+				Pubkey:       []byte("ecdsa-pub"),
+				PqcPubkey:    []byte("pqc-pub"),
+				PqcSignature: []byte("pqc-sig"),
+			},
+			expCode:      codes.Internal,
+			expErrSubstr: "SPM.EndorseData returned incomplete two-layer endorsement",
+		},
+		{
+			name: "missing_pqc_pubkey",
+			endorseResp: &pbs.EndorseDataResponse{
+				Pubkey:       []byte("ecdsa-pub"),
+				Signature:    []byte("ecdsa-sig"),
+				PqcSignature: []byte("pqc-sig"),
+			},
+			expCode:      codes.Internal,
+			expErrSubstr: "SPM.EndorseData returned incomplete two-layer endorsement",
+		},
+		{
+			name: "missing_pqc_signature",
+			endorseResp: &pbs.EndorseDataResponse{
+				Pubkey:    []byte("ecdsa-pub"),
+				Signature: []byte("ecdsa-sig"),
+				PqcPubkey: []byte("pqc-pub"),
+			},
+			expCode:      codes.Internal,
+			expErrSubstr: "SPM.EndorseData returned incomplete two-layer endorsement",
+		},
+		{
+			name: "complete_two_layer_request_sent_to_spm",
+			endorseResp: &pbs.EndorseDataResponse{
+				Pubkey:       []byte("ecdsa-pub"),
+				Signature:    []byte("ecdsa-sig"),
+				PqcPubkey:    []byte("pqc-pub"),
+				PqcSignature: []byte("pqc-sig"),
+			},
+			// Without ProxyBuffer started, registry_shim returns codes.Internal
+			// after PA accepts the complete two-layer endorsement response.
+			expCode:        codes.Internal,
+			expErrSubstr:   "PA started without ProxyBuffer",
+			checkEndorseRq: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spmClient.verifyDeviceData = verifyDeviceDataResponse{
+				response: &pbs.VerifyDeviceDataResponse{},
+				err:      tt.verifyErr,
+			}
+			spmClient.endorseData = endorseDataResponse{
+				response: tt.endorseResp,
+				err:      tt.endorseErr,
+			}
+
+			_, err := client.RegisterDevice(ctx, req)
+			s, ok := status.FromError(err)
+			if !ok {
+				t.Fatalf("unable to extract status code from error: %v", err)
+			}
+			if s.Code() != tt.expCode {
+				t.Errorf("expected status code %v, got %v (err=%v)", tt.expCode, s.Code(), err)
+			}
+			if tt.expErrSubstr != "" && !strings.Contains(s.Message(), tt.expErrSubstr) {
+				t.Errorf("expected error message containing %q, got %q", tt.expErrSubstr, s.Message())
+			}
+			if tt.checkEndorseRq {
+				if diff := cmp.Diff(wantEndorseReq, spmClient.endorseData.lastRequest, protocmp.Transform()); diff != "" {
+					t.Errorf("EndorseDataRequest diff (-want +got):\n%s", diff)
 				}
 			}
 		})
