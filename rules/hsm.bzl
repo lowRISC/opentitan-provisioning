@@ -626,11 +626,11 @@ def _hsmtool_genscripts(ctx):
     Args:
         ctx: The rule context.
     """
-    up_hson_file = ctx.actions.declare_file(ctx.label.name + "_up.hjson")
     down_hjson_file = ctx.actions.declare_file(ctx.label.name + "_down.hjson")
     show_hjson_file = ctx.actions.declare_file(ctx.label.name + "_show.hjson")
 
-    up_dict = []
+    up_hjson_files = []
+    key_labels = []
     down_dict = []
     show_dict = []
     for key, command in ctx.attr.hsmtool_sequence.items():
@@ -648,6 +648,7 @@ def _hsmtool_genscripts(ctx):
                 show_dict.append(json.decode(scmd))
 
         # Update up command sequence.
+        up_dict = []
         if command == "import" and key.type in ["ecdsa", "mldsa", "rsa"]:
             if "import_pub" in key.hsmtool_cmds:
                 up_dict.append(_process_command(key, "import_pub"))
@@ -664,10 +665,17 @@ def _hsmtool_genscripts(ctx):
         else:
             up_dict.append(_process_command(key, command))
 
-    ctx.actions.write(
-        output = up_hson_file,
-        content = json.encode_indent(up_dict),
-    )
+        up_hjson_file = ctx.actions.declare_file(
+            ctx.label.name + "_" + key.label + "_up.hjson",
+        )
+        ctx.actions.write(
+            output = up_hjson_file,
+            content = json.encode_indent(up_dict),
+        )
+        up_hjson_files.append(up_hjson_file)
+        key_label = key.label_pub if command in ["keygen", "import"] else ""
+        key_labels.append(shell.quote(key_label))
+
     ctx.actions.write(
         output = down_hjson_file,
         content = json.encode_indent(down_dict),
@@ -676,14 +684,15 @@ def _hsmtool_genscripts(ctx):
         output = show_hjson_file,
         content = json.encode_indent(show_dict),
     )
-    return up_hson_file, down_hjson_file, show_hjson_file
+    return up_hjson_files, key_labels, down_hjson_file, show_hjson_file
 
 def _hsm_config_script_impl(ctx):
     out_file = ctx.actions.declare_file(ctx.label.name + ".bash")
-    up_hson_file, down_hjson_file, show_hjson_file = _hsmtool_genscripts(ctx)
+    up_hjson_files, key_labels, down_hjson_file, show_hjson_file = _hsmtool_genscripts(ctx)
 
     substitutions = {
-        "@@INIT_HJSON@@": shell.quote(up_hson_file.basename),
+        "@@INIT_HJSONS@@": " ".join([shell.quote(f.basename) for f in up_hjson_files]),
+        "@@INIT_KEY_LABELS@@": " ".join(key_labels),
         "@@DESTROY_HJSON@@": shell.quote(down_hjson_file.basename),
         "@@SHOW_HJSON@@": shell.quote(show_hjson_file.basename),
         "@@HSMTOOL_BIN@@": shell.quote(ctx.executable._hsmtool.basename),
@@ -698,14 +707,13 @@ def _hsm_config_script_impl(ctx):
 
     outfiles = [
         ctx.executable._hsmtool,
-        up_hson_file,
         down_hjson_file,
         show_hjson_file,
-    ]
+    ] + up_hjson_files
 
     return DefaultInfo(
         runfiles = ctx.runfiles(files = outfiles),
-        files = depset([out_file, up_hson_file, down_hjson_file, show_hjson_file]),
+        files = depset([out_file, down_hjson_file, show_hjson_file] + up_hjson_files),
         executable = out_file,
     )
 

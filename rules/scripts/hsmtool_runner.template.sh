@@ -23,7 +23,8 @@ usage () {
 readonly OUTDIR_HSM="hsm"
 readonly OUTDIR_PUB="pub"
 
-readonly INIT_HJSON=@@INIT_HJSON@@
+readonly INIT_HJSONS=(@@INIT_HJSONS@@)
+readonly INIT_KEY_LABELS=(@@INIT_KEY_LABELS@@)
 readonly DESTROY_HJSON=@@DESTROY_HJSON@@
 readonly SHOW_HJSON=@@SHOW_HJSON@@
 readonly HSMTOOL_BIN_DEFAULT=@@HSMTOOL_BIN@@
@@ -184,8 +185,21 @@ if [[ "${FLAGS_WIPE}" == true ]]; then
   env "${hsmtool_vars[@]}" "${hsmtool_args[@]}" exec "${DESTROY_HJSON}"
 fi
 
+object_exists () {
+  local label="$1"
+  env "${hsmtool_vars[@]}" "${hsmtool_args[@]}" object show --label "${label}" 2>/dev/null | grep -q '"CKA_CLASS"'
+}
+
 echo "Running hsmtool"
-env "${hsmtool_vars[@]}" "${hsmtool_args[@]}" exec "${INIT_HJSON}"
+for i in "${!INIT_HJSONS[@]}"; do
+  key_label="${INIT_KEY_LABELS[$i]}"
+  if [[ -n "${key_label}" ]] && object_exists "${key_label}"; then
+    echo "Skipping existing key: ${key_label}"
+    continue
+  fi
+
+  env "${hsmtool_vars[@]}" "${hsmtool_args[@]}" exec "${INIT_HJSONS[$i]}"
+done
 
 if [[ -n "${FLAGS_OUT_TAR}" ]]; then
   echo "Exporting HSM data to ${FLAGS_OUT_TAR}"
