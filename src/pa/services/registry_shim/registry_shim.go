@@ -61,12 +61,14 @@ func RegisterDevice(ctx context.Context, request *papb.RegistrationRequest, endo
 	// Translate/embed ot.DeviceData to the registry request.
 	pbRequest := &proxybufferpb.DeviceRegistrationRequest{
 		Record: &rrpb.RegistryRecord{
-			DeviceId:      diu.DeviceIdToHexString(request.DeviceData.DeviceId),
-			Sku:           request.DeviceData.Sku,
-			Version:       0,
-			Data:          deviceDataBytes,
-			AuthPubkey:    endorsement.Pubkey,
-			AuthSignature: endorsement.Signature,
+			DeviceId:         diu.DeviceIdToHexString(request.DeviceData.DeviceId),
+			Sku:              request.DeviceData.Sku,
+			Version:          0,
+			Data:             deviceDataBytes,
+			AuthPubkey:       endorsement.Pubkey,
+			AuthSignature:    endorsement.Signature,
+			PqcAuthPubkey:    endorsement.PqcPubkey,
+			PqcAuthSignature: endorsement.PqcSignature,
 		},
 	}
 

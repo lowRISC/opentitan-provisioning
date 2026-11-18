@@ -144,8 +144,12 @@ func parseRegistryRecord(rr *rrpb.RegistryRecord, flags flags) (*certs, error) {
 
 	log.Println(strings.Repeat("-", LineLimit))
 	log.Println("Record endorsement (decode at: https://lapo.it/asn1js/): ")
-	log.Printf("AuthPubkey    (ASN.1 DER): %x\n", rr.AuthPubkey)
-	log.Printf("AuthSignature (ASN.1 DER): %x\n", rr.AuthSignature)
+	log.Printf("AuthPubkey       (ASN.1 DER): %x\n", rr.AuthPubkey)
+	log.Printf("AuthSignature    (ASN.1 DER): %x\n", rr.AuthSignature)
+	if len(rr.PqcAuthPubkey) > 0 || len(rr.PqcAuthSignature) > 0 {
+		log.Printf("PqcAuthPubkey    (ASN.1 DER): %x\n", rr.PqcAuthPubkey)
+		log.Printf("PqcAuthSignature (Raw bytes): %x\n", rr.PqcAuthSignature)
+	}
 
 	return certs, nil
 }

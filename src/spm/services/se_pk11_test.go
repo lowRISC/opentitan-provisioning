@@ -9,6 +9,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/hmac"
+	"crypto/mldsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
@@ -482,9 +483,9 @@ func TestEndorseCertMldsa(t *testing.T) {
 func TestEndorseDataMldsa(t *testing.T) {
 	hsm, _, _ := MakeHSM(t)
 
-	// Generate MLDSA keys on HSM.
+	// Generate ML-DSA-87 keys on HSM.
 	session, release := hsm.sessions.getHandle()
-	identityKeyPair, err := session.GenerateMLDSA(pk11.MldsaParameterSet44, &pk11.KeyOptions{
+	identityKeyPair, err := session.GenerateMLDSA(pk11.MldsaParameterSet87, &pk11.KeyOptions{
 		Extractable: true,
 		Token:       true,
 	})
@@ -501,12 +502,33 @@ func TestEndorseDataMldsa(t *testing.T) {
 
 	data := readFile(t, diceTBSPath)
 
+	asn1PubKey, sigBytes, err := hsm.EndorseData(data, EndorseCertParams{
+		KeyLabel:       kIdPrivName,
+		MldsaAlgorithm: &MldsaParams{ParameterSets: MldsaParameterSet87},
+	})
+	ts.Check(t, err)
+
+	if len(asn1PubKey) == 0 {
+		t.Fatal("expected non-empty ASN.1 DER MLDSA public key")
+	}
+	if len(sigBytes) == 0 {
+		t.Fatal("expected non-empty MLDSA signature")
+	}
+
+	pub, err := ParseMLDSA87PublicKeySPKI(asn1PubKey)
+	ts.Check(t, err)
+	if err := mldsa.Verify(pub, data, sigBytes, nil); err != nil {
+		t.Fatalf("failed to verify MLDSA signature: %v", err)
+	}
+
+	// Non-87 parameter sets are rejected for EndorseData.
 	_, _, err = hsm.EndorseData(data, EndorseCertParams{
 		KeyLabel:       kIdPrivName,
 		MldsaAlgorithm: &MldsaParams{ParameterSets: MldsaParameterSet44},
 	})
-
-	ts.Check(t, err)
+	if err == nil {
+		t.Fatal("expected error for non-ML-DSA-87 parameter set, got nil")
+	}
 }
 
 func TestEndorseCertNoAlg(t *testing.T) {

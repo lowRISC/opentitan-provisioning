@@ -8,6 +8,7 @@ package se
 import (
 	"crypto"
 	"crypto/hmac"
+	"crypto/mldsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -391,6 +392,44 @@ func oidFromSignatureAlgorithm(alg x509.SignatureAlgorithm) (asn1.ObjectIdentifi
 	}
 }
 
+type subjectPublicKeyInfo struct {
+	Algorithm pkix.AlgorithmIdentifier
+	PublicKey asn1.BitString
+}
+
+// MarshalMLDSA87PublicKeySPKI encodes an ML-DSA-87 public key as ASN.1 DER
+// SubjectPublicKeyInfo using NIST FIPS 204 OID 2.16.840.1.101.3.4.3.19.
+func MarshalMLDSA87PublicKeySPKI(pub *mldsa.PublicKey) ([]byte, error) {
+	if pub == nil {
+		return nil, errors.New("MLDSA public key is nil")
+	}
+	if pub.Parameters() != mldsa.MLDSA87() {
+		return nil, fmt.Errorf("expected ML-DSA-87 public key, got %v", pub.Parameters())
+	}
+	pubBytes := pub.Bytes()
+	return asn1.Marshal(subjectPublicKeyInfo{
+		Algorithm: pkix.AlgorithmIdentifier{Algorithm: oidMldsa87},
+		PublicKey: asn1.BitString{Bytes: pubBytes, BitLength: len(pubBytes) * 8},
+	})
+}
+
+// ParseMLDSA87PublicKeySPKI decodes an ASN.1 DER SubjectPublicKeyInfo
+// containing an ML-DSA-87 public key.
+func ParseMLDSA87PublicKeySPKI(der []byte) (*mldsa.PublicKey, error) {
+	var spki subjectPublicKeyInfo
+	rest, err := asn1.Unmarshal(der, &spki)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal MLDSA SubjectPublicKeyInfo: %w", err)
+	}
+	if len(rest) != 0 {
+		return nil, errors.New("trailing bytes after MLDSA SubjectPublicKeyInfo")
+	}
+	if !spki.Algorithm.Algorithm.Equal(oidMldsa87) {
+		return nil, fmt.Errorf("expected ML-DSA-87 OID %v, got %v", oidMldsa87, spki.Algorithm.Algorithm)
+	}
+	return mldsa.NewPublicKey(mldsa.MLDSA87(), spki.PublicKey.RightAlign())
+}
+
 func oidFromMLDSAParameterSet(params MldsaParameterSet) (asn1.ObjectIdentifier, error) {
 	switch params {
 	case MldsaParameterSet44:
@@ -520,7 +559,23 @@ func (h *HSM) EndorseCert(tbs []byte, params EndorseCertParams) ([]byte, error) 
 	return cert, nil
 }
 
+func exportPublicKey(privateKey pk11.PrivateKey) (crypto.PublicKey, error) {
+	publicKeyHandle, err := privateKey.FindPublicKey()
+	if err != nil {
+		return nil, fmt.Errorf("failed to find public key on SE: %v", err)
+	}
+	publicKey, err := publicKeyHandle.ExportKey()
+	if err != nil {
+		return nil, fmt.Errorf("failed to export public key from SE: %v", err)
+	}
+	return publicKey, nil
+}
+
 func (h *HSM) EndorseData(data []byte, params EndorseCertParams) ([]byte, []byte, error) {
+	if params.SignatureAlgorithm == nil && params.MldsaAlgorithm == nil {
+		return nil, nil, fmt.Errorf("no signature algorithm specified")
+	}
+
 	session, release := h.sessions.getHandle()
 	defer release()
 
@@ -534,16 +589,12 @@ func (h *HSM) EndorseData(data []byte, params EndorseCertParams) ([]byte, []byte
 		return nil, nil, fmt.Errorf("failed to find private key object %q: %v", keyID, err)
 	}
 
+	publicKey, err := exportPublicKey(privateKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	if params.SignatureAlgorithm != nil {
-		// Export the public key from the PKCS#11 private key object.
-		publicKeyHandle, err := privateKey.FindPublicKey()
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to find public key on SE: %v", err)
-		}
-		publicKey, err := publicKeyHandle.ExportKey()
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to export public key from SE: %v", err)
-		}
 		asn1EcdsaPublicKey, err := x509.MarshalPKIXPublicKey(publicKey)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to marshal public key: %v", err)
@@ -572,16 +623,26 @@ func (h *HSM) EndorseData(data []byte, params EndorseCertParams) ([]byte, []byte
 		}
 
 		return asn1EcdsaPublicKey, asn1Sig, nil
-	} else if params.MldsaAlgorithm != nil {
-		// MLDSA Signing
-		sigBytes, err := privateKey.SignMLDSA(data)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to sign with MLDSA: %v", err)
-		}
-		return nil, sigBytes, nil
-	} else {
-		return nil, nil, fmt.Errorf("no signature algorithm specified")
 	}
+
+	// MLDSA Signing (ML-DSA-87 only).
+	if params.MldsaAlgorithm.ParameterSets != MldsaParameterSet87 {
+		return nil, nil, fmt.Errorf("unsupported MLDSA parameter set for EndorseData: %v, expected ML-DSA-87", params.MldsaAlgorithm.ParameterSets)
+	}
+	mldsaPub, ok := publicKey.(*mldsa.PublicKey)
+	if !ok {
+		return nil, nil, fmt.Errorf("expected *mldsa.PublicKey, got %T", publicKey)
+	}
+	asn1MldsaPublicKey, err := MarshalMLDSA87PublicKeySPKI(mldsaPub)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to marshal MLDSA public key: %v", err)
+	}
+
+	sigBytes, err := privateKey.SignMLDSA(data)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to sign with MLDSA: %v", err)
+	}
+	return asn1MldsaPublicKey, sigBytes, nil
 }
 
 func (h *HSM) VerifyMLDSASignature(keyLabel string, data, signature []byte) error {
