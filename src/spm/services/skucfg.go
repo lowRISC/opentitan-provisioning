@@ -117,3 +117,12 @@ func (c *Config) GetUnsafeAttribute(name string) (string, error) {
 	}
 	return attr, nil
 }
+
+// HasUnsafeAttribute reports whether the attribute with the given name exists.
+// This function is labeled as unsafe because it does not check if the
+// attribute is part of the allow-list `AttrName`. It is the caller's
+// responsibility to ensure that the attribute is safe to use.
+func (c *Config) HasUnsafeAttribute(name string) bool {
+	_, ok := c.Attributes[name]
+	return ok
+}

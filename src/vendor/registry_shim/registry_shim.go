@@ -45,5 +45,8 @@ func RegisterDevice(ctx context.Context, request *papb.RegistrationRequest, endo
 	log.Printf("In PA - Received RegisterDevice request with DeviceID: %v", diu.DeviceIdToHexString(request.DeviceData.DeviceId))
 
 	// Vendor-specific implementation of RegisterDevice call goes here.
+	// Note: `endorsement` carries classical (Pubkey, Signature) and optional
+	// SKU-specific PQC (PqcPubkey, PqcSignature) endorsements over marshaled
+	// request.DeviceData.
 	return nil, status.Errorf(codes.Unimplemented, "Vendor specific RegisterDevice RPC not implemented.")
 }
