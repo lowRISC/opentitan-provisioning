@@ -30,12 +30,18 @@ var (
 	spmAuthConfig = flag.String("spm_auth_config", "", "File path to the SPM Auth configuration file. Relative to the SPM configuration directory.")
 	spmConfigDir  = flag.String("spm_config_dir", "", "Path to the configuration directory.")
 	version       = flag.Bool("version", false, "Print version information and exit")
+
+	fallbackServiceKey  = flag.String("fallback_service_key", "", "Optional file path to PEM classical fallback private key (used during mixed PQ/classical TLS migration)")
+	fallbackServiceCert = flag.String("fallback_service_cert", "", "Optional file path to PEM classical fallback certificate chain (used during mixed PQ/classical TLS migration)")
 )
 
 func startSPMServer() (*grpc.Server, error) {
 	opts := []grpc.ServerOption{}
 	if *enableTLS {
-		credentials, err := grpconn.LoadServerCredentials(*caRootCerts, *serviceCert, *serviceKey)
+		credentials, err := (&grpconn.Config{
+			FallbackCertFilename: *fallbackServiceCert,
+			FallbackKeyFilename:  *fallbackServiceKey,
+		}).LoadServerCredentials(*caRootCerts, *serviceCert, *serviceKey)
 		if err != nil {
 			return nil, err
 		}

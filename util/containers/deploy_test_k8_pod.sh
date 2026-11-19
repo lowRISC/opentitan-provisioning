@@ -13,6 +13,14 @@ if [[ -n "${OT_PROV_PQ_EN}" ]]; then
 else
     export ENABLE_MLDSA_DICE="${ENABLE_MLDSA_DICE:-false}"
 fi
+if [[ "${OT_PROV_MIXED_TLS}" == "yes" ]]; then
+    export PA_FALLBACK_CERT="${PA_FALLBACK_CERT:-/var/lib/opentitan/config/certs/out/pa-service-rsa-cert.pem}"
+    export PA_FALLBACK_KEY="${PA_FALLBACK_KEY:-/var/lib/opentitan/config/certs/out/pa-service-rsa-key.pem}"
+    export PB_FALLBACK_CERT="${PB_FALLBACK_CERT:-/var/lib/opentitan/config/certs/out/pb-service-rsa-cert.pem}"
+    export PB_FALLBACK_KEY="${PB_FALLBACK_KEY:-/var/lib/opentitan/config/certs/out/pb-service-rsa-key.pem}"
+else
+    unset PA_FALLBACK_CERT PA_FALLBACK_KEY PB_FALLBACK_CERT PB_FALLBACK_KEY
+fi
 
 DEPLOY_ENV="dev"
 if [[ -n "${OT_PROV_PROD_EN}" ]]; then

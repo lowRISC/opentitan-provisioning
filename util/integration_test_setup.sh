@@ -20,6 +20,10 @@ for i in "$@"; do
     export OT_PROV_PQ_EN="yes"
     shift
     ;;
+  --mixed)
+    export OT_PROV_MIXED_TLS="yes"
+    shift
+    ;;
   *)
     echo "Unknown option $i"
     exit 1
@@ -44,6 +48,12 @@ if [[ -n "${OT_PROV_PQ_EN}" ]]; then
   export ENABLE_MLDSA_DICE="${ENABLE_MLDSA_DICE:-true}"
 else
   export ENABLE_MLDSA_DICE="${ENABLE_MLDSA_DICE:-false}"
+fi
+if [[ "${OT_PROV_MIXED_TLS}" == "yes" ]]; then
+  export SPM_FALLBACK_CERT="${SPM_FALLBACK_CERT:-${DEPLOYMENT_DIR}/certs/out/spm-service-rsa-cert.pem}"
+  export SPM_FALLBACK_KEY="${SPM_FALLBACK_KEY:-${DEPLOYMENT_DIR}/certs/out/spm-service-rsa-key.pem}"
+else
+  unset SPM_FALLBACK_CERT SPM_FALLBACK_KEY
 fi
 
 # spm_server_try_stop sends a kill signal to the SPM server process if it is
@@ -152,6 +162,8 @@ bazelisk run //src/spm:spm_server -- \
   --enable_tls=true \
   --service_cert="${DEPLOYMENT_DIR}/certs/out/spm-service-cert.pem" \
   --service_key="${DEPLOYMENT_DIR}/certs/out/spm-service-key.pem" \
+  --fallback_service_cert="${SPM_FALLBACK_CERT}" \
+  --fallback_service_key="${SPM_FALLBACK_KEY}" \
   --ca_root_certs=${DEPLOYMENT_DIR}/certs/out/ca-cert.pem \
   --port=${OTPROV_PORT_SPM} \
   "--hsm_so=${HSMTOOL_MODULE}" \
