@@ -222,17 +222,29 @@ func setCertHeaderFields(buf []byte, certSize uint32, nameSize uint32, blobVersi
 }
 
 func extractCertObject(buf []byte) (*persoTLVCertObj, error) {
+	if len(buf) < sizeOfObjectHeaderV0 {
+		return nil, fmt.Errorf("buffer too small for object header: %d", len(buf))
+	}
+
 	objSize, objType, headerSize := getObjectHeaderFields(buf)
 
-	if objSize == 0 || int(objSize) > len(buf) {
-		return nil, fmt.Errorf("invalid object size: %d, buffer size: %d", objSize, len(buf))
+	if int(objSize) < headerSize || int(objSize) > len(buf) {
+		return nil, fmt.Errorf("invalid object size: %d (header size: %d, buffer size: %d)", objSize, headerSize, len(buf))
 	}
 	if objType != PersoObjectTypeX509Tbs && objType != PersoObjectTypeX509Cert && objType != PersoObjectTypeCwtCert {
 		return nil, fmt.Errorf("invalid object type: %d, expected X509 TBS, cert, or CWT cert", objType)
 	}
 
 	blobVersion := getObjectVersion(buf)
-	buf = buf[headerSize:]
+	buf = buf[headerSize:objSize]
+
+	expectedCertHeaderSize := sizeOfCertHeaderV0
+	if blobVersion == PersoBlobVersionV1 {
+		expectedCertHeaderSize = sizeOfCertHeaderV1
+	}
+	if len(buf) < expectedCertHeaderSize {
+		return nil, fmt.Errorf("buffer too small for certificate header: %d, required: %d", len(buf), expectedCertHeaderSize)
+	}
 	certEntrySize, nameLen, certHeaderSize := getCertHeaderFields(buf, int(blobVersion))
 
 	buf = buf[certHeaderSize:]
@@ -290,6 +302,9 @@ func UnpackPersoBlob(blobBytes []byte) (*PersoBlob, error) {
 			}
 			break
 		}
+		if int(objSize) < headerSize {
+			return nil, fmt.Errorf("object size %d is smaller than header size %d", objSize, headerSize)
+		}
 		if offset+int(objSize) > len(blobBytes) {
 			return nil, fmt.Errorf("object size %d exceeds remaining buffer %d", objSize, len(blobBytes[offset:]))
 		}
@@ -301,6 +316,9 @@ func UnpackPersoBlob(blobBytes []byte) (*PersoBlob, error) {
 			return nil, errors.New("Unexpected standalone version object")
 
 		case PersoObjectTypeDeviceId:
+			if len(objBytes) != kDeviceIDSize+headerSize {
+				return nil, fmt.Errorf("invalid device ID object size: %d, expected: %d", len(objBytes), kDeviceIDSize+headerSize)
+			}
 			var deviceID DeviceIDBytes
 			copy(deviceID.Raw[:], objBytes[headerSize:])
 			persoBlob.DeviceID = &deviceID
@@ -335,6 +353,9 @@ func UnpackPersoBlob(blobBytes []byte) (*PersoBlob, error) {
 			})
 
 		case PersoObjectTypeWasTbsHmac:
+			if len(objBytes) != kWasHmacSignatureSize+headerSize {
+				return nil, fmt.Errorf("invalid WAS TBS HMAC object size: %d, expected: %d", len(objBytes), kWasHmacSignatureSize+headerSize)
+			}
 			var signature EndorseCertSignature
 			copy(signature.Raw[:], objBytes[headerSize:])
 			persoBlob.Signature = &signature

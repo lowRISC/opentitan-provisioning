@@ -8,6 +8,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "absl/memory/memory.h"
 #include "src/ate/ate_api.h"
@@ -381,6 +382,89 @@ TEST_F(AtePersoBlobTest, UnpackPersoBlobDetectsMldsaAndEcdsaOids) {
     size_t tbs_cert_count = 10;
     size_t cert_count = 10;
     size_t seed_count = 10;
+    EXPECT_EQ(UnpackPersoBlob(&test_blob, &device_id, &signature,
+                              &perso_fw_hash, x509_tbs_certs, &tbs_cert_count,
+                              x509_certs, &cert_count, seeds, &seed_count),
+              -1);
+  }
+}
+
+TEST_F(AtePersoBlobTest, UnpackPersoBlobRejectsMalformedObjectSizes) {
+  struct TestCase {
+    std::string name;
+    std::vector<uint8_t> malformed_suffix;
+  };
+
+  const std::vector<TestCase> test_cases = {
+      {
+          "V0 DevSeed obj_size < header_size",
+          // Type=2 (DevSeed), Size=1 (< 2)
+          {0x20, 0x01},
+      },
+      {
+          "V0 X509Cert obj_size < header_size",
+          // Type=1 (X509Cert), Size=1 (< 2)
+          {0x10, 0x01},
+      },
+      {
+          "V1 DevSeed inner_size=0 (obj_size=4 < header_size=8)",
+          {0xF0, 0x04, 0x00, 0x01, 0x02, 0x00, 0x00, 0x00},
+      },
+      {
+          "V1 DevSeed inner_size=3 (obj_size=7 < header_size=8)",
+          {0xF0, 0x04, 0x00, 0x01, 0x02, 0x00, 0x00, 0x03},
+      },
+      {
+          "V1 X509Cert inner_size=3 (obj_size=7 < header_size=8)",
+          {0xF0, 0x04, 0x00, 0x01, 0x01, 0x00, 0x00, 0x03},
+      },
+      {
+          "Truncated V1 prefix at end of blob",
+          // 4-byte V1 version prefix without the following 4-byte V1 header
+          {0xF0, 0x04, 0x00, 0x01},
+      },
+      {
+          "V0 X509Cert truncated cert header",
+          // Type=1 (X509Cert), Size=3 -> 1 byte left for 2-byte V0 cert header
+          {0x10, 0x03, 0xAA},
+      },
+      {
+          "V1 X509Cert truncated cert header",
+          // V1 prefix + Type=1 (X509Cert), innerSize=7 -> 3 bytes left for
+          // 4-byte V1 cert header
+          {0xF0, 0x04, 0x00, 0x01, 0x01, 0x00, 0x00, 0x07, 0xAA, 0xBB, 0xCC},
+      },
+      {
+          "V0 X509Cert cert_entry_size smaller than name_len + "
+          "cert_header_size",
+          // Type=1 (X509Cert), Size=6 (2B obj hdr + 2B cert hdr + 2B name),
+          // cert header: NameSize=2, Size=3 (< 2 + 2 = 4)
+          {0x10, 0x06, 0x20, 0x03, 'A', 'B'},
+      },
+  };
+
+  for (const auto& tc : test_cases) {
+    SCOPED_TRACE(tc.name);
+    perso_blob_t test_blob;
+    memset(&test_blob, 0, sizeof(test_blob));
+    CreateTestPersoBlob(&test_blob);
+
+    ASSERT_LE(test_blob.next_free + tc.malformed_suffix.size(),
+              sizeof(test_blob.body));
+    memcpy(test_blob.body + test_blob.next_free, tc.malformed_suffix.data(),
+           tc.malformed_suffix.size());
+    test_blob.next_free += tc.malformed_suffix.size();
+
+    device_id_bytes_t device_id;
+    endorse_cert_signature_t signature;
+    sha256_hash_t perso_fw_hash = {.raw = {0}};
+    size_t tbs_cert_count = 10;
+    size_t cert_count = 10;
+    size_t seed_count = 10;
+    endorse_cert_request_t x509_tbs_certs[10];
+    endorse_cert_response_t x509_certs[10];
+    seed_t seeds[10];
+
     EXPECT_EQ(UnpackPersoBlob(&test_blob, &device_id, &signature,
                               &perso_fw_hash, x509_tbs_certs, &tbs_cert_count,
                               x509_certs, &cert_count, seeds, &seed_count),

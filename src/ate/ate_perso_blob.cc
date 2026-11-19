@@ -90,8 +90,9 @@ int ExtractCertObject(const uint8_t* buf, size_t buf_size,
   size_t header_size;
   ReadObjectHeader(buf, buf_size, &obj_size, &obj_type, &header_size);
 
-  if (obj_size == 0 || obj_size > buf_size) {
+  if (header_size == 0 || obj_size < header_size || obj_size > buf_size) {
     LOG(ERROR) << "Invalid object size: " << obj_size
+               << ", header size: " << header_size
                << ", buffer size: " << buf_size;
     return -1;
   }
@@ -106,7 +107,7 @@ int ExtractCertObject(const uint8_t* buf, size_t buf_size,
   perso_blob_version_t blob_version = GetObjectVersion(buf, buf_size);
 
   buf += header_size;
-  buf_size -= header_size;
+  buf_size = obj_size - header_size;
 
   uint32_t name_len;
   uint32_t cert_entry_size;
@@ -141,6 +142,12 @@ int ExtractCertObject(const uint8_t* buf, size_t buf_size,
   buf += name_len;
   buf_size -= name_len;
 
+  if (cert_entry_size < name_len + cert_header_size) {
+    LOG(ERROR) << "Invalid certificate entry size: " << cert_entry_size
+               << ", name len: " << name_len
+               << ", cert header size: " << cert_header_size;
+    return -1;
+  }
   uint32_t cert_body_size = cert_entry_size - name_len - cert_header_size;
   if (cert_body_size > buf_size) {
     LOG(ERROR) << "Certificate body size exceeds available buffer size: "
@@ -472,8 +479,18 @@ DLLEXPORT int UnpackPersoBlob(
 
     ReadObjectHeader(buf, remaining, &obj_size, &obj_type, &header_size);
 
+    if (header_size == 0) {
+      LOG(ERROR) << "Remaining buffer too small for object header: "
+                 << remaining;
+      return -1;
+    }
     if (obj_size == 0) {
       break;  // Padding
+    }
+    if (obj_size < header_size) {
+      LOG(ERROR) << "Object size is smaller than header size: " << obj_size
+                 << " < " << header_size;
+      return -1;
     }
     if (obj_size > remaining) {
       LOG(ERROR) << "Object size exceeds remaining buffer size: " << obj_size
