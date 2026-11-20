@@ -41,6 +41,9 @@ var (
 	serviceKey                = flag.String("service_key", "", "File path to the PEM encoding of the server's private key")
 	serviceCert               = flag.String("service_cert", "", "File path to the PEM encoding of the server's certificate chain")
 	caRootCerts               = flag.String("ca_root_certs", "", "File path to the PEM encoding of the CA root certificates")
+
+	fallbackServiceKey  = flag.String("fallback_service_key", "", "Optional file path to PEM classical fallback private key (used during mixed PQ/classical TLS migration)")
+	fallbackServiceCert = flag.String("fallback_service_cert", "", "Optional file path to PEM classical fallback certificate chain (used during mixed PQ/classical TLS migration)")
 )
 
 func listenForSyncerFatalErrors(errCh <-chan error) {
@@ -94,7 +97,10 @@ func main() {
 
 	opts := []grpc.ServerOption{}
 	if *enableTLS {
-		credentials, err := grpconn.LoadServerCredentials(*caRootCerts, *serviceCert, *serviceKey)
+		credentials, err := (&grpconn.Config{
+			FallbackCertFilename: *fallbackServiceCert,
+			FallbackKeyFilename:  *fallbackServiceKey,
+		}).LoadServerCredentials(*caRootCerts, *serviceCert, *serviceKey)
 		if err != nil {
 			log.Fatalf("Failed to load server credentials: %v", err)
 		}

@@ -32,13 +32,23 @@ var (
 	serviceCert     = flag.String("service_cert", "", "File path to the PEM encoding of the server's certificate chain")
 	caRootCerts     = flag.String("ca_root_certs", "", "File path to the PEM encoding of the CA root certificates")
 	version         = flag.Bool("version", false, "Print version information and exit")
+
+	fallbackServiceKey  = flag.String("fallback_service_key", "", "Optional file path to PEM classical fallback private key (used during mixed PQ/classical TLS migration)")
+	fallbackServiceCert = flag.String("fallback_service_cert", "", "Optional file path to PEM classical fallback certificate chain (used during mixed PQ/classical TLS migration)")
 )
+
+func tlsConfig() *grpconn.Config {
+	return &grpconn.Config{
+		FallbackCertFilename: *fallbackServiceCert,
+		FallbackKeyFilename:  *fallbackServiceKey,
+	}
+}
 
 func startPAServer(spmClient pbs.SpmServiceClient) (*grpc.Server, error) {
 	opts := []grpc.ServerOption{}
 	auth_service.NewAuthControllerInstance(*enableTLS)
 	if *enableTLS {
-		credentials, err := grpconn.LoadServerCredentials(*caRootCerts, *serviceCert, *serviceKey)
+		credentials, err := tlsConfig().LoadServerCredentials(*caRootCerts, *serviceCert, *serviceKey)
 		if err != nil {
 			return nil, err
 		}
@@ -55,7 +65,7 @@ func startPAServer(spmClient pbs.SpmServiceClient) (*grpc.Server, error) {
 func startSPMClient() (pbs.SpmServiceClient, error) {
 	opts := grpc.WithInsecure()
 	if *enableTLS {
-		credentials, err := grpconn.LoadClientCredentials(*caRootCerts, *serviceCert, *serviceKey)
+		credentials, err := tlsConfig().LoadClientCredentials(*caRootCerts, *serviceCert, *serviceKey)
 		if err != nil {
 			return nil, err
 		}
@@ -102,7 +112,7 @@ func main() {
 			log.Fatalf("`registry_address` parameter missing")
 		}
 		log.Printf("starting Registry client at address: %q", *registryAddress)
-		err = rs.StartRegistryBuffer(*registryAddress, *enableTLS, *caRootCerts, *serviceCert, *serviceKey)
+		err = rs.StartRegistryBuffer(*registryAddress, *enableTLS, tlsConfig(), *caRootCerts, *serviceCert, *serviceKey)
 		if err != nil {
 			log.Fatalf("failed to initialize Registry client: %v", err)
 		}

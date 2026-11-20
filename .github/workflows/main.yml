@@ -79,6 +79,11 @@ jobs:
         run: |
           trap 'rm -rf "$(pwd)/.otvar-dev-tls"' EXIT
           OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev-tls ./tests/run_tls_test.sh
+      - name: Run TLS test (Mixed PQ / RSA)
+        if: always()
+        run: |
+          trap 'rm -rf "$(pwd)/.otvar-dev-tls-mixed"' EXIT
+          OPENTITAN_VAR_DIR=$(pwd)/.otvar-dev-tls-mixed ./tests/run_tls_test.sh --mixed
       # Same coverage as the TLS test above, but driving the Win32 `ate.dll`
       # we ship to ATE vendors, from a container that stands in for a Windows
       # ATE machine.

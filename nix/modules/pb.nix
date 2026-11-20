@@ -21,6 +21,18 @@ let
         description = "Path to PEM encoding of server private key.";
       };
 
+      fallbackCertFile = mkOption {
+        type = types.nullOr types.path;
+        default = null;
+        description = "Optional path to PEM classical fallback certificate chain; setting this enables mixed PQ/classical TLS migration mode.";
+      };
+
+      fallbackKeyFile = mkOption {
+        type = types.nullOr types.path;
+        default = null;
+        description = "Optional path to PEM classical fallback private key; setting this enables mixed PQ/classical TLS migration mode.";
+      };
+
       caCertFile = mkOption {
         type = types.nullOr types.path;
         default = null;
@@ -41,6 +53,8 @@ let
   ++ optional cfg.tls.enable "-enable_tls"
   ++ optional (cfg.tls.certFile != null) "-service_cert=${toString cfg.tls.certFile}"
   ++ optional (cfg.tls.keyFile != null) "-service_key=${toString cfg.tls.keyFile}"
+  ++ optional (cfg.tls.fallbackCertFile != null) "-fallback_service_cert=${toString cfg.tls.fallbackCertFile}"
+  ++ optional (cfg.tls.fallbackKeyFile != null) "-fallback_service_key=${toString cfg.tls.fallbackKeyFile}"
   ++ optional (cfg.tls.caCertFile != null) "-ca_root_certs=${toString cfg.tls.caCertFile}"
   ++ cfg.extraArgs;
 
@@ -122,6 +136,13 @@ in {
   };
 
   config = mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = (cfg.tls.fallbackCertFile == null) == (cfg.tls.fallbackKeyFile == null);
+        message = "services.opentitan-provisioning.pb.tls.fallbackCertFile and fallbackKeyFile must be set together.";
+      }
+    ];
+
     systemd.services.opentitan-pb = {
       description = "OpenTitan Proxy Buffer (PB) Service";
       wantedBy = [ "multi-user.target" ];

@@ -17,6 +17,8 @@ spec:
     - --enable_tls=true
     - --service_key=/var/lib/opentitan/config/certs/out/pa-service-key.pem
     - --service_cert=/var/lib/opentitan/config/certs/out/pa-service-cert.pem
+    - --fallback_service_key=${PA_FALLBACK_KEY}
+    - --fallback_service_cert=${PA_FALLBACK_CERT}
     - --ca_root_certs=/var/lib/opentitan/config/certs/out/ca-cert.pem
     - --port=${OTPROV_PORT_PA}
     - --spm_address=${OTPROV_DNS_SPM}:${OTPROV_PORT_SPM}
@@ -41,6 +43,8 @@ spec:
     - --enable_tls=true
     - --service_key=/var/lib/opentitan/config/certs/out/pa-service-key.pem
     - --service_cert=/var/lib/opentitan/config/certs/out/pa-service-cert.pem
+    - --fallback_service_key=${PA_FALLBACK_KEY}
+    - --fallback_service_cert=${PA_FALLBACK_CERT}
     - --ca_root_certs=/var/lib/opentitan/config/certs/out/ca-cert.pem
     - --port=${OTPROV_PORT_PA_2}
     - --spm_address=${OTPROV_DNS_SPM}:${OTPROV_PORT_SPM}
@@ -65,6 +69,8 @@ spec:
     - --enable_tls=true
     - --service_key=/var/lib/opentitan/config/certs/out/pa-service-key.pem
     - --service_cert=/var/lib/opentitan/config/certs/out/pa-service-cert.pem
+    - --fallback_service_key=${PA_FALLBACK_KEY}
+    - --fallback_service_cert=${PA_FALLBACK_CERT}
     - --ca_root_certs=/var/lib/opentitan/config/certs/out/ca-cert.pem
     - --port=5005
     - --spm_address=${OTPROV_DNS_SPM}:${OTPROV_PORT_SPM}
@@ -89,6 +95,8 @@ spec:
     - --enable_tls=true
     - --service_key=/var/lib/opentitan/config/certs/out/pb-service-key.pem
     - --service_cert=/var/lib/opentitan/config/certs/out/pb-service-cert.pem
+    - --fallback_service_key=${PB_FALLBACK_KEY}
+    - --fallback_service_cert=${PB_FALLBACK_CERT}
     - --ca_root_certs=/var/lib/opentitan/config/certs/out/ca-cert.pem
     - --port=${OTPROV_PORT_PB}
     - --db_path=file::memory:?cache=shared

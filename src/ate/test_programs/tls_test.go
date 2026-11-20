@@ -7,13 +7,18 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/resolver"
 
 	pbp "github.com/lowRISC/opentitan-provisioning/src/pa/proto/pa_go_pb"
@@ -30,6 +35,8 @@ var (
 	clientKey           = flag.String("client_key", "", "File path to the PEM encoding of the client's private key.")
 	clientCert          = flag.String("client_cert", "", "File path to the PEM encoding of the client's certificate chain.")
 	caRootCerts         = flag.String("ca_root_certs", "", "File path to the PEM encoding of the CA root certificates.")
+	legacyTLS12         = flag.Bool("legacy_tls12", false, "Simulate a legacy pre-PQC TLS 1.2 + X25519 client; optional")
+	expectPQC           = flag.String("expect_pqc", "", "If set to 'true' or 'false', assert whether full PQC (TLS 1.3 + X25519MLKEM768 + ML-DSA) was negotiated; optional")
 )
 
 type customResolverBuilder struct {
@@ -87,7 +94,30 @@ func main() {
 
 	var opts []grpc.DialOption
 	if *enableMTLS {
-		creds, err := grpconn.LoadClientCredentials(*caRootCerts, *clientCert, *clientKey)
+		var creds credentials.TransportCredentials
+		var err error
+		if *legacyTLS12 {
+			roots, rerr := os.ReadFile(*caRootCerts)
+			if rerr != nil {
+				log.Fatalf("Failed to read CA root certs: %v", rerr)
+			}
+			pool := x509.NewCertPool()
+			if !pool.AppendCertsFromPEM(roots) {
+				log.Fatal("Failed to parse CA root certs")
+			}
+			cert, cerr := tls.LoadX509KeyPair(*clientCert, *clientKey)
+			if cerr != nil {
+				log.Fatalf("Failed to load client key pair: %v", cerr)
+			}
+			creds = credentials.NewTLS(&tls.Config{
+				Certificates:     []tls.Certificate{cert},
+				RootCAs:          pool,
+				MaxVersion:       tls.VersionTLS12,
+				CurvePreferences: []tls.CurveID{tls.X25519},
+			})
+		} else {
+			creds, err = grpconn.LoadClientCredentials(*caRootCerts, *clientCert, *clientKey)
+		}
 		if err != nil {
 			log.Fatalf("Failed to load client credentials: %v", err)
 		}
@@ -115,12 +145,57 @@ func main() {
 		Sku:     *sku,
 		SkuAuth: *skuAuthPW,
 	}
-	initResp, err := client.InitSession(ctx, initReq)
+	var p peer.Peer
+	initResp, err := client.InitSession(ctx, initReq, grpc.Peer(&p))
 	if err != nil {
 		log.Fatalf("InitSession with PA failed: %v", err)
 	}
 	if initResp.SkuSessionToken == "" {
 		log.Fatal("InitSession returned empty SKU session token.")
+	}
+
+	if tlsInfo, ok := p.AuthInfo.(credentials.TLSInfo); ok {
+		state := tlsInfo.State
+		var peerKeyAlgo x509.PublicKeyAlgorithm
+		if len(state.PeerCertificates) > 0 {
+			peerKeyAlgo = state.PeerCertificates[0].PublicKeyAlgorithm
+		}
+		log.Printf("Negotiated TLS state: version=0x%x curve=%v server_cert_pubkey=%v", state.Version, state.CurveID, peerKeyAlgo)
+		hasMLDSAChain := false
+		for _, chain := range state.VerifiedChains {
+			if len(chain) == 0 {
+				continue
+			}
+			allMLDSA := true
+			for _, cert := range chain {
+				if cert.PublicKeyAlgorithm != x509.MLDSA ||
+					(cert.SignatureAlgorithm != x509.MLDSA44 && cert.SignatureAlgorithm != x509.MLDSA65 && cert.SignatureAlgorithm != x509.MLDSA87) {
+					allMLDSA = false
+					break
+				}
+			}
+			if allMLDSA {
+				hasMLDSAChain = true
+				break
+			}
+		}
+		switch strings.ToLower(*expectPQC) {
+		case "":
+		case "true":
+			if state.Version != tls.VersionTLS13 || state.CurveID != tls.X25519MLKEM768 || !hasMLDSAChain {
+				log.Fatalf("Expected full PQC TLS (TLS 1.3 + X25519MLKEM768 + ML-DSA chain), got version=0x%x curve=%v server_cert_pubkey=%v mldsa_chain=%v",
+					state.Version, state.CurveID, peerKeyAlgo, hasMLDSAChain)
+			}
+		case "false":
+			if state.CurveID == tls.X25519MLKEM768 || peerKeyAlgo == x509.MLDSA || (*legacyTLS12 && state.Version != tls.VersionTLS12) {
+				log.Fatalf("Expected classical TLS fallback, got version=0x%x curve=%v server_cert_pubkey=%v",
+					state.Version, state.CurveID, peerKeyAlgo)
+			}
+		default:
+			log.Fatalf("Invalid --expect_pqc value %q: must be 'true' or 'false'", *expectPQC)
+		}
+	} else if *expectPQC != "" {
+		log.Fatal("Expected TLS peer AuthInfo, got non-TLS connection")
 	}
 
 	log.Println("TLS Connection to PA established successfully.")

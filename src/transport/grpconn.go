@@ -6,12 +6,14 @@
 package grpconn
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/mldsa"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"log"
 	"net"
 	"strings"
 
@@ -34,6 +36,18 @@ func loadCertPool(rootsFilename string) (*x509.CertPool, error) {
 		return nil, fmt.Errorf("failed to add root CA certificates: %v", err)
 	}
 	return certPool, nil
+}
+
+// Config configures optional classical fallback certificates for mixed
+// PQ/classical TLS migration. When empty (the default), ML-KEM and ML-DSA
+// are strictly enforced.
+type Config struct {
+	FallbackCertFilename string
+	FallbackKeyFilename  string
+}
+
+func (c *Config) isMixed() bool {
+	return c != nil && (c.FallbackCertFilename != "" || c.FallbackKeyFilename != "")
 }
 
 func applyMLKEMConfig(tlsConfig *tls.Config) {
@@ -76,6 +90,10 @@ func verifyMLDSAPeerCertificate(_ [][]byte, verifiedChains [][]*x509.Certificate
 
 	var lastErr error
 	for _, chain := range verifiedChains {
+		if len(chain) == 0 {
+			lastErr = fmt.Errorf("empty certificate chain provided")
+			continue
+		}
 		chainOK := true
 		for i, cert := range chain {
 			if !isMLDSAPublicKeyAlgo(cert.PublicKeyAlgorithm) {
@@ -125,62 +143,128 @@ func applyMLDSAConfig(tlsConfig *tls.Config) {
 	}
 }
 
+func applyFallbackLogging(role string, tlsConfig *tls.Config) {
+	tlsConfig.VerifyConnection = func(cs tls.ConnectionState) error {
+		peer := cs.ServerName
+		if len(cs.PeerCertificates) > 0 && cs.PeerCertificates[0].Subject.CommonName != "" {
+			peer = cs.PeerCertificates[0].Subject.CommonName
+		}
+		if cs.CurveID != tls.X25519MLKEM768 {
+			if cs.Version < tls.VersionTLS13 && cs.CurveID == 0 {
+				log.Printf("WARNING: TLS mixed mode (%s, peer=%q): non-X25519MLKEM768 key exchange (TLS 0x%x)", role, peer, cs.Version)
+			} else {
+				log.Printf("WARNING: TLS mixed mode (%s, peer=%q): non-X25519MLKEM768 curve %v (TLS 0x%x)", role, peer, cs.CurveID, cs.Version)
+			}
+		}
+		if err := verifyMLDSAPeerCertificate(nil, cs.VerifiedChains); err != nil {
+			log.Printf("WARNING: TLS mixed mode (%s, peer=%q): non-MLDSA peer cert (%v)", role, peer, err)
+		}
+		return nil
+	}
+}
+
+func (c *Config) loadCertificates(role, certFilename, keyFilename string) ([]tls.Certificate, error) {
+	primary, err := tls.LoadX509KeyPair(certFilename, keyFilename)
+	if err != nil {
+		return nil, err
+	}
+
+	if !c.isMixed() {
+		if !isMLDSAPrivateKey(primary.PrivateKey) {
+			return nil, fmt.Errorf("%s certificate key is not an MLDSA private key (got %T)", role, primary.PrivateKey)
+		}
+		return []tls.Certificate{primary}, nil
+	}
+
+	if c.FallbackCertFilename == "" || c.FallbackKeyFilename == "" {
+		return nil, fmt.Errorf("both fallback certificate and fallback key must be specified")
+	}
+	fallback, err := tls.LoadX509KeyPair(c.FallbackCertFilename, c.FallbackKeyFilename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load fallback %s certificate/key: %w", role, err)
+	}
+	if primary.Leaf != nil && fallback.Leaf != nil && bytes.Equal(primary.Leaf.RawIssuer, fallback.Leaf.RawIssuer) {
+		return nil, fmt.Errorf("primary and fallback %s certificates share the same issuer DN (%q); mixed TLS requires distinct CA Subject DNs", role, primary.Leaf.Issuer.String())
+	}
+	certs := []tls.Certificate{primary, fallback}
+	// List ML-DSA first so Go's crypto/tls prefers it whenever the peer supports it.
+	if isMLDSAPrivateKey(certs[1].PrivateKey) && !isMLDSAPrivateKey(certs[0].PrivateKey) {
+		certs[0], certs[1] = certs[1], certs[0]
+	}
+	if !isMLDSAPrivateKey(certs[0].PrivateKey) {
+		return nil, fmt.Errorf("mixed TLS requires an MLDSA %s certificate (got %T and %T)", role, primary.PrivateKey, fallback.PrivateKey)
+	}
+	return certs, nil
+}
+
+// LoadServerCredentials returns server side mTLS transport credentials with
+// strict ML-KEM and ML-DSA enforcement.
+func LoadServerCredentials(rootsFilename, certFilename, keyFilename string) (credentials.TransportCredentials, error) {
+	return (&Config{}).LoadServerCredentials(rootsFilename, certFilename, keyFilename)
+}
+
 // LoadServerCredentials returns server side mTLS transport credentials.
 // `rootsFilename` should point to the client CA root certificates in PEM
 // format.
-func LoadServerCredentials(rootsFilename, certFilename, keyFilename string) (credentials.TransportCredentials, error) {
+func (c *Config) LoadServerCredentials(rootsFilename, certFilename, keyFilename string) (credentials.TransportCredentials, error) {
 	certPool, err := loadCertPool(rootsFilename)
 	if err != nil {
 		return nil, err
 	}
 
-	cert, err := tls.LoadX509KeyPair(certFilename, keyFilename)
+	certs, err := c.loadCertificates("server", certFilename, keyFilename)
 	if err != nil {
 		return nil, err
 	}
 
-	if !isMLDSAPrivateKey(cert.PrivateKey) {
-		return nil, fmt.Errorf("server certificate key is not an MLDSA private key (got %T)", cert.PrivateKey)
-	}
-
 	var tlsConfig = &tls.Config{
-		Certificates:       []tls.Certificate{cert},
+		Certificates:       certs,
 		ClientAuth:         tls.RequireAndVerifyClientCert,
 		ClientCAs:          certPool,
 		InsecureSkipVerify: false,
 	}
 
-	applyMLKEMConfig(tlsConfig)
-	applyMLDSAConfig(tlsConfig)
+	if c.isMixed() {
+		applyFallbackLogging("server", tlsConfig)
+	} else {
+		applyMLKEMConfig(tlsConfig)
+		applyMLDSAConfig(tlsConfig)
+	}
 
 	return credentials.NewTLS(tlsConfig), nil
+}
+
+// LoadClientCredentials returns client side mTLS transport credentials with
+// strict ML-KEM and ML-DSA enforcement.
+func LoadClientCredentials(rootsFilename, certFilename, keyFilename string) (credentials.TransportCredentials, error) {
+	return (&Config{}).LoadClientCredentials(rootsFilename, certFilename, keyFilename)
 }
 
 // LoadClientCredentials returns client side mTLS transport credentials.
 // `rootsFilename` should point to the server CA root certificates in PEM
 // format.
-func LoadClientCredentials(rootsFilename, certFilename, keyFilename string) (credentials.TransportCredentials, error) {
+func (c *Config) LoadClientCredentials(rootsFilename, certFilename, keyFilename string) (credentials.TransportCredentials, error) {
 	certPool, err := loadCertPool(rootsFilename)
 	if err != nil {
 		return nil, err
 	}
 
-	cert, err := tls.LoadX509KeyPair(certFilename, keyFilename)
+	certs, err := c.loadCertificates("client", certFilename, keyFilename)
 	if err != nil {
 		return nil, err
 	}
 
-	if !isMLDSAPrivateKey(cert.PrivateKey) {
-		return nil, fmt.Errorf("client certificate key is not an MLDSA private key (got %T)", cert.PrivateKey)
-	}
-
 	var tlsConfig = &tls.Config{
-		Certificates: []tls.Certificate{cert},
+		Certificates: certs,
 		RootCAs:      certPool,
 	}
 
-	applyMLKEMConfig(tlsConfig)
-	applyMLDSAConfig(tlsConfig)
+	if c.isMixed() {
+		applyFallbackLogging("client", tlsConfig)
+	} else {
+		applyMLKEMConfig(tlsConfig)
+		applyMLDSAConfig(tlsConfig)
+	}
 
 	return credentials.NewTLS(tlsConfig), nil
 }

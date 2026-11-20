@@ -26,10 +26,13 @@ import (
 
 var registryClient proxybuffer.Registry
 
-func StartRegistryBuffer(registryBufferAddress string, enableTLS bool, caRootCerts string, serviceCert string, serviceKey string) error {
+func StartRegistryBuffer(registryBufferAddress string, enableTLS bool, tlsConfig *grpconn.Config, caRootCerts string, serviceCert string, serviceKey string) error {
 	opts := grpc.WithInsecure()
 	if enableTLS {
-		credentials, err := grpconn.LoadClientCredentials(caRootCerts, serviceCert, serviceKey)
+		if tlsConfig == nil {
+			tlsConfig = &grpconn.Config{}
+		}
+		credentials, err := tlsConfig.LoadClientCredentials(caRootCerts, serviceCert, serviceKey)
 		if err != nil {
 			return err
 		}
